@@ -1,0 +1,66 @@
+{
+  "_commentaire": "Chaque entrée alimente base.html (contenu, titre, bouton) + fournit la version texte brut. Ton neutre et apaisant, jamais accusatoire.",
+  "bienvenue": {
+    "objet": "Bienvenue sur Coparentalité Zen",
+    "titre": "Votre espace est prêt",
+    "contenu_html": "<p style='margin:0 0 12px;'>Votre compte est créé. Vous pouvez dès maintenant configurer votre foyer, ajouter vos enfants et définir votre rythme de garde.</p><p style='margin:0;'>Quand vous le souhaiterez, vous pourrez inviter l’autre parent — l’application fonctionne aussi très bien en attendant.</p>",
+    "bouton": "Ouvrir mon espace",
+    "texte": "Bonjour {{PRENOM}},\n\nVotre compte Coparentalité Zen est créé. Configurez votre foyer, ajoutez vos enfants et définissez votre rythme de garde : {{BOUTON_URL}}\n\nQuand vous le souhaiterez, vous pourrez inviter l'autre parent.\n\nCoparentalité Zen"
+  },
+  "verification_email": {
+    "objet": "Confirmez votre adresse e-mail",
+    "titre": "Une dernière étape",
+    "contenu_html": "<p style='margin:0;'>Pour activer votre compte, confirmez votre adresse e-mail en cliquant sur le bouton ci-dessous. Ce lien est valable 24 heures.</p>",
+    "bouton": "Confirmer mon adresse",
+    "texte": "Bonjour {{PRENOM}},\n\nPour activer votre compte Coparentalité Zen, confirmez votre adresse : {{BOUTON_URL}} (lien valable 24 h).\n\nSi vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail."
+  },
+  "invitation_parent": {
+    "objet": "{{INVITANT}} vous invite à rejoindre son foyer sur Coparentalité Zen",
+    "titre": "Invitation à rejoindre un foyer",
+    "contenu_html": "<p style='margin:0 0 12px;'>{{INVITANT}} vous propose de rejoindre le foyer « {{FOYER}} » pour organiser ensemble le planning de garde et les dépenses partagées.</p><p style='margin:0;'>Cette invitation expire le {{EXPIRATION}}. Vous resterez libre de la refuser.</p>",
+    "bouton": "Voir l’invitation",
+    "texte": "Bonjour,\n\n{{INVITANT}} vous propose de rejoindre le foyer « {{FOYER}} » sur Coparentalité Zen pour organiser ensemble planning de garde et dépenses partagées.\n\nAccepter ou refuser : {{BOUTON_URL}} (expire le {{EXPIRATION}})"
+  },
+  "mot_de_passe": {
+    "objet": "Réinitialisation de votre mot de passe",
+    "titre": "Réinitialiser votre mot de passe",
+    "contenu_html": "<p style='margin:0;'>Une demande de réinitialisation a été faite pour votre compte. Si vous en êtes bien à l’origine, cliquez ci-dessous (lien valable 1 heure). Sinon, vous pouvez ignorer cet e-mail : votre mot de passe reste inchangé.</p>",
+    "bouton": "Choisir un nouveau mot de passe",
+    "texte": "Bonjour {{PRENOM}},\n\nPour choisir un nouveau mot de passe : {{BOUTON_URL}} (valable 1 h).\nSi vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail."
+  },
+  "nouvelle_depense": {
+    "objet": "Nouvelle dépense : {{TITRE_DEPENSE}} ({{MONTANT}})",
+    "titre": "Nouvelle dépense enregistrée",
+    "contenu_html": "<p style='margin:0 0 12px;'>{{AUTEUR}} a enregistré la dépense <strong>{{TITRE_DEPENSE}}</strong> de <strong>{{MONTANT}}</strong> pour {{ENFANTS}}.</p><p style='margin:0;'>Votre part selon la règle de partage : <strong>{{PART}}</strong>. Vous pouvez la consulter, la valider ou demander une précision.</p>",
+    "bouton": "Voir la dépense",
+    "texte": "Bonjour {{PRENOM}},\n\n{{AUTEUR}} a enregistré « {{TITRE_DEPENSE}} » ({{MONTANT}}) pour {{ENFANTS}}. Votre part : {{PART}}.\nConsulter, valider ou demander une précision : {{BOUTON_URL}}"
+  },
+  "demande_modification": {
+    "objet": "Demande de modification de garde — {{ENFANT}}",
+    "titre": "Demande de modification du planning",
+    "contenu_html": "<p style='margin:0 0 12px;'>{{AUTEUR}} propose une modification de garde pour {{ENFANT}} : <strong>{{PERIODE_INITIALE}}</strong> → <strong>{{PERIODE_PROPOSEE}}</strong>.</p><p style='margin:0;'>Vous pouvez accepter, proposer autre chose ou décliner{{DATE_LIMITE_PHRASE}}.</p>",
+    "bouton": "Répondre à la demande",
+    "texte": "Bonjour {{PRENOM}},\n\n{{AUTEUR}} propose une modification de garde pour {{ENFANT}} : {{PERIODE_INITIALE}} → {{PERIODE_PROPOSEE}}.\nRépondre : {{BOUTON_URL}}"
+  },
+  "remboursement": {
+    "objet": "Remboursement enregistré : {{MONTANT}}",
+    "titre": "Remboursement enregistré",
+    "contenu_html": "<p style='margin:0 0 12px;'>Un remboursement de <strong>{{MONTANT}}</strong> ({{METHODE}}) a été enregistré le {{DATE}}.</p><p style='margin:0;'>Nouveau solde : {{SOLDE_PHRASE}}.</p>",
+    "bouton": "Voir le détail",
+    "texte": "Bonjour {{PRENOM}},\n\nRemboursement de {{MONTANT}} ({{METHODE}}) enregistré le {{DATE}}. Nouveau solde : {{SOLDE_PHRASE}}.\nDétail : {{BOUTON_URL}}"
+  },
+  "document_expirant": {
+    "objet": "Un document arrive à expiration : {{TITRE_DOC}}",
+    "titre": "Document bientôt expiré",
+    "contenu_html": "<p style='margin:0;'>Le document <strong>{{TITRE_DOC}}</strong> ({{ENFANT}}) expire le <strong>{{DATE_EXPIRATION}}</strong>. Pensez à le renouveler puis à déposer la nouvelle version.</p>",
+    "bouton": "Voir le document",
+    "texte": "Bonjour {{PRENOM}},\n\nLe document « {{TITRE_DOC}} » ({{ENFANT}}) expire le {{DATE_EXPIRATION}}.\nLe consulter : {{BOUTON_URL}}"
+  },
+  "changement_abonnement": {
+    "objet": "Votre abonnement a été mis à jour",
+    "titre": "Abonnement mis à jour",
+    "contenu_html": "<p style='margin:0 0 12px;'>Votre foyer est désormais sur l’offre <strong>{{PLAN}}</strong>{{PRIX_PHRASE}}.</p><p style='margin:0;'>Le détail de vos factures et la gestion de l’abonnement sont disponibles dans les paramètres.</p>",
+    "bouton": "Gérer mon abonnement",
+    "texte": "Bonjour {{PRENOM}},\n\nVotre foyer est désormais sur l'offre {{PLAN}}{{PRIX_PHRASE}}.\nGérer l'abonnement : {{BOUTON_URL}}"
+  }
+}

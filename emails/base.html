@@ -1,0 +1,45 @@
+<!-- =====================================================================
+Coparentalité Zen — Gabarit e-mail de base (compatible clients mail)
+Variables : {{PRENOM}} {{OBJET_CONTENU}} {{BOUTON_TEXTE}} {{BOUTON_URL}}
+Le logo est hébergé sur le domaine de l'app : {{BASE_URL}}/logo-complet.png
+Chaque e-mail dérive de ce gabarit — voir emails.json pour les 9 déclinaisons.
+====================================================================== -->
+<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
+<body style="margin:0;padding:0;background:#FCF9F6;font-family:'Segoe UI',system-ui,Arial,sans-serif;color:#101B2C;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FCF9F6;padding:24px 0;">
+    <tr><td align="center">
+      <table role="presentation" width="480" cellpadding="0" cellspacing="0"
+             style="background:#FFFFFF;border:1px solid #E3DED8;border-radius:16px;overflow:hidden;">
+        <tr><td align="center" style="padding:28px 24px 8px;">
+          <img src="{{BASE_URL}}/logo-complet.png" width="140" height="140" alt="Coparentalité Zen" style="display:block;">
+        </td></tr>
+        <tr><td style="padding:8px 32px 0;">
+          <h1 style="margin:0;font-size:19px;color:#3D4F68;">{{TITRE}}</h1>
+        </td></tr>
+        <tr><td style="padding:12px 32px 0;font-size:14px;line-height:1.55;color:#101B2C;">
+          <p style="margin:0 0 12px;">Bonjour {{PRENOM}},</p>
+          {{OBJET_CONTENU}}
+        </td></tr>
+        <tr><td align="center" style="padding:20px 32px 8px;">
+          <a href="{{BOUTON_URL}}"
+             style="display:inline-block;background:#4E6381;color:#FFFFFF;text-decoration:none;
+                    font-weight:bold;font-size:15px;padding:13px 28px;border-radius:12px;">
+            {{BOUTON_TEXTE}}
+          </a>
+        </td></tr>
+        <tr><td style="padding:16px 32px 24px;font-size:12px;color:#4A5568;line-height:1.5;">
+          <p style="margin:0 0 8px;">Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :<br>
+          <span style="color:#3D4F68;">{{BOUTON_URL}}</span></p>
+        </td></tr>
+        <tr><td style="background:#F1EEEA;padding:16px 32px;font-size:11px;color:#4A5568;line-height:1.5;">
+          <p style="margin:0 0 6px;">Coparentalité Zen — S’organiser · Coopérer · Avancer, pour le bien de nos enfants.</p>
+          <p style="margin:0 0 6px;">{{MENTIONS_LEGALES}} · <a href="{{PREFERENCES_URL}}" style="color:#3D4F68;">Gérer mes notifications</a></p>
+          <p style="margin:0;">Vous recevez cet e-mail car un compte Coparentalité Zen est associé à cette adresse.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>

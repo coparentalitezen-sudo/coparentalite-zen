@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+/* Tokens Coparentalité Zen — couleurs mesurées sur le logo officiel */
+@theme {
+  --color-navy: #4E6381;
+  --color-navy-text: #3D4F68;
+  --color-coral: #E4A196;
+  --color-coral-text: #A85548;
+  --color-sage: #9AA791;
+  --color-sage-text: #5E6E54;
+  --color-cream: #FCF9F6;
+  --color-ink: #101B2C;
+  --color-soft: #4A5568;
+  --color-card: #FFFFFF;
+  --color-muted: #F1EEEA;
+  --color-line: #E3DED8;
+  --color-ok: #3E7A4E;
+  --color-ok-bg: #E9F2EB;
+  --color-wait: #8A6A1F;
+  --color-wait-bg: #FBF3DC;
+  --color-err: #B3423A;
+  --color-err-bg: #FAEAE8;
+  --color-p1-bg: #E9EDF3;
+  --color-p2-bg: #FAEDEA;
+  --color-child-bg: #EEF1EC;
+  --radius-card: 16px;
+  --radius-btn: 12px;
+  --font-sans: "Nunito Sans", ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+}
+
+html { background: var(--color-cream); }
+body { color: var(--color-ink); font-family: var(--font-sans); -webkit-tap-highlight-color: transparent; }
+
+.font-display { font-family: var(--font-display); }
+
+/* Cartes arrondies, ombres douces — style apaisant */
+.card {
+  background: var(--color-card);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--color-line);
+  box-shadow: 0 1px 3px rgb(16 27 44 / .06), 0 4px 12px rgb(16 27 44 / .05);
+}
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+  min-height: 44px; padding: 0 1.25rem;
+  border-radius: var(--radius-btn); font-weight: 700;
+  transition: transform .15s cubic-bezier(.25,.6,.3,1), opacity .15s;
+}
+.btn:active { transform: scale(.97); }
+.btn-primary { background: var(--color-navy); color: #fff; }
+.btn-ghost { background: var(--color-muted); color: var(--color-ink); }
+
+input, select, textarea {
+  min-height: 44px; border-radius: var(--radius-btn);
+  border: 1px solid var(--color-line); background: #fff;
+  padding: .5rem .875rem; width: 100%;
+}
+input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible, button:focus-visible {
+  outline: 2px solid var(--color-navy); outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
