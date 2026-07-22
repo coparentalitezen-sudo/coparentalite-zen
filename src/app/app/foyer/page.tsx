@@ -43,7 +43,7 @@ export default function Foyer() {
     const r = await inviteParent(household.id, inviteEmail);
     if (r.status === 'ok') {
       setInviteLink(`${window.location.origin}/invitation/${r.data}`);
-      setMsg({ kind: 'ok', text: 'Invitation créée (valable 7 jours). Transmettez le lien ci-dessous ou attendez l’e-mail.' });
+      setMsg({ kind: 'ok', text: 'Invitation créée (valable 7 jours). Copiez le lien ci-dessous et envoyez-le vous-même au second parent (SMS, WhatsApp, e-mail) — l’envoi automatique arrivera dans une prochaine version.' });
     } else if (r.status === 'demo') {
       setMsg({ kind: 'ok', text: 'Mode démo : l’invitation serait envoyée en version complète.' });
     } else setMsg({ kind: 'err', text: r.message });
@@ -110,7 +110,8 @@ export default function Foyer() {
             <h2 className="font-bold">Inviter le second parent</h2>
             <p className="text-sm text-soft">
               L’invitation est valable 7 jours et peut être révoquée. L’autre parent verra les mêmes
-              plannings et dépenses que vous.
+              plannings et dépenses que vous. Un lien à lui transmettre s’affichera ici — aucun e-mail
+              automatique n’est envoyé pour le moment.
             </p>
             <label className="block">
               <span className="mb-1 block text-sm font-bold">Son adresse e-mail</span>

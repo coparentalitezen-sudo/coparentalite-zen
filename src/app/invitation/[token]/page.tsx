@@ -1,16 +1,24 @@
 'use client';
 
-import { use, useState } from 'react';
+import { use, useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { acceptInvitation } from '@/lib/actions';
+import { supabaseBrowser } from '@/lib/supabase/client';
 
 export default function Invitation({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);
   const router = useRouter();
   const [state, setState] = useState<'idle' | 'busy' | 'error'>('idle');
   const [error, setError] = useState('');
+  const [connected, setConnected] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const supabase = supabaseBrowser();
+    if (!supabase) { setConnected(true); return; } // démo
+    supabase.auth.getUser().then(({ data }) => setConnected(!!data.user));
+  }, []);
 
   async function onAccept() {
     setState('busy');
@@ -33,13 +41,23 @@ export default function Invitation({ params }: { params: Promise<{ token: string
         {state === 'error' && (
           <p role="alert" className="rounded-xl bg-err-bg px-3 py-2 text-sm font-bold text-err">{error}</p>
         )}
-        <button className="btn btn-primary w-full" onClick={onAccept} disabled={state === 'busy'}>
-          {state === 'busy' ? 'Vérification…' : 'Accepter l’invitation'}
-        </button>
-        <Link href="/" className="block text-sm font-bold text-navy-text underline">Non merci</Link>
-        <p className="text-xs text-soft">
-          Un compte est nécessaire : si vous n’en avez pas encore, vous serez d’abord invité·e à en créer un.
-        </p>
+        {connected === false ? (
+          <>
+            <p className="rounded-xl bg-wait-bg px-3 py-2 text-sm font-bold text-wait">
+              Créez d’abord votre compte (ou connectez-vous), puis rouvrez ce lien d’invitation
+              pour l’accepter.
+            </p>
+            <Link href="/inscription" className="btn btn-primary w-full">Créer mon compte</Link>
+            <Link href="/connexion" className="btn btn-ghost w-full">J’ai déjà un compte</Link>
+          </>
+        ) : (
+          <>
+            <button className="btn btn-primary w-full" onClick={onAccept} disabled={state === 'busy' || connected === null}>
+              {state === 'busy' ? 'Vérification…' : 'Accepter l’invitation'}
+            </button>
+            <Link href="/" className="block text-sm font-bold text-navy-text underline">Non merci</Link>
+          </>
+        )}
       </div>
     </main>
   );
