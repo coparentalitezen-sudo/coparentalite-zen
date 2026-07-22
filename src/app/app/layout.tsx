@@ -10,10 +10,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <Image src="/symbole.png" alt="" width={34} height={34} priority />
           <span className="font-display text-lg font-semibold tracking-tight">Coparentalité Zen</span>
         </div>
-        <p className="bg-wait-bg px-4 py-1 text-center text-xs font-bold text-wait">
-          Version de démonstration — données fictives.{' '}
-          <Link href="/" className="underline">En savoir plus</Link>
-        </p>
+        {process.env.NEXT_PUBLIC_SUPABASE_URL ? (
+          <p className="bg-wait-bg px-4 py-1 text-center text-xs font-bold text-wait">
+            Bêta — les écrans Accueil, Planning et Dépenses montrent des données d’exemple.
+          </p>
+        ) : (
+          <p className="bg-wait-bg px-4 py-1 text-center text-xs font-bold text-wait">
+            Version de démonstration — données fictives.{' '}
+            <Link href="/" className="underline">En savoir plus</Link>
+          </p>
+        )}
       </header>
       {children}
     </div>
