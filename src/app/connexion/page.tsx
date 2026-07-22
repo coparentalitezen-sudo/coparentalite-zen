@@ -11,25 +11,52 @@ export default function Connexion() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+  const [needsConfirm, setNeedsConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const supabase = supabaseBrowser();
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
-    if (!supabase) {
-      // Mode démo : aucun backend configuré → accès direct à la démo
-      router.push('/app/accueil');
-      return;
-    }
+    setError(null); setInfo(null); setNeedsConfirm(false);
+    if (!supabase) { router.push('/app/accueil'); return; } // mode démo
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) {
-      setError('Adresse e-mail ou mot de passe non reconnus. Vérifiez votre saisie et réessayez.');
-      return;
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        const m = (error.message || '').toLowerCase();
+        if (m.includes('confirm')) {
+          setNeedsConfirm(true);
+          setError('Votre adresse e-mail n’est pas encore confirmée. Ouvrez l’e-mail de confirmation reçu à l’inscription (vérifiez les indésirables), ou renvoyez-le ci-dessous.');
+        } else if (m.includes('invalid login credentials')) {
+          setError('Adresse e-mail ou mot de passe non reconnus. Vérifiez votre saisie et réessayez.');
+        } else {
+          setError(`Connexion impossible : ${error.message}`);
+        }
+        return;
+      }
+      router.push('/app/accueil');
+      router.refresh();
+    } catch (err) {
+      setError(`Erreur inattendue : ${err instanceof Error ? err.message : String(err)}. Réessayez ou signalez ce message.`);
+    } finally {
+      setLoading(false);
     }
-    router.push('/app/accueil');
+  }
+
+  async function resendConfirmation() {
+    if (!supabase || !email) { setError('Saisissez d’abord votre adresse e-mail ci-dessus.'); return; }
+    setLoading(true); setError(null);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup', email,
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      });
+      if (error) setError(`L’envoi n’a pas abouti : ${error.message}`);
+      else { setNeedsConfirm(false); setInfo(`E-mail de confirmation renvoyé à ${email}. Ouvrez-le puis revenez vous connecter.`); }
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -46,6 +73,12 @@ export default function Connexion() {
           <input type="password" autoComplete="current-password" required={!!supabase} value={password} onChange={(e) => setPassword(e.target.value)} />
         </label>
         {error && <p role="alert" className="rounded-xl bg-err-bg px-3 py-2 text-sm font-bold text-err">{error}</p>}
+        {info && <p role="status" className="rounded-xl bg-ok-bg px-3 py-2 text-sm font-bold text-ok">{info}</p>}
+        {needsConfirm && (
+          <button type="button" className="btn btn-ghost w-full" onClick={resendConfirmation} disabled={loading}>
+            Renvoyer l’e-mail de confirmation
+          </button>
+        )}
         <button className="btn btn-primary w-full" disabled={loading}>
           {loading ? 'Connexion…' : 'Se connecter'}
         </button>
@@ -56,7 +89,7 @@ export default function Connexion() {
         )}
         <div className="flex justify-between text-sm">
           <Link className="font-bold text-navy-text underline" href="/inscription">Créer un compte</Link>
-          <button type="button" className="text-soft underline">Mot de passe oublié</button>
+          <Link className="text-soft underline" href="/mot-de-passe-oublie">Mot de passe oublié</Link>
         </div>
       </form>
     </main>
