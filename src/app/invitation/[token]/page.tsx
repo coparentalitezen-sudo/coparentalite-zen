@@ -23,8 +23,8 @@ export default function Invitation({ params }: { params: Promise<{ token: string
   async function onAccept() {
     setState('busy');
     const r = await acceptInvitation(token);
-    if (r.status === 'ok') { router.push('/app/accueil'); return; }
-    if (r.status === 'demo') { router.push('/app/accueil'); return; }
+    // après acceptation : direction les paramètres du foyer, où le résultat réel est visible
+    if (r.status === 'ok' || r.status === 'demo') { router.push('/app/foyer'); return; }
     setError(r.message);
     setState('error');
   }
