@@ -29,7 +29,7 @@ export default function Depenses() {
   const [depenses, setDepenses] = useState<DepenseListe[] | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
-  const [moi, setMoi] = useState<string | null>(null);
+
 
   const charger = useCallback(async (householdId: string) => {
     const r = await listerDepenses(householdId);
@@ -40,10 +40,6 @@ export default function Depenses() {
   useEffect(() => {
     if (ctx.etat !== 'pret') return;
     charger(ctx.contexte.foyer.id);
-    import('@/lib/supabase/client').then(({ supabaseBrowser }) => {
-      const s = supabaseBrowser();
-      s?.auth.getUser().then(({ data }) => setMoi(data.user?.id ?? null));
-    });
   }, [ctx, charger]);
 
   async function reviser(id: string, action: 'validate' | 'dispute', householdId: string) {
@@ -62,6 +58,7 @@ export default function Depenses() {
   }
 
   const membres: Membre[] = ctx.etat === 'pret' ? ctx.contexte.membres : [];
+  const moi = ctx.etat === 'pret' ? ctx.contexte.moi : null;
   const p1 = membres[0]; const p2 = membres[1];
 
   let solde: ReturnType<typeof computePairBalance> | null = null;

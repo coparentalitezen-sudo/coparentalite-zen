@@ -39,7 +39,7 @@ export interface Membre { profileId: string; nom: string; role: string; couleur:
 export interface Enfant { id: string; prenom: string; couleur: string; naissance: string | null; }
 export interface Categorie { id: string; nom: string; }
 export interface Foyer { id: string; nom: string; role: string; }
-export interface Contexte { foyer: Foyer; membres: Membre[]; enfants: Enfant[]; categories: Categorie[]; }
+export interface Contexte { foyer: Foyer; membres: Membre[]; enfants: Enfant[]; categories: Categorie[]; moi: string; }
 
 export interface DepenseListe {
   id: string; titre: string; montantCents: number; date: string;
@@ -56,6 +56,9 @@ export async function getContexte(): Promise<ActionResult<Contexte | null>> {
     // Deux requêtes simples plutôt qu'une jointure imbriquée : household_members
     // et households ont toutes deux une colonne deleted_at, ce qui rend le filtre
     // ambigu côté PostgREST.
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return err('Session expirée. Reconnectez-vous.');
+
     const { data: membre, error: e1 } = await supabase
       .from('household_members')
       .select('role, household_id')
@@ -104,6 +107,7 @@ export async function getContexte(): Promise<ActionResult<Contexte | null>> {
         couleur: (c.color as string) ?? '#9AA791', naissance: (c.birth_date as string) ?? null,
       })),
       categories: (categories.data ?? []).map((c) => ({ id: c.id as string, nom: c.name as string })),
+      moi: user.id,
     });
   } catch (e) {
     return err(lisible('Chargement impossible. Vérifiez votre connexion.', e), detail(e));
@@ -357,6 +361,21 @@ export async function deleteHousehold(householdId: string): Promise<ActionResult
   if (!supabase) return { status: 'demo' };
   const { error } = await supabase.rpc('delete_household', { p_household: householdId });
   if (error) return err(lisible('Seul le propriétaire du foyer peut le supprimer.', error));
+  return ok(undefined);
+}
+
+/** Chaque parent ne peut renommer que son propre profil (garanti par la RLS). */
+export async function renommerMonProfil(nom: string): Promise<ActionResult> {
+  const supabase = supabaseBrowser();
+  if (!supabase) return { status: 'demo' };
+  const propre = nom.trim();
+  if (propre.length < 2) return err('Indiquez un nom d’au moins 2 caractères.');
+  if (propre.length > 40) return err('Ce nom est trop long (40 caractères maximum).');
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return err('Session expirée. Reconnectez-vous.');
+  const { error } = await supabase.from('profiles')
+    .update({ display_name: propre }).eq('id', user.id);
+  if (error) return err(lisible('Le changement de nom n’a pas abouti.', error), detail(error));
   return ok(undefined);
 }
 

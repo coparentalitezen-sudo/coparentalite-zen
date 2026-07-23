@@ -8,7 +8,7 @@ import { Chargement, Erreur } from '@/components/etats';
 import { useContexte } from '@/lib/use-contexte';
 import {
   createHousehold, inviteParent, exportMyData, deleteMyAccount, deleteHousehold,
-  getRegleGarde, setRegleGarde, type RegleGarde,
+  getRegleGarde, setRegleGarde, renommerMonProfil, type RegleGarde,
 } from '@/lib/actions';
 import type { CustodyPattern } from '@/lib/custody';
 
@@ -34,9 +34,12 @@ export default function Foyer() {
   const [rythme, setRythme] = useState<CustodyPattern>('alternating_weeks');
   const [debut, setDebut] = useState(() => new Date().toISOString().slice(0, 10));
   const [regleActuelle, setRegleActuelle] = useState<RegleGarde | null>(null);
+  const [monNom, setMonNom] = useState('');
 
   useEffect(() => {
     if (ctx.etat !== 'pret') return;
+    const moi = ctx.contexte.membres.find((m) => m.profileId === ctx.contexte.moi);
+    if (moi) setMonNom(moi.nom);
     getRegleGarde(ctx.contexte.foyer.id).then((r) => {
       if (r.status === 'ok' && r.data) {
         setRegleActuelle(r.data);
@@ -78,6 +81,14 @@ export default function Foyer() {
       setRegleActuelle({ pattern: rythme, startDate: debut, parent1: p1, parent2: p2 });
       setMsg({ kind: 'ok', text: 'Rythme de garde enregistré. Le planning est à jour.' });
     } else if (r.status === 'error') setMsg({ kind: 'err', text: r.message });
+  }
+
+  async function renommer() {
+    setMsg(null); setBusy(true);
+    const r = await renommerMonProfil(monNom);
+    setBusy(false);
+    if (r.status === 'ok') { setMsg({ kind: 'ok', text: 'Votre nom affiché a été mis à jour.' }); recharger(); }
+    else if (r.status === 'error') setMsg({ kind: 'err', text: r.message });
   }
 
   async function exporter() {
@@ -154,6 +165,21 @@ export default function Foyer() {
             <Link href="/app/enfants" className="btn btn-ghost mt-2 w-full">
               Gérer les enfants ({ctx.contexte.enfants.length})
             </Link>
+          </section>
+
+          <section className="card space-y-3 p-4">
+            <h2 className="font-bold">Votre nom affiché</h2>
+            <p className="text-sm text-soft">
+              C’est le nom qui apparaît dans le planning et sur les dépenses. Chaque parent
+              modifie le sien : vous ne pouvez pas renommer l’autre parent.
+            </p>
+            <label className="block">
+              <span className="mb-1 block text-sm font-bold">Nom ou prénom</span>
+              <input value={monNom} onChange={(e) => setMonNom(e.target.value)} maxLength={40} placeholder="Camille" />
+            </label>
+            <button className="btn btn-primary w-full" onClick={renommer} disabled={busy}>
+              {busy ? 'Enregistrement…' : 'Enregistrer mon nom'}
+            </button>
           </section>
 
           <section className="card space-y-3 p-4">

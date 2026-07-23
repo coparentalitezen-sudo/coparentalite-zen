@@ -139,3 +139,20 @@ begin
 end $$;
 
 select 'TOUS LES TESTS D''ISOLATION RLS SONT PASSÉS' as resultat;
+
+-- ============ T15 : un parent ne peut pas renommer l'autre ============
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', false);
+update profiles set display_name = 'PIRATÉ'
+where id = '00000000-0000-0000-0000-00000000000a';
+do $$
+begin
+  if exists (select 1 from profiles where display_name = 'PIRATÉ') then
+    raise exception 'ÉCHEC T15 : un parent a renommé le profil d''un autre';
+  end if;
+  -- mais il peut renommer le sien
+  update profiles set display_name = 'Bob renommé' where id = auth.uid();
+  if not exists (select 1 from profiles where id = auth.uid() and display_name = 'Bob renommé') then
+    raise exception 'ÉCHEC T15b : un utilisateur ne peut pas renommer son propre profil';
+  end if;
+  raise notice 'T15 OK — renommage limité à son propre profil';
+end $$;
