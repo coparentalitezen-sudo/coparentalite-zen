@@ -146,7 +146,7 @@ do $$
 declare hid uuid := current_setting('app.test_hid')::uuid;
 begin
   perform public.delete_my_account();
-  if exists (select 1 from auth.users where id = '00000000-0000-0000-0000-0000000000f2') then
+  if public.test_compte_auth_existe('00000000-0000-0000-0000-0000000000f2') then
     raise exception 'ÉCHEC T30 : le compte auth n''a pas été supprimé';
   end if;
   if exists (select 1 from household_members

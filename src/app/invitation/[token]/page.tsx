@@ -39,6 +39,10 @@ export default function Invitation({ params }: { params: Promise<{ token: string
           Vous avez été invité·e à rejoindre un foyer Coparentalité Zen pour organiser ensemble
           le planning de garde et les dépenses partagées. Vous resterez libre de quitter le foyer.
         </p>
+        <p className="rounded-xl bg-muted px-3 py-2 text-xs text-soft">
+          Cette invitation est nominative : elle ne peut être acceptée que depuis le compte
+          dont l’adresse e-mail correspond à celle invitée.
+        </p>
         {!tokenValide && (
           <p role="alert" className="rounded-xl bg-err-bg px-3 py-2 text-sm font-bold text-err">
             Ce lien est incomplet : il manque une partie du code d’invitation. Demandez au premier

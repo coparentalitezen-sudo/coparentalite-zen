@@ -18,3 +18,10 @@ create or replace function public.test_household_deleted(hid uuid) returns boole
 language sql security definer set search_path = public as $$
   select exists (select 1 from households where id = hid and deleted_at is not null) $$;
 grant execute on function public.test_household_deleted(uuid) to authenticated;
+
+-- Vérificateur hors-RLS pour auth.users (le rôle applicatif n'y a aucun droit,
+-- et c'est voulu : ne pas l'accorder juste pour faire passer un test).
+create or replace function public.test_compte_auth_existe(p_id uuid) returns boolean
+language sql security definer set search_path = public as $$
+  select exists (select 1 from auth.users where id = p_id) $$;
+grant execute on function public.test_compte_auth_existe(uuid) to authenticated;
