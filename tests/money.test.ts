@@ -141,3 +141,44 @@ describe('computePairBalance — solde net entre parents', () => {
     ).toThrow(/non positif/);
   });
 });
+
+describe('solde avec remboursements — scénario réel du produit', () => {
+  it('un remboursement du montant exact remet les comptes à zéro', () => {
+    // P1 paie 10 € en 50/50 → P2 lui doit 5 €
+    const expenses = [
+      { paidBy: P1, allocations: splitAmount(1000, [pct(P1, 5000), pct(P2, 5000)]) },
+    ];
+    const avant = computePairBalance(P1, P2, expenses);
+    expect(balanceLabel(avant, P2)).toBe('Vous avez 5,00 € à régulariser');
+
+    const apres = computePairBalance(P1, P2, expenses, [
+      { fromParent: P2, toParent: P1, amountCents: 500 },
+    ]);
+    expect(apres.netCentsForA).toBe(0);
+    expect(balanceLabel(apres, P2)).toBe('Les comptes sont équilibrés');
+  });
+
+  it('un remboursement supérieur inverse le solde (trop-perçu visible)', () => {
+    const expenses = [
+      { paidBy: P1, allocations: splitAmount(1000, [pct(P1, 5000), pct(P2, 5000)]) },
+    ];
+    const b = computePairBalance(P1, P2, expenses, [
+      { fromParent: P2, toParent: P1, amountCents: 800 },
+    ]);
+    expect(b.netCentsForA).toBe(-300);
+    expect(balanceLabel(b, P2)).toBe('Vous devez recevoir 3,00 €');
+  });
+
+  it('remboursements successifs cumulés au centime près', () => {
+    const expenses = [
+      { paidBy: P1, allocations: splitAmount(8551, [pct(P1, 5000), pct(P2, 5000)]) },
+    ];
+    const du = expenses[0].allocations.find(a => a.parentId === P2)!.owedCents;
+    const b = computePairBalance(P1, P2, expenses, [
+      { fromParent: P2, toParent: P1, amountCents: 1000 },
+      { fromParent: P2, toParent: P1, amountCents: 2000 },
+      { fromParent: P2, toParent: P1, amountCents: du - 3000 },
+    ]);
+    expect(b.netCentsForA).toBe(0);
+  });
+});

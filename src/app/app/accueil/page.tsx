@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { BottomNav, ParentBadge } from '@/components/ui';
 import { Chargement, Erreur, SansFoyer, Vide } from '@/components/etats';
 import { useContexte } from '@/lib/use-contexte';
-import { listerDepenses, getRegleGarde, type DepenseListe, type RegleGarde } from '@/lib/actions';
-import { computePairBalance, balanceLabel, formatCents, type ExpenseForBalance } from '@/lib/money';
+import { listerDepenses, listerRemboursements, getRegleGarde, type DepenseListe, type RegleGarde, type Remboursement } from '@/lib/actions';
+import { computePairBalance, balanceLabel, formatCents, type ExpenseForBalance, type ReimbursementForBalance } from '@/lib/money';
 import { buildSchedule, whereToday } from '@/lib/custody';
 
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
@@ -19,6 +19,7 @@ export default function Accueil() {
   const { ctx, recharger } = useContexte();
   const [depenses, setDepenses] = useState<DepenseListe[] | null>(null);
   const [regle, setRegle] = useState<RegleGarde | null | 'inconnu'>('inconnu');
+  const [remboursements, setRemboursements] = useState<Remboursement[]>([]);
   const [erreur, setErreur] = useState<string | null>(null);
 
   useEffect(() => {
@@ -28,6 +29,7 @@ export default function Accueil() {
       if (r.status === 'ok') setDepenses(r.data);
       else if (r.status === 'error') setErreur(r.message);
     });
+    listerRemboursements(hid).then((r) => { if (r.status === 'ok') setRemboursements(r.data); });
     getRegleGarde(hid).then((r) => {
       if (r.status === 'ok') setRegle(r.data);
       else if (r.status === 'error') setErreur(r.message);
@@ -62,7 +64,10 @@ export default function Accueil() {
     const validees: ExpenseForBalance[] = depenses
       .filter((d) => d.statut === 'validated' || d.statut === 'reimbursed')
       .map((d) => ({ paidBy: d.payePar, allocations: d.parts }));
-    solde = computePairBalance(p1.profileId, p2.profileId, validees);
+    const regles: ReimbursementForBalance[] = remboursements.map((r) => ({
+      fromParent: r.deParent, toParent: r.versParent, amountCents: r.montantCents,
+    }));
+    solde = computePairBalance(p1.profileId, p2.profileId, validees, regles);
   }
   const aValider = (depenses ?? []).filter((d) => d.statut === 'sent');
   const recentes = (depenses ?? []).slice(0, 3);
@@ -115,7 +120,7 @@ export default function Accueil() {
             <section className="card p-4">
               <h2 className="text-sm font-bold text-soft">Entre vous</h2>
               <p className="mt-1 text-lg font-bold">{balanceLabel(solde, p1.profileId)}</p>
-              <p className="text-sm text-soft">Calculé sur les dépenses validées.</p>
+              <p className="text-sm text-soft">Dépenses validées, remboursements déduits.</p>
               <Link href="/app/depenses" className="btn btn-ghost mt-3 w-full">Voir le détail</Link>
             </section>
           )}

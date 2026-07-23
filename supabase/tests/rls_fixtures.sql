@@ -33,3 +33,9 @@ insert into expense_attachments (id, expense_id, storage_path, file_name, mime_t
 
 insert into documents (household_id, title, storage_path, file_name, mime_type, size_bytes, created_by) values
   ('aaaaaaaa-0000-0000-0000-000000000001','Convention parentale','foyer-a/convention.pdf','convention.pdf','application/pdf',120000,'00000000-0000-0000-0000-00000000000a');
+
+-- Vérificateur hors-RLS du journal d'audit (le rôle parent n'y a pas accès, à dessein)
+create or replace function public.test_audit_existe(p_entity text, p_id uuid) returns boolean
+language sql security definer set search_path = public as $$
+  select exists (select 1 from audit_logs where entity = p_entity and entity_id = p_id) $$;
+grant execute on function public.test_audit_existe(text, uuid) to authenticated;
