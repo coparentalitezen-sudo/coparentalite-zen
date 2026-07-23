@@ -49,3 +49,18 @@ create or replace function public.test_remboursement_actif(p_id uuid) returns bo
 language sql security definer set search_path = public as $$
   select exists (select 1 from reimbursements where id = p_id and deleted_at is null) $$;
 grant execute on function public.test_remboursement_actif(uuid) to authenticated;
+
+create or replace function public.test_depense_existe(p_id uuid) returns boolean
+language sql security definer set search_path = public as $$
+  select exists (select 1 from expenses where id = p_id) $$;
+
+create or replace function public.test_audit_avant_apres(p_entity text, p_id uuid, p_avant bigint, p_apres bigint)
+returns boolean language sql security definer set search_path = public as $$
+  select exists (
+    select 1 from audit_logs
+    where entity = p_entity and entity_id = p_id and action = 'update'
+      and (before->>'amount_cents')::bigint = p_avant
+      and (after->>'amount_cents')::bigint = p_apres) $$;
+
+grant execute on function public.test_depense_existe(uuid) to authenticated;
+grant execute on function public.test_audit_avant_apres(text, uuid, bigint, bigint) to authenticated;

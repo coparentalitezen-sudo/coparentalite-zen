@@ -6,7 +6,7 @@ import { Chargement, Erreur, SansFoyer, Vide } from '@/components/etats';
 import { useContexte } from '@/lib/use-contexte';
 import {
   listerDepenses, reviserDepense, urlJustificatif, creerRemboursement, listerRemboursements,
-  urlJustificatifRemboursement, annulerRemboursement, METHODES,
+  urlJustificatifRemboursement, annulerRemboursement, modifierDepense, supprimerDepense, METHODES,
   type DepenseListe, type Membre, type Remboursement,
 } from '@/lib/actions';
 import { computePairBalance, balanceLabel, formatCents, type ExpenseForBalance, type ReimbursementForBalance } from '@/lib/money';
@@ -41,6 +41,13 @@ export default function Depenses() {
   const [fichierR, setFichierR] = useState<File | null>(null);
   const [busyR, setBusyR] = useState(false);
   const [sens, setSens] = useState<'je_rembourse' | 'il_me_rembourse'>('je_rembourse');
+  // Modification d'une dépense
+  const [editId, setEditId] = useState<string | null>(null);
+  const [eTitre, setETitre] = useState('');
+  const [eMontant, setEMontant] = useState('');
+  const [eDate, setEDate] = useState('');
+  const [eSplit, setESplit] = useState(5000);
+  const [eBusy, setEBusy] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -144,6 +151,49 @@ export default function Depenses() {
     if (!confirm('Annuler ce remboursement ? La ligne est conservée dans l’historique et la trace est journalisée.')) return;
     const r = await annulerRemboursement(id);
     if (r.status === 'ok') { setMsg('Remboursement annulé. Le solde a été recalculé.'); charger(householdId); }
+    else if (r.status === 'error') setErreur(r.message);
+  }
+
+  function ouvrirEdition(d: DepenseListe) {
+    setEditId(d.id);
+    setETitre(d.titre);
+    setEMontant((d.montantCents / 100).toFixed(2).replace('.', ','));
+    setEDate(d.date);
+    setESplit(d.repartition ?? 5000);
+    setErreur(null); setMsg(null);
+  }
+
+  async function enregistrerEdition(d: DepenseListe, householdId: string) {
+    if (!p1) return;
+    setErreur(null);
+    if (!eTitre.trim()) { setErreur('Indiquez un titre.'); return; }
+    const clean = eMontant.replace(',', '.').trim();
+    if (!/^\d+(\.\d{1,2})?$/.test(clean)) { setErreur('Indiquez un montant valide, par exemple 24,90.'); return; }
+    const [ent, cts = ''] = clean.split('.');
+    const cents = Number(ent) * 100 + Number((cts + '00').slice(0, 2));
+    const payeur = membres.find((m) => m.profileId === d.payePar) ?? p1;
+    const autreP = membres.find((m) => m.profileId !== d.payePar);
+    const regles = autreP
+      ? [{ kind: 'percentage' as const, parentId: payeur.profileId, basisPoints: eSplit },
+         { kind: 'percentage' as const, parentId: autreP.profileId, basisPoints: 10000 - eSplit }]
+      : [{ kind: 'percentage' as const, parentId: payeur.profileId, basisPoints: 10000 }];
+
+    setEBusy(true);
+    const r = await modifierDepense({
+      expenseId: d.id, titre: eTitre, montantCents: cents, date: eDate,
+      categorieId: d.categorieId, enfantIds: d.enfants, regles,
+    });
+    setEBusy(false);
+    if (r.status === 'ok') {
+      setMsg('Dépense modifiée. Elle repasse en attente de validation par l’autre parent.');
+      setEditId(null); charger(householdId);
+    } else if (r.status === 'error') setErreur(r.message);
+  }
+
+  async function supprimer(d: DepenseListe, householdId: string) {
+    if (!confirm(`Supprimer « ${d.titre} » ? La dépense sort du solde ; la ligne reste conservée dans l’historique.`)) return;
+    const r = await supprimerDepense(d.id);
+    if (r.status === 'ok') { setMsg('Dépense supprimée.'); charger(householdId); }
     else if (r.status === 'error') setErreur(r.message);
   }
 
@@ -309,6 +359,7 @@ export default function Depenses() {
                 const payeur = membres.find((m) => m.profileId === d.payePar);
                 const statut = LIBELLES[d.statut] ?? { texte: d.statut, classe: 'bg-muted text-soft' };
                 const aValider = d.statut === 'sent' && moi !== null && d.payePar !== moi;
+                const monEcriture = moi !== null && (d.payePar === moi || d.creePar === moi);
                 return (
                   <li key={d.id} className="card space-y-2 p-4">
                     <div className="flex items-start justify-between gap-2">
@@ -339,6 +390,57 @@ export default function Depenses() {
                           onClick={() => reviser(d.id, 'validate', ctx.contexte.foyer.id)}>Valider</button>
                         <button className="btn btn-ghost flex-1"
                           onClick={() => reviser(d.id, 'dispute', ctx.contexte.foyer.id)}>À vérifier</button>
+                      </div>
+                    )}
+
+                    {monEcriture && editId !== d.id && (
+                      <div className="flex gap-4 border-t border-line pt-2">
+                        <button type="button" className="text-sm font-bold text-navy-text underline"
+                          onClick={() => ouvrirEdition(d)}>Modifier</button>
+                        <button type="button" className="text-sm font-bold text-err underline"
+                          onClick={() => supprimer(d, ctx.contexte.foyer.id)}>Supprimer</button>
+                      </div>
+                    )}
+
+                    {editId === d.id && (
+                      <div className="space-y-3 border-t border-line pt-3">
+                        <h3 className="font-bold">Modifier la dépense</h3>
+                        {d.statut === 'validated' && (
+                          <p className="rounded-xl bg-wait-bg px-3 py-2 text-xs font-bold text-wait">
+                            Cette dépense est validée : après modification, l’autre parent devra la valider à nouveau.
+                          </p>
+                        )}
+                        <label className="block">
+                          <span className="mb-1 block text-sm font-bold">Titre</span>
+                          <input value={eTitre} onChange={(ev) => setETitre(ev.target.value)} />
+                        </label>
+                        <label className="block">
+                          <span className="mb-1 block text-sm font-bold">Montant (€)</span>
+                          <input inputMode="decimal" value={eMontant} onChange={(ev) => setEMontant(ev.target.value)} />
+                        </label>
+                        <label className="block">
+                          <span className="mb-1 block text-sm font-bold">Date</span>
+                          <input type="date" value={eDate} onChange={(ev) => setEDate(ev.target.value)} />
+                        </label>
+                        {p2 && (
+                          <fieldset>
+                            <legend className="mb-1 text-sm font-bold">Répartition (part du payeur)</legend>
+                            <div className="grid grid-cols-4 gap-2">
+                              {[5000, 6000, 7000, 10000].map((bp) => (
+                                <button key={bp} type="button" aria-pressed={eSplit === bp}
+                                  onClick={() => setESplit(bp)}
+                                  className={`btn ${eSplit === bp ? 'btn-primary' : 'btn-ghost'} px-0 text-sm`}>
+                                  {bp / 100} %
+                                </button>
+                              ))}
+                            </div>
+                          </fieldset>
+                        )}
+                        <button className="btn btn-primary w-full" disabled={eBusy}
+                          onClick={() => enregistrerEdition(d, ctx.contexte.foyer.id)}>
+                          {eBusy ? 'Enregistrement…' : 'Enregistrer les modifications'}
+                        </button>
+                        <button className="btn btn-ghost w-full" onClick={() => setEditId(null)}>Annuler</button>
                       </div>
                     )}
                   </li>

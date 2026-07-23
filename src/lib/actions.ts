@@ -45,6 +45,7 @@ export interface DepenseListe {
   id: string; titre: string; montantCents: number; date: string;
   categorie: string | null; payePar: string; statut: string;
   enfants: string[]; parts: Allocation[]; justificatifs: number;
+  creePar: string; categorieId: string | null; repartition: number | null;
 }
 
 // ---------------- Contexte du foyer ----------------
@@ -265,9 +266,9 @@ export async function listerDepenses(householdId: string): Promise<ActionResult<
   const supabase = supabaseBrowser();
   if (!supabase) return { status: 'demo' };
   const { data, error } = await supabase.from('expenses')
-    .select(`id, title, amount_cents, spent_on, status, paid_by,
+    .select(`id, title, amount_cents, spent_on, status, paid_by, created_by, category_id,
              expense_categories(name),
-             expense_shares(parent_id, owed_cents),
+             expense_shares(parent_id, owed_cents, basis_points),
              expense_children(child_id),
              expense_attachments(id)`)
     .eq('household_id', householdId).is('deleted_at', null)
@@ -286,7 +287,48 @@ export async function listerDepenses(householdId: string): Promise<ActionResult<
     parts: ((e.expense_shares ?? []) as { parent_id: string; owed_cents: number }[])
       .map((s) => ({ parentId: s.parent_id, owedCents: Number(s.owed_cents) })),
     justificatifs: ((e.expense_attachments ?? []) as unknown[]).length,
+    creePar: e.created_by as string,
+    categorieId: (e.category_id as string) ?? null,
+    repartition: (() => {
+      const parts = (e.expense_shares ?? []) as { parent_id: string; basis_points: number | null }[];
+      const payeur = parts.find((s2) => s2.parent_id === e.paid_by);
+      return payeur?.basis_points ?? null;
+    })(),
   })));
+}
+
+export async function modifierDepense(input: {
+  expenseId: string; titre: string; montantCents: number; date: string;
+  categorieId: string | null; enfantIds: string[]; regles: ShareRule[];
+}): Promise<ActionResult> {
+  const supabase = supabaseBrowser();
+  if (!supabase) return { status: 'demo' };
+  let parts: Allocation[];
+  try { parts = splitAmount(input.montantCents, input.regles); }
+  catch (e) { return err(e instanceof Error ? e.message : 'Répartition invalide.'); }
+
+  const shares = parts.map((p) => {
+    const regle = input.regles.find((r) => r.parentId === p.parentId);
+    return {
+      parent_id: p.parentId, owed_cents: p.owedCents,
+      basis_points: regle && regle.kind === 'percentage' ? regle.basisPoints : null,
+    };
+  });
+  const { error } = await supabase.rpc('update_expense', {
+    p_expense: input.expenseId, p_title: input.titre, p_amount_cents: input.montantCents,
+    p_spent_on: input.date, p_category_id: input.categorieId,
+    p_child_ids: input.enfantIds, p_shares: shares,
+  });
+  if (error) return err(lisible('La modification n’a pas abouti.', error), detail(error));
+  return ok(undefined);
+}
+
+export async function supprimerDepense(expenseId: string): Promise<ActionResult> {
+  const supabase = supabaseBrowser();
+  if (!supabase) return { status: 'demo' };
+  const { error } = await supabase.rpc('delete_expense', { p_expense: expenseId });
+  if (error) return err(lisible('La suppression n’a pas abouti.', error), detail(error));
+  return ok(undefined);
 }
 
 export async function reviserDepense(
