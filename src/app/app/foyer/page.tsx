@@ -79,7 +79,7 @@ export default function Foyer() {
   return (
     <main className="space-y-4 px-4 py-4">
       <h1 className="font-display text-xl font-semibold">Paramètres du foyer</h1>
-      <p className="text-xs text-soft">Version bêta 0.3</p>
+      <p className="text-xs text-soft">Version bêta 0.4</p>
 
       {msg && (
         <p role={msg.kind === 'err' ? 'alert' : 'status'}
@@ -121,30 +121,33 @@ export default function Foyer() {
             <button className="btn btn-primary w-full" onClick={onInvite}>Créer l’invitation</button>
             {inviteLink && (
               <div className="space-y-2">
-                <p className="break-all rounded-xl bg-muted px-3 py-2 text-xs">
-                  Lien d’invitation : <strong>{inviteLink}</strong>
-                </p>
+                <label className="block">
+                  <span className="mb-1 block text-sm font-bold">Lien d’invitation</span>
+                  <input
+                    id="lien-invitation"
+                    readOnly
+                    value={inviteLink}
+                    onFocus={(e) => e.currentTarget.select()}
+                    className="font-mono text-xs"
+                  />
+                </label>
                 <button type="button" className="btn btn-primary w-full"
                   onClick={async () => {
-                    if (navigator.share) {
-                      try {
-                        await navigator.share({
-                          title: 'Invitation Coparentalité Zen',
-                          text: 'Rejoins notre foyer sur Coparentalité Zen :',
-                          url: inviteLink,
-                        });
-                        return;
-                      } catch { /* partage annulé → on retombe sur la copie */ }
-                    }
+                    const champ = document.getElementById('lien-invitation') as HTMLInputElement | null;
+                    champ?.select();
+                    champ?.setSelectionRange(0, inviteLink.length);
                     try {
                       await navigator.clipboard.writeText(inviteLink);
-                      setMsg({ kind: 'ok', text: 'Lien copié — collez-le dans un message au second parent (ou dans un onglet privé pour tester).' });
+                      setMsg({ kind: 'ok', text: 'Lien d’invitation copié. Collez-le dans la barre d’adresse du navigateur du second parent.' });
                     } catch {
-                      setMsg({ kind: 'err', text: 'Copie automatique impossible : sélectionnez le lien ci-dessus et copiez-le manuellement, en entier.' });
+                      setMsg({ kind: 'err', text: 'Copie automatique refusée par le navigateur : le lien est sélectionné ci-dessus, touchez « Copier ».' });
                     }
                   }}>
-                  Partager / copier le lien
+                  Copier le lien d’invitation
                 </button>
+                <p className="text-xs text-soft">
+                  Ce lien doit être ouvert par le second parent une fois qu’il est connecté à son compte.
+                </p>
               </div>
             )}
           </section>
