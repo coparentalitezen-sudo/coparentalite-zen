@@ -13,10 +13,18 @@ import type { CustodyPattern } from './custody';
 export type ActionResult<T = undefined> =
   | { status: 'ok'; data: T }
   | { status: 'demo' }
-  | { status: 'error'; message: string };
+  | { status: 'error'; message: string; details?: string };
 
 const ok = <T,>(data: T): ActionResult<T> => ({ status: 'ok', data });
-const err = (message: string): ActionResult<never> => ({ status: 'error', message });
+const err = (message: string, details?: string): ActionResult<never> =>
+  ({ status: 'error', message, details });
+
+/** Détail technique brut, affiché derrière un dépliant pendant la bêta. */
+function detail(e: unknown): string | undefined {
+  if (!e || typeof e !== 'object') return undefined;
+  const o = e as Record<string, unknown>;
+  return [o.message, o.details, o.hint, o.code].filter(Boolean).join(' · ') || undefined;
+}
 
 /** Message lisible : le détail technique n'apparaît qu'en développement. */
 function lisible(fallback: string, e: unknown): string {
@@ -45,17 +53,26 @@ export async function getContexte(): Promise<ActionResult<Contexte | null>> {
   const supabase = supabaseBrowser();
   if (!supabase) return { status: 'demo' };
   try {
+    // Deux requêtes simples plutôt qu'une jointure imbriquée : household_members
+    // et households ont toutes deux une colonne deleted_at, ce qui rend le filtre
+    // ambigu côté PostgREST.
     const { data: membre, error: e1 } = await supabase
       .from('household_members')
-      .select('role, households!inner(id, name, deleted_at)')
+      .select('role, household_id')
       .is('deleted_at', null)
       .limit(1)
       .maybeSingle();
-    if (e1) return err(lisible('Impossible de charger votre foyer.', e1));
+    if (e1) return err(lisible('Impossible de charger votre foyer.', e1), detail(e1));
     if (!membre) return ok(null);
 
-    const h = membre.households as unknown as { id: string; name: string; deleted_at: string | null };
-    if (h.deleted_at) return ok(null);
+    const { data: foyer, error: e2 } = await supabase
+      .from('households')
+      .select('id, name, deleted_at')
+      .eq('id', membre.household_id as string)
+      .maybeSingle();
+    if (e2) return err(lisible('Impossible de charger votre foyer.', e2), detail(e2));
+    if (!foyer || foyer.deleted_at) return ok(null);
+    const h = foyer as unknown as { id: string; name: string; deleted_at: string | null };
 
     const [membres, enfants, categories] = await Promise.all([
       supabase.from('household_members')
@@ -89,7 +106,7 @@ export async function getContexte(): Promise<ActionResult<Contexte | null>> {
       categories: (categories.data ?? []).map((c) => ({ id: c.id as string, nom: c.name as string })),
     });
   } catch (e) {
-    return err(lisible('Chargement impossible. Vérifiez votre connexion.', e));
+    return err(lisible('Chargement impossible. Vérifiez votre connexion.', e), detail(e));
   }
 }
 

@@ -7,7 +7,7 @@ export type EtatContexte =
   | { etat: 'chargement' }
   | { etat: 'demo' }
   | { etat: 'sans-foyer' }
-  | { etat: 'erreur'; message: string }
+  | { etat: 'erreur'; message: string; details?: string }
   | { etat: 'pret'; contexte: Contexte };
 
 /** Charge le foyer courant et tout ce qui en dépend (membres, enfants, catégories). */
@@ -18,7 +18,7 @@ export function useContexte(): { ctx: EtatContexte; recharger: () => void } {
     setCtx({ etat: 'chargement' });
     getContexte().then((r) => {
       if (r.status === 'demo') setCtx({ etat: 'demo' });
-      else if (r.status === 'error') setCtx({ etat: 'erreur', message: r.message });
+      else if (r.status === 'error') setCtx({ etat: 'erreur', message: r.message, details: r.details });
       else if (r.data === null) setCtx({ etat: 'sans-foyer' });
       else setCtx({ etat: 'pret', contexte: r.data });
     });

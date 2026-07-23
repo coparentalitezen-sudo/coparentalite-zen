@@ -72,7 +72,7 @@ export default function Accueil() {
       <h1 className="sr-only">Accueil</h1>
 
       {ctx.etat === 'chargement' && <Chargement />}
-      {ctx.etat === 'erreur' && <Erreur message={ctx.message} onReessayer={recharger} />}
+      {ctx.etat === 'erreur' && <Erreur message={ctx.message} details={ctx.details} onReessayer={recharger} />}
       {ctx.etat === 'sans-foyer' && <SansFoyer />}
       {ctx.etat === 'demo' && <Vide titre="Mode démonstration" texte="Connectez-vous pour retrouver vos données réelles." />}
       {erreur && <Erreur message={erreur} />}

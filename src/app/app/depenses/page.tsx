@@ -78,7 +78,7 @@ export default function Depenses() {
 
       {msg && <p role="status" className="rounded-xl bg-ok-bg px-3 py-2 text-sm font-bold text-ok">{msg}</p>}
       {ctx.etat === 'chargement' && <Chargement />}
-      {ctx.etat === 'erreur' && <Erreur message={ctx.message} onReessayer={recharger} />}
+      {ctx.etat === 'erreur' && <Erreur message={ctx.message} details={ctx.details} onReessayer={recharger} />}
       {ctx.etat === 'sans-foyer' && <SansFoyer />}
       {ctx.etat === 'demo' && <Vide titre="Mode démonstration" texte="Connectez-vous pour voir vos dépenses réelles." />}
       {erreur && <Erreur message={erreur} />}

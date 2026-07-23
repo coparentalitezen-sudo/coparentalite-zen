@@ -107,7 +107,7 @@ export default function Ajouter() {
       <h1 className="font-display text-xl font-semibold">Ajouter une dépense</h1>
 
       {ctx.etat === 'chargement' && <Chargement />}
-      {ctx.etat === 'erreur' && <Erreur message={ctx.message} onReessayer={recharger} />}
+      {ctx.etat === 'erreur' && <Erreur message={ctx.message} details={ctx.details} onReessayer={recharger} />}
       {ctx.etat === 'sans-foyer' && <SansFoyer />}
       {ctx.etat === 'demo' && (
         <Vide titre="Mode démonstration"

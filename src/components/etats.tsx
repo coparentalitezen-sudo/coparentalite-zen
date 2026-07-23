@@ -5,10 +5,17 @@ export function Chargement() {
   return <p className="card p-4 text-soft" role="status">Chargement…</p>;
 }
 
-export function Erreur({ message, onReessayer }: { message: string; onReessayer?: () => void }) {
+export function Erreur({ message, details, onReessayer }:
+  { message: string; details?: string; onReessayer?: () => void }) {
   return (
     <div className="card space-y-3 p-4">
       <p role="alert" className="rounded-xl bg-err-bg px-3 py-2 text-sm font-bold text-err">{message}</p>
+      {details && (
+        <details className="rounded-xl bg-muted px-3 py-2 text-xs">
+          <summary className="cursor-pointer font-bold text-soft">Détails techniques (bêta)</summary>
+          <code className="mt-1 block break-all text-soft">{details}</code>
+        </details>
+      )}
       {onReessayer && <button className="btn btn-ghost w-full" onClick={onReessayer}>Réessayer</button>}
     </div>
   );

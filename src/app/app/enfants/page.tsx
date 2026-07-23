@@ -57,7 +57,7 @@ export default function Enfants() {
       )}
 
       {ctx.etat === 'chargement' && <Chargement />}
-      {ctx.etat === 'erreur' && <Erreur message={ctx.message} onReessayer={recharger} />}
+      {ctx.etat === 'erreur' && <Erreur message={ctx.message} details={ctx.details} onReessayer={recharger} />}
       {ctx.etat === 'sans-foyer' && <SansFoyer />}
 
       {ctx.etat === 'pret' && ctx.contexte.enfants.length === 0 && (

@@ -66,7 +66,7 @@ export default function Planning() {
   return (
     <main className="space-y-4 px-4 py-4">
       {ctx.etat === 'chargement' && <Chargement />}
-      {ctx.etat === 'erreur' && <Erreur message={ctx.message} onReessayer={recharger} />}
+      {ctx.etat === 'erreur' && <Erreur message={ctx.message} details={ctx.details} onReessayer={recharger} />}
       {ctx.etat === 'sans-foyer' && <SansFoyer />}
       {ctx.etat === 'demo' && <Vide titre="Mode démonstration" texte="Connectez-vous pour voir votre planning réel." />}
       {erreur && <Erreur message={erreur} />}

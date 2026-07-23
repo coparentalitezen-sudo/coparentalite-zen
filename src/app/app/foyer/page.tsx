@@ -122,7 +122,7 @@ export default function Foyer() {
       )}
 
       {ctx.etat === 'chargement' && <Chargement />}
-      {ctx.etat === 'erreur' && <Erreur message={ctx.message} onReessayer={recharger} />}
+      {ctx.etat === 'erreur' && <Erreur message={ctx.message} details={ctx.details} onReessayer={recharger} />}
 
       {(ctx.etat === 'sans-foyer' || ctx.etat === 'demo') && (
         <section className="card space-y-3 p-4">
