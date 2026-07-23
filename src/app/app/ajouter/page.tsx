@@ -1,88 +1,99 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { BottomNav } from '@/components/ui';
-import { DEMO } from '@/lib/demo-data';
+import { Chargement, Erreur, SansFoyer, Vide } from '@/components/etats';
+import { useContexte } from '@/lib/use-contexte';
+import { creerDepense } from '@/lib/actions';
 import { splitAmount, formatCents } from '@/lib/money';
-import { createExpense, getMyHousehold } from '@/lib/actions';
 import { checkFile, formatBytes, MAX_JUSTIFICATIF_BYTES } from '@/lib/files';
 
-const CATEGORIES = ['École','Cantine','Santé','Pharmacie','Vêtements','Chaussures','Sport','Loisirs','Garde','Transport','Vacances','Cadeau','Autre'];
-const SPLITS = [
+const REPARTITIONS = [
   { label: '50 / 50', p1: 5000 }, { label: '60 / 40', p1: 6000 },
   { label: '70 / 30', p1: 7000 }, { label: '100 / 0', p1: 10000 },
 ];
 
 export default function Ajouter() {
-  const [title, setTitle] = useState('');
-  const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState('École');
-  const [paidBy, setPaidBy] = useState('p1');
-  const [split, setSplit] = useState(5000);
-  const [childIds, setChildIds] = useState<string[]>(['c1']);
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [file, setFile] = useState<File | null>(null);
-  const [busy, setBusy] = useState(false);
+  const router = useRouter();
+  const { ctx, recharger } = useContexte();
 
-  // Saisie en euros → centimes entiers, sans jamais passer par un flottant
-  const amountCents = useMemo(() => {
-    const clean = amount.replace(',', '.').trim();
+  const [titre, setTitre] = useState('');
+  const [montant, setMontant] = useState('');
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [categorieId, setCategorieId] = useState<string>('');
+  const [payePar, setPayePar] = useState<string>('');
+  const [enfantIds, setEnfantIds] = useState<string[]>([]);
+  const [split, setSplit] = useState(5000);
+  const [fichier, setFichier] = useState<File | null>(null);
+  const [erreur, setErreur] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [fait, setFait] = useState(false);
+
+  // euros saisis → centimes entiers, sans jamais passer par un flottant
+  const montantCents = useMemo(() => {
+    const clean = montant.replace(',', '.').trim();
     if (!/^\d+(\.\d{1,2})?$/.test(clean)) return null;
     const [e, c = ''] = clean.split('.');
     return Number(e) * 100 + Number((c + '00').slice(0, 2));
-  }, [amount]);
+  }, [montant]);
 
-  const preview = useMemo(() => {
-    if (!amountCents || amountCents <= 0) return null;
-    return splitAmount(amountCents, [
-      { kind: 'percentage', parentId: 'p1', basisPoints: split },
-      { kind: 'percentage', parentId: 'p2', basisPoints: 10000 - split },
-    ]);
-  }, [amountCents, split]);
+  const membres = ctx.etat === 'pret' ? ctx.contexte.membres : [];
+  const parent1 = membres[0];
+  const parent2 = membres[1];
 
-  async function submit() {
-    setError(null);
-    if (!title.trim()) return setError('Indiquez un titre pour la dépense.');
-    if (!amountCents || amountCents <= 0) return setError('Indiquez un montant valide, par exemple 24,90.');
-    if (childIds.length === 0) return setError('Sélectionnez au moins un enfant concerné.');
-    if (file) {
-      const c = checkFile(file, MAX_JUSTIFICATIF_BYTES);
-      if (!c.ok) return setError(c.message);
+  const apercu = useMemo(() => {
+    if (!montantCents || montantCents <= 0 || !parent1) return null;
+    const regles = parent2
+      ? [{ kind: 'percentage' as const, parentId: parent1.profileId, basisPoints: split },
+         { kind: 'percentage' as const, parentId: parent2.profileId, basisPoints: 10000 - split }]
+      : [{ kind: 'percentage' as const, parentId: parent1.profileId, basisPoints: 10000 }];
+    try { return splitAmount(montantCents, regles); } catch { return null; }
+  }, [montantCents, split, parent1, parent2]);
+
+  async function envoyer(householdId: string) {
+    setErreur(null);
+    if (!titre.trim()) { setErreur('Indiquez un titre pour la dépense.'); return; }
+    if (!montantCents || montantCents <= 0) { setErreur('Indiquez un montant valide, par exemple 24,90.'); return; }
+    if (enfantIds.length === 0) { setErreur('Sélectionnez au moins un enfant concerné.'); return; }
+    if (!payePar) { setErreur('Indiquez qui a payé.'); return; }
+    if (fichier) {
+      const c = checkFile(fichier, MAX_JUSTIFICATIF_BYTES);
+      if (!c.ok) { setErreur(c.message); return; }
     }
+    const regles = parent2
+      ? [{ kind: 'percentage' as const, parentId: parent1!.profileId, basisPoints: split },
+         { kind: 'percentage' as const, parentId: parent2.profileId, basisPoints: 10000 - split }]
+      : [{ kind: 'percentage' as const, parentId: parent1!.profileId, basisPoints: 10000 }];
+
     setBusy(true);
-    const foyer = await getMyHousehold();
-    if (foyer.status === 'demo') { setBusy(false); setSaved(true); return; }
-    if (foyer.status !== 'ok' || !foyer.data) {
-      setBusy(false);
-      return setError('Créez d’abord votre foyer dans « Plus → Paramètres du foyer ».');
-    }
-    const r = await createExpense({
-      householdId: foyer.data.id,
-      title, amountCents, spentOn: new Date().toISOString().slice(0, 10),
-      category, paidBy, childIds,
-      shareRules: [
-        { kind: 'percentage', parentId: 'p1', basisPoints: split },
-        { kind: 'percentage', parentId: 'p2', basisPoints: 10000 - split },
-      ],
-      attachment: file,
+    const r = await creerDepense({
+      householdId, titre, montantCents, date,
+      categorieId: categorieId || null, payePar, enfantIds, regles,
+      justificatif: fichier,
     });
     setBusy(false);
-    if (r.status === 'ok' || r.status === 'demo') setSaved(true);
-    else setError(r.message);
+    if (r.status === 'ok') setFait(true);
+    else if (r.status === 'demo') setFait(true);
+    else setErreur(r.message);
   }
 
-  if (saved) {
+  if (fait) {
     return (
       <main className="space-y-4 px-4 py-4">
         <section className="card p-6 text-center">
           <p className="text-3xl" aria-hidden>✓</p>
           <h1 className="mt-2 font-display text-xl font-semibold">Dépense enregistrée</h1>
           <p className="mt-1 text-sm text-soft">
-            En version démo, rien n’est conservé. Dans l’application complète, l’autre parent
-            reçoit une notification et peut valider la dépense.
+            {parent2
+              ? 'L’autre parent pourra la consulter et la valider depuis l’onglet Dépenses.'
+              : 'Elle est enregistrée. Invitez l’autre parent pour qu’il puisse la valider.'}
           </p>
-          <button className="btn btn-primary mt-4 w-full" onClick={() => { setSaved(false); setTitle(''); setAmount(''); }}>
+          <button className="btn btn-primary mt-4 w-full" onClick={() => router.push('/app/depenses')}>
+            Voir les dépenses
+          </button>
+          <button className="btn btn-ghost mt-2 w-full"
+            onClick={() => { setFait(false); setTitre(''); setMontant(''); setFichier(null); setEnfantIds([]); recharger(); }}>
             Ajouter une autre dépense
           </button>
         </section>
@@ -95,98 +106,121 @@ export default function Ajouter() {
     <main className="space-y-4 px-4 py-4">
       <h1 className="font-display text-xl font-semibold">Ajouter une dépense</h1>
 
-      <div className="card space-y-4 p-4">
-        <label className="block">
-          <span className="mb-1 block text-sm font-bold">Titre</span>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Cantine, pharmacie…" />
-        </label>
+      {ctx.etat === 'chargement' && <Chargement />}
+      {ctx.etat === 'erreur' && <Erreur message={ctx.message} onReessayer={recharger} />}
+      {ctx.etat === 'sans-foyer' && <SansFoyer />}
+      {ctx.etat === 'demo' && (
+        <Vide titre="Mode démonstration"
+              texte="Connectez-vous à un compte réel pour enregistrer de vraies dépenses." />
+      )}
 
-        <label className="block">
-          <span className="mb-1 block text-sm font-bold">Montant (€)</span>
-          <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="24,90" />
-        </label>
+      {ctx.etat === 'pret' && ctx.contexte.enfants.length === 0 && (
+        <Vide titre="Ajoutez d’abord un enfant"
+              texte="Une dépense est toujours rattachée à au moins un enfant."
+              action={{ href: '/app/enfants', label: 'Ajouter un enfant' }} />
+      )}
 
-        <label className="block">
-          <span className="mb-1 block text-sm font-bold">Catégorie</span>
-          <select value={category} onChange={(e) => setCategory(e.target.value)}>
-            {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-          </select>
-        </label>
+      {ctx.etat === 'pret' && ctx.contexte.enfants.length > 0 && (
+        <div className="card space-y-4 p-4">
+          <label className="block">
+            <span className="mb-1 block text-sm font-bold">Titre</span>
+            <input value={titre} onChange={(e) => setTitre(e.target.value)} placeholder="Cantine, pharmacie…" />
+          </label>
 
-        <fieldset>
-          <legend className="mb-1 text-sm font-bold">Enfants concernés</legend>
-          <div className="flex gap-2">
-            {DEMO.children.map((c) => {
-              const on = childIds.includes(c.id);
-              return (
-                <button key={c.id} type="button" aria-pressed={on}
-                  onClick={() => setChildIds(on ? childIds.filter((x) => x !== c.id) : [...childIds, c.id])}
-                  className={`btn flex-1 ${on ? 'btn-primary' : 'btn-ghost'}`}>
-                  {c.name}
+          <label className="block">
+            <span className="mb-1 block text-sm font-bold">Montant (€)</span>
+            <input inputMode="decimal" value={montant} onChange={(e) => setMontant(e.target.value)} placeholder="24,90" />
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-sm font-bold">Date</span>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-sm font-bold">Catégorie</span>
+            <select value={categorieId} onChange={(e) => setCategorieId(e.target.value)}>
+              <option value="">Sans catégorie</option>
+              {ctx.contexte.categories.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
+            </select>
+          </label>
+
+          <fieldset>
+            <legend className="mb-1 text-sm font-bold">Enfants concernés</legend>
+            <div className="flex flex-wrap gap-2">
+              {ctx.contexte.enfants.map((c) => {
+                const on = enfantIds.includes(c.id);
+                return (
+                  <button key={c.id} type="button" aria-pressed={on}
+                    onClick={() => setEnfantIds(on ? enfantIds.filter((x) => x !== c.id) : [...enfantIds, c.id])}
+                    className={`btn flex-1 ${on ? 'btn-primary' : 'btn-ghost'}`}>
+                    {c.prenom}
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend className="mb-1 text-sm font-bold">Payé par</legend>
+            <div className="flex flex-wrap gap-2">
+              {membres.map((m) => (
+                <button key={m.profileId} type="button" aria-pressed={payePar === m.profileId}
+                  onClick={() => setPayePar(m.profileId)}
+                  className={`btn flex-1 ${payePar === m.profileId ? 'btn-primary' : 'btn-ghost'}`}>
+                  {m.initiale} · {m.nom}
                 </button>
-              );
-            })}
-          </div>
-        </fieldset>
+              ))}
+            </div>
+          </fieldset>
 
-        <fieldset>
-          <legend className="mb-1 text-sm font-bold">Payé par</legend>
-          <div className="flex gap-2">
-            {DEMO.parents.map((p) => (
-              <button key={p.id} type="button" aria-pressed={paidBy === p.id}
-                onClick={() => setPaidBy(p.id)}
-                className={`btn flex-1 ${paidBy === p.id ? 'btn-primary' : 'btn-ghost'}`}>
-                {p.initial} · {p.name}
-              </button>
-            ))}
-          </div>
-        </fieldset>
+          {parent2 && (
+            <fieldset>
+              <legend className="mb-1 text-sm font-bold">Répartition ({parent1.nom} / {parent2.nom})</legend>
+              <div className="grid grid-cols-4 gap-2">
+                {REPARTITIONS.map((s) => (
+                  <button key={s.p1} type="button" aria-pressed={split === s.p1}
+                    onClick={() => setSplit(s.p1)}
+                    className={`btn ${split === s.p1 ? 'btn-primary' : 'btn-ghost'} px-0 text-sm`}>
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+          )}
 
-        <fieldset>
-          <legend className="mb-1 text-sm font-bold">Répartition ({DEMO.parents[0].name} / {DEMO.parents[1].name})</legend>
-          <div className="grid grid-cols-4 gap-2">
-            {SPLITS.map((s) => (
-              <button key={s.p1} type="button" aria-pressed={split === s.p1}
-                onClick={() => setSplit(s.p1)}
-                className={`btn ${split === s.p1 ? 'btn-primary' : 'btn-ghost'} px-0 text-sm`}>
-                {s.label}
-              </button>
-            ))}
-          </div>
-        </fieldset>
+          <label className="block">
+            <span className="mb-1 block text-sm font-bold">Justificatif (facultatif)</span>
+            <input type="file" accept="application/pdf,image/jpeg,image/png,image/heic"
+              onChange={(e) => {
+                const f = e.target.files?.[0] ?? null;
+                setFichier(f);
+                if (f) { const c = checkFile(f, MAX_JUSTIFICATIF_BYTES); setErreur(c.ok ? null : c.message); }
+              }} />
+            {fichier && (
+              <span className="mt-1 block text-xs text-soft">
+                {fichier.name} · {formatBytes(fichier.size)} — stocké en privé, accessible à votre foyer uniquement.
+              </span>
+            )}
+          </label>
 
-        <label className="block">
-          <span className="mb-1 block text-sm font-bold">Justificatif (facultatif)</span>
-          <input
-            type="file"
-            accept="application/pdf,image/jpeg,image/png,image/heic"
-            onChange={(e) => {
-              const f = e.target.files?.[0] ?? null;
-              setFile(f);
-              if (f) {
-                const c = checkFile(f, MAX_JUSTIFICATIF_BYTES);
-                setError(c.ok ? null : c.message);
-              }
-            }}
-          />
-          {file && <span className="mt-1 block text-xs text-soft">{file.name} · {formatBytes(file.size)} — stocké en privé, accessible uniquement à votre foyer.</span>}
-        </label>
+          {apercu && (
+            <p className="rounded-xl bg-muted px-3 py-2 text-sm" aria-live="polite">
+              {membres.map((m, i) => (
+                <span key={m.profileId}>
+                  {i > 0 && ' · '}{m.nom} : <strong>{formatCents(apercu[i]?.owedCents ?? 0)}</strong>
+                </span>
+              ))}
+            </p>
+          )}
+          {erreur && <p role="alert" className="rounded-xl bg-err-bg px-3 py-2 text-sm font-bold text-err">{erreur}</p>}
 
-        {preview && (
-          <p className="rounded-xl bg-muted px-3 py-2 text-sm" aria-live="polite">
-            {DEMO.parents[0].name} : <strong>{formatCents(preview[0].owedCents)}</strong> ·{' '}
-            {DEMO.parents[1].name} : <strong>{formatCents(preview[1].owedCents)}</strong>
-          </p>
-        )}
-        {error && <p role="alert" className="rounded-xl bg-err-bg px-3 py-2 text-sm font-bold text-err">{error}</p>}
-
-        <button className="btn btn-primary w-full" onClick={submit} disabled={busy}>
-          {busy ? 'Enregistrement…' : 'Enregistrer la dépense'}
-        </button>
-        <p className="text-center text-xs text-soft">
-          Événements, demandes de modification, remboursements, documents et notes : dans la version complète.
-        </p>
-      </div>
+          <button className="btn btn-primary w-full" disabled={busy}
+            onClick={() => envoyer(ctx.contexte.foyer.id)}>
+            {busy ? 'Enregistrement…' : 'Enregistrer la dépense'}
+          </button>
+        </div>
+      )}
 
       <BottomNav active="/app/ajouter" />
     </main>

@@ -1,51 +1,174 @@
 'use client';
 
 /**
- * Couche d'accès aux données côté client.
- * Chaque fonction utilise Supabase quand il est configuré, sinon renvoie un
- * résultat « démo » clairement identifié — jamais un faux succès silencieux.
+ * Couche d'accès aux données.
+ * Supabase quand il est configuré ; sinon résultat « demo » explicite.
+ * Aucune fonction ne renvoie un faux succès silencieux.
  */
 import { supabaseBrowser } from './supabase/client';
-import { splitAmount, type ShareRule } from './money';
+import { splitAmount, type ShareRule, type Allocation } from './money';
 import { checkFile, buildStoragePath, type AllowedMime, MAX_JUSTIFICATIF_BYTES } from './files';
+import type { CustodyPattern } from './custody';
 
 export type ActionResult<T = undefined> =
   | { status: 'ok'; data: T }
   | { status: 'demo' }
   | { status: 'error'; message: string };
 
-/** Foyer courant de l'utilisateur (premier foyer actif). */
-export async function getMyHousehold(): Promise<ActionResult<{ id: string; name: string; role: string }>> {
+const ok = <T,>(data: T): ActionResult<T> => ({ status: 'ok', data });
+const err = (message: string): ActionResult<never> => ({ status: 'error', message });
+
+/** Message lisible : le détail technique n'apparaît qu'en développement. */
+function lisible(fallback: string, e: unknown): string {
+  const brut = e && typeof e === 'object' && 'message' in e ? String((e as { message: unknown }).message) : '';
+  if (process.env.NODE_ENV !== 'production' && brut) return `${fallback} (${brut})`;
+  if (/foyer|parent|montant|part|autoris|expir|utilis|révoqu|requis/i.test(brut)) return brut;
+  return fallback;
+}
+
+// ---------------- Types ----------------
+export interface Membre { profileId: string; nom: string; role: string; couleur: 'navy' | 'coral' | 'sage'; initiale: string; }
+export interface Enfant { id: string; prenom: string; couleur: string; naissance: string | null; }
+export interface Categorie { id: string; nom: string; }
+export interface Foyer { id: string; nom: string; role: string; }
+export interface Contexte { foyer: Foyer; membres: Membre[]; enfants: Enfant[]; categories: Categorie[]; }
+
+export interface DepenseListe {
+  id: string; titre: string; montantCents: number; date: string;
+  categorie: string | null; payePar: string; statut: string;
+  enfants: string[]; parts: Allocation[]; justificatifs: number;
+}
+
+// ---------------- Contexte du foyer ----------------
+/** null = l'utilisateur n'a pas encore de foyer (cas normal, pas une erreur). */
+export async function getContexte(): Promise<ActionResult<Contexte | null>> {
   const supabase = supabaseBrowser();
   if (!supabase) return { status: 'demo' };
-  const { data, error } = await supabase
-    .from('household_members')
-    .select('role, households!inner(id, name)')
-    .is('deleted_at', null)
-    .limit(1)
-    .maybeSingle();
-  if (error) return { status: 'error', message: 'Impossible de charger votre foyer. Réessayez.' };
-  if (!data) return { status: 'ok', data: null as never };
-  const h = data.households as unknown as { id: string; name: string };
-  return { status: 'ok', data: { id: h.id, name: h.name, role: data.role as string } };
+  try {
+    const { data: membre, error: e1 } = await supabase
+      .from('household_members')
+      .select('role, households!inner(id, name, deleted_at)')
+      .is('deleted_at', null)
+      .limit(1)
+      .maybeSingle();
+    if (e1) return err(lisible('Impossible de charger votre foyer.', e1));
+    if (!membre) return ok(null);
+
+    const h = membre.households as unknown as { id: string; name: string; deleted_at: string | null };
+    if (h.deleted_at) return ok(null);
+
+    const [membres, enfants, categories] = await Promise.all([
+      supabase.from('household_members')
+        .select('profile_id, role, color_key, profiles!inner(display_name)')
+        .eq('household_id', h.id).is('deleted_at', null),
+      supabase.from('children')
+        .select('id, first_name, color, birth_date')
+        .eq('household_id', h.id).is('deleted_at', null).is('archived_at', null)
+        .order('first_name'),
+      supabase.from('expense_categories')
+        .select('id, name').is('deleted_at', null).order('sort_order'),
+    ]);
+
+    return ok({
+      foyer: { id: h.id, nom: h.name, role: membre.role as string },
+      membres: (membres.data ?? []).map((m) => {
+        const p = m.profiles as unknown as { display_name: string };
+        const nom = p?.display_name ?? 'Parent';
+        return {
+          profileId: m.profile_id as string,
+          nom,
+          role: m.role as string,
+          couleur: (m.color_key as 'navy' | 'coral' | 'sage') ?? 'navy',
+          initiale: nom.charAt(0).toUpperCase(),
+        };
+      }),
+      enfants: (enfants.data ?? []).map((c) => ({
+        id: c.id as string, prenom: c.first_name as string,
+        couleur: (c.color as string) ?? '#9AA791', naissance: (c.birth_date as string) ?? null,
+      })),
+      categories: (categories.data ?? []).map((c) => ({ id: c.id as string, nom: c.name as string })),
+    });
+  } catch (e) {
+    return err(lisible('Chargement impossible. Vérifiez votre connexion.', e));
+  }
 }
 
 export async function createHousehold(name: string): Promise<ActionResult<string>> {
   const supabase = supabaseBrowser();
   if (!supabase) return { status: 'demo' };
   const { data, error } = await supabase.rpc('create_household', { p_name: name });
-  if (error) return { status: 'error', message: 'La création du foyer n’a pas abouti. Réessayez.' };
-  return { status: 'ok', data: data as string };
+  if (error) return err(lisible('La création du foyer n’a pas abouti.', error));
+  return ok(data as string);
 }
 
+// ---------------- Enfants ----------------
+export async function ajouterEnfant(
+  householdId: string, prenom: string, naissance: string | null, couleur: string
+): Promise<ActionResult<string>> {
+  const supabase = supabaseBrowser();
+  if (!supabase) return { status: 'demo' };
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return err('Session expirée. Reconnectez-vous.');
+  const { data, error } = await supabase.from('children')
+    .insert({
+      household_id: householdId, first_name: prenom.trim(),
+      birth_date: naissance || null, color: couleur, created_by: user.id,
+    })
+    .select('id').single();
+  if (error) return err(lisible('L’ajout de l’enfant n’a pas abouti.', error));
+  return ok(data.id as string);
+}
+
+export async function archiverEnfant(id: string): Promise<ActionResult> {
+  const supabase = supabaseBrowser();
+  if (!supabase) return { status: 'demo' };
+  const { error } = await supabase.from('children')
+    .update({ archived_at: new Date().toISOString() }).eq('id', id);
+  if (error) return err(lisible('L’archivage n’a pas abouti.', error));
+  return ok(undefined);
+}
+
+// ---------------- Rythme de garde ----------------
+export interface RegleGarde { pattern: CustodyPattern; startDate: string; parent1: string; parent2: string; }
+
+export async function getRegleGarde(householdId: string): Promise<ActionResult<RegleGarde | null>> {
+  const supabase = supabaseBrowser();
+  if (!supabase) return { status: 'demo' };
+  const { data, error } = await supabase.from('custody_rules')
+    .select('pattern, start_date, starting_parent, config')
+    .eq('household_id', householdId).is('deleted_at', null)
+    .order('created_at', { ascending: false }).limit(1).maybeSingle();
+  if (error) return err(lisible('Impossible de charger le rythme de garde.', error));
+  if (!data) return ok(null);
+  const cfg = (data.config ?? {}) as { parent2?: string };
+  return ok({
+    pattern: data.pattern as CustodyPattern,
+    startDate: data.start_date as string,
+    parent1: data.starting_parent as string,
+    parent2: cfg.parent2 ?? '',
+  });
+}
+
+export async function setRegleGarde(
+  householdId: string, pattern: CustodyPattern, startDate: string, parent1: string, parent2: string
+): Promise<ActionResult<string>> {
+  const supabase = supabaseBrowser();
+  if (!supabase) return { status: 'demo' };
+  const { data, error } = await supabase.rpc('set_custody_rule', {
+    p_household: householdId, p_pattern: pattern, p_start_date: startDate,
+    p_parent1: parent1, p_parent2: parent2,
+  });
+  if (error) return err(lisible('L’enregistrement du rythme n’a pas abouti.', error));
+  return ok(data as string);
+}
+
+// ---------------- Invitations ----------------
 export async function inviteParent(householdId: string, email: string): Promise<ActionResult<string>> {
   const supabase = supabaseBrowser();
   if (!supabase) return { status: 'demo' };
-  const { data, error } = await supabase.rpc('create_invitation', {
-    p_household: householdId, p_email: email,
-  });
-  if (error) return { status: 'error', message: 'L’invitation n’a pas pu être créée. Vérifiez l’adresse.' };
-  return { status: 'ok', data: data as string };
+  const { data, error } = await supabase.rpc('create_invitation', { p_household: householdId, p_email: email });
+  if (error) return err(lisible('L’invitation n’a pas pu être créée. Vérifiez l’adresse.', error));
+  return ok(data as string);
 }
 
 export async function acceptInvitation(token: string): Promise<ActionResult<string>> {
@@ -54,97 +177,116 @@ export async function acceptInvitation(token: string): Promise<ActionResult<stri
   const { data, error } = await supabase.rpc('accept_invitation', { p_token: token });
   if (error) {
     const raw = error.message ?? '';
-    const message = raw.includes('expiré') ? 'Cette invitation a expiré. Demandez au premier parent d’en créer une nouvelle.'
+    const message = raw.includes('expiré') ? 'Cette invitation a expiré. Demandez-en une nouvelle.'
       : raw.includes('déjà') ? 'Cette invitation a déjà été utilisée.'
-      : raw.includes('révoquée') ? 'Cette invitation a été révoquée — une invitation plus récente l’a probablement remplacée. Utilisez le dernier lien créé.'
-      : raw.includes('introuvable') || raw.toLowerCase().includes('uuid') ? 'Lien incomplet ou erroné : recopiez le lien d’invitation en entier (bouton « Copier le lien »).'
+      : raw.includes('révoquée') ? 'Cette invitation a été révoquée — utilisez le lien le plus récent.'
+      : raw.includes('introuvable') || raw.toLowerCase().includes('uuid') ? 'Lien incomplet ou erroné : recopiez-le en entier.'
       : raw.includes('Authentification') ? 'Connectez-vous d’abord, puis rouvrez ce lien.'
-      : `Acceptation impossible : ${raw}`;
-    return { status: 'error', message };
+      : lisible('Cette invitation n’a pas pu être acceptée.', error);
+    return err(message);
   }
-  return { status: 'ok', data: data as string };
+  return ok(data as string);
 }
 
-export interface NewExpense {
-  householdId: string;
-  title: string;
-  amountCents: number;
-  spentOn: string;             // YYYY-MM-DD
-  category: string;
-  paidBy: string;              // profile id
-  childIds: string[];
-  shareRules: ShareRule[];
-  attachment?: File | null;
+// ---------------- Dépenses ----------------
+export interface NouvelleDepense {
+  householdId: string; titre: string; montantCents: number; date: string;
+  categorieId: string | null; payePar: string; enfantIds: string[];
+  regles: ShareRule[]; justificatif?: File | null;
 }
 
-/** Crée la dépense + parts calculées + justificatif éventuel (bucket privé). */
-export async function createExpense(input: NewExpense): Promise<ActionResult<string>> {
+/** Création transactionnelle côté serveur (aucune dépense orpheline possible). */
+export async function creerDepense(input: NouvelleDepense): Promise<ActionResult<string>> {
   const supabase = supabaseBrowser();
   if (!supabase) return { status: 'demo' };
 
-  let allocations;
+  let parts: Allocation[];
   try {
-    allocations = splitAmount(input.amountCents, input.shareRules);
+    parts = splitAmount(input.montantCents, input.regles);
   } catch (e) {
-    return { status: 'error', message: e instanceof Error ? e.message : 'Répartition invalide.' };
+    return err(e instanceof Error ? e.message : 'Répartition invalide.');
   }
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { status: 'error', message: 'Session expirée. Reconnectez-vous.' };
+  const shares = parts.map((p) => {
+    const regle = input.regles.find((r) => r.parentId === p.parentId);
+    return {
+      parent_id: p.parentId,
+      owed_cents: p.owedCents,
+      basis_points: regle && regle.kind === 'percentage' ? regle.basisPoints : null,
+    };
+  });
 
-  const { data: exp, error } = await supabase
-    .from('expenses')
-    .insert({
-      household_id: input.householdId,
-      title: input.title.trim(),
-      amount_cents: input.amountCents,
-      spent_on: input.spentOn,
-      paid_by: input.paidBy,
-      status: 'sent',
-      created_by: user.id,
-    })
-    .select('id')
-    .single();
-  if (error || !exp) return { status: 'error', message: 'L’enregistrement de la dépense n’a pas abouti.' };
+  const { data, error } = await supabase.rpc('create_expense_full', {
+    p_household: input.householdId,
+    p_title: input.titre,
+    p_amount_cents: input.montantCents,
+    p_spent_on: input.date,
+    p_category_id: input.categorieId,
+    p_paid_by: input.payePar,
+    p_child_ids: input.enfantIds,
+    p_shares: shares,
+  });
+  if (error) return err(lisible('L’enregistrement de la dépense n’a pas abouti.', error));
 
-  if (input.childIds.length > 0) {
-    const { error: ecErr } = await supabase.from('expense_children')
-      .insert(input.childIds.map((c) => ({ expense_id: exp.id, child_id: c })));
-    if (ecErr) return { status: 'error', message: 'Dépense créée, mais l’association aux enfants a échoué.' };
+  const expenseId = data as string;
+  if (input.justificatif) {
+    const r = await deposerJustificatif(input.householdId, expenseId, input.justificatif);
+    if (r.status === 'error') return err(`Dépense enregistrée, mais le justificatif n’a pas été joint : ${r.message}`);
   }
-
-  const { error: shErr } = await supabase.from('expense_shares').insert(
-    allocations.map((a) => {
-      const rule = input.shareRules.find((r) => r.parentId === a.parentId);
-      return {
-        expense_id: exp.id, parent_id: a.parentId, owed_cents: a.owedCents,
-        kind: rule?.kind ?? 'percentage',
-        basis_points: rule?.kind === 'percentage' ? rule.basisPoints : null,
-        fixed_cents: rule?.kind === 'fixed_amount' ? rule.fixedCents : null,
-      };
-    })
-  );
-  if (shErr) return { status: 'error', message: 'Dépense créée, mais le calcul des parts a échoué.' };
-
-  if (input.attachment) {
-    const r = await uploadJustificatif(input.householdId, exp.id, input.attachment);
-    if (r.status === 'error') return { status: 'error', message: `Dépense créée, mais : ${r.message}` };
-  }
-  return { status: 'ok', data: exp.id };
+  return ok(expenseId);
 }
 
-/** Dépose un justificatif dans le bucket privé et l'attache à la dépense. */
-export async function uploadJustificatif(householdId: string, expenseId: string, file: File): Promise<ActionResult> {
+export async function listerDepenses(householdId: string): Promise<ActionResult<DepenseListe[]>> {
   const supabase = supabaseBrowser();
   if (!supabase) return { status: 'demo' };
+  const { data, error } = await supabase.from('expenses')
+    .select(`id, title, amount_cents, spent_on, status, paid_by,
+             expense_categories(name),
+             expense_shares(parent_id, owed_cents),
+             expense_children(child_id),
+             expense_attachments(id)`)
+    .eq('household_id', householdId).is('deleted_at', null)
+    .order('spent_on', { ascending: false }).limit(100);
+  if (error) return err(lisible('Impossible de charger les dépenses.', error));
 
+  return ok((data ?? []).map((e) => ({
+    id: e.id as string,
+    titre: e.title as string,
+    montantCents: Number(e.amount_cents),
+    date: e.spent_on as string,
+    categorie: (e.expense_categories as unknown as { name: string } | null)?.name ?? null,
+    payePar: e.paid_by as string,
+    statut: e.status as string,
+    enfants: ((e.expense_children ?? []) as { child_id: string }[]).map((c) => c.child_id),
+    parts: ((e.expense_shares ?? []) as { parent_id: string; owed_cents: number }[])
+      .map((s) => ({ parentId: s.parent_id, owedCents: Number(s.owed_cents) })),
+    justificatifs: ((e.expense_attachments ?? []) as unknown[]).length,
+  })));
+}
+
+export async function reviserDepense(
+  expenseId: string, action: 'validate' | 'dispute' | 'clarify', commentaire?: string
+): Promise<ActionResult> {
+  const supabase = supabaseBrowser();
+  if (!supabase) return { status: 'demo' };
+  const { error } = await supabase.rpc('review_expense', {
+    p_expense: expenseId, p_action: action, p_comment: commentaire ?? null, p_accepted_cents: null,
+  });
+  if (error) return err(lisible('L’action n’a pas abouti.', error));
+  return ok(undefined);
+}
+
+// ---------------- Justificatifs ----------------
+export async function deposerJustificatif(householdId: string, expenseId: string, file: File): Promise<ActionResult> {
+  const supabase = supabaseBrowser();
+  if (!supabase) return { status: 'demo' };
   const check = checkFile(file, MAX_JUSTIFICATIF_BYTES);
-  if (!check.ok) return { status: 'error', message: check.message };
+  if (!check.ok) return err(check.message);
 
   const path = buildStoragePath(householdId, file.type as AllowedMime, crypto.randomUUID());
   const { error: upErr } = await supabase.storage.from('justificatifs')
     .upload(path, file, { contentType: file.type, upsert: false });
-  if (upErr) return { status: 'error', message: 'Le dépôt du justificatif n’a pas abouti. Réessayez.' };
+  if (upErr) return err(lisible('Le dépôt du justificatif n’a pas abouti.', upErr));
 
   const { data: { user } } = await supabase.auth.getUser();
   const { error: dbErr } = await supabase.from('expense_attachments').insert({
@@ -153,43 +295,51 @@ export async function uploadJustificatif(householdId: string, expenseId: string,
   });
   if (dbErr) {
     await supabase.storage.from('justificatifs').remove([path]); // pas de fichier orphelin
-    return { status: 'error', message: 'Le justificatif n’a pas pu être enregistré.' };
+    return err(lisible('Le justificatif n’a pas pu être enregistré.', dbErr));
   }
-  return { status: 'ok', data: undefined };
+  return ok(undefined);
 }
 
-/** URL signée temporaire (5 min) pour consulter un justificatif privé. */
-export async function getSignedUrl(path: string): Promise<ActionResult<string>> {
+export async function urlJustificatif(expenseId: string): Promise<ActionResult<string>> {
   const supabase = supabaseBrowser();
   if (!supabase) return { status: 'demo' };
-  const { data, error } = await supabase.storage.from('justificatifs').createSignedUrl(path, 300);
-  if (error || !data) return { status: 'error', message: 'Ce fichier n’est pas accessible.' };
-  return { status: 'ok', data: data.signedUrl };
+  const { data: att, error } = await supabase.from('expense_attachments')
+    .select('storage_path').eq('expense_id', expenseId).is('deleted_at', null)
+    .order('created_at', { ascending: false }).limit(1).maybeSingle();
+  if (error || !att) return err('Aucun justificatif pour cette dépense.');
+  const { data, error: e2 } = await supabase.storage.from('justificatifs')
+    .createSignedUrl(att.storage_path as string, 300);
+  if (e2 || !data) return err('Ce fichier n’est pas accessible.');
+  return ok(data.signedUrl);
 }
 
-/** Export RGPD : récupère toutes les données et déclenche le téléchargement. */
+// ---------------- RGPD ----------------
 export async function exportMyData(): Promise<ActionResult<Blob>> {
   const supabase = supabaseBrowser();
   if (!supabase) return { status: 'demo' };
   const { data, error } = await supabase.rpc('export_my_data');
-  if (error) return { status: 'error', message: 'L’export n’a pas abouti. Réessayez.' };
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  return { status: 'ok', data: blob };
+  if (error) return err(lisible('L’export n’a pas abouti.', error));
+  return ok(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
 }
 
 export async function deleteMyAccount(): Promise<ActionResult> {
   const supabase = supabaseBrowser();
   if (!supabase) return { status: 'demo' };
   const { error } = await supabase.rpc('delete_my_account');
-  if (error) return { status: 'error', message: 'La suppression n’a pas abouti. Contactez le support.' };
+  if (error) return err(lisible('La suppression n’a pas abouti.', error));
   await supabase.auth.signOut();
-  return { status: 'ok', data: undefined };
+  return ok(undefined);
 }
 
 export async function deleteHousehold(householdId: string): Promise<ActionResult> {
   const supabase = supabaseBrowser();
   if (!supabase) return { status: 'demo' };
   const { error } = await supabase.rpc('delete_household', { p_household: householdId });
-  if (error) return { status: 'error', message: 'Seul le propriétaire du foyer peut le supprimer.' };
-  return { status: 'ok', data: undefined };
+  if (error) return err(lisible('Seul le propriétaire du foyer peut le supprimer.', error));
+  return ok(undefined);
+}
+
+export async function seDeconnecter(): Promise<void> {
+  const supabase = supabaseBrowser();
+  if (supabase) await supabase.auth.signOut();
 }

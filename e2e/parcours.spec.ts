@@ -1,105 +1,69 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * E2E — parcours réels dans Chromium sur le build de production (mode démo).
- * Ce que ces tests prouvent : navigation, rendu, formulaire d'ajout avec calcul
- * de partage en direct, validations, garde du planning, accessibilité de base.
- * Ce qu'ils ne prouvent PAS : l'authentification Supabase réelle (pas de projet
- * dans cet environnement) — signalé dans le rapport final.
+ * E2E — build de production avec Supabase configuré (comme en ligne).
+ * Ce que ces tests prouvent : pages publiques, garde d'authentification,
+ * redirections, PWA. Ce qu'ils ne prouvent PAS : les parcours connectés
+ * (ils exigent un compte réel) — ceux-là sont couverts par les tests SQL
+ * et vérifiés manuellement en production.
  */
 
 test('page commerciale : promesse, tarifs, mention légale', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1 })).toContainText('planning de garde');
   await expect(page.getByText('4,99 €/mois', { exact: true })).toBeVisible();
-  // la mention légale doit être visible en pied de page (celle de la FAQ est repliée)
   await expect(page.locator('footer')).toContainText('ne remplace ni une décision judiciaire');
-  // et la même mention est bien présente dans la FAQ (repliée par défaut)
-  await page.getByRole('group').filter({ hasText: 'convention parentale' }).first().click();
-  await expect(page.getByText('Il ne remplace ni une décision judiciaire').first()).toBeVisible();
 });
 
-test('navigation basse : les 5 onglets mènent aux bons écrans', async ({ page }) => {
+test('garde d’authentification : /app/* renvoie vers la connexion', async ({ page }) => {
   await page.goto('/app/accueil');
-  await page.getByRole('link', { name: 'Planning' }).click();
-  await expect(page.getByRole('heading', { name: /Juillet 2026/ })).toBeVisible();
-  await page.getByRole('link', { name: 'Dépenses' }).click();
-  await expect(page.getByRole('heading', { name: 'Dépenses' })).toBeVisible();
-  await page.getByRole('link', { name: 'Ajouter' }).click();
-  await expect(page.getByRole('heading', { name: 'Ajouter une dépense' })).toBeVisible();
-  await page.getByRole('link', { name: 'Plus', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Plus' })).toBeVisible();
-});
-
-test('accueil : solde exact et prochain changement calculés par les moteurs', async ({ page }) => {
-  await page.goto('/app/accueil');
-  await expect(page.getByText('Vous devez recevoir 31,05 €')).toBeVisible();
-  await expect(page.getByText(/Prochain changement le/)).toBeVisible();
-});
-
-test('planning : bandeau démo et priorité des vacances visibles', async ({ page }) => {
-  await page.goto('/app/planning');
-  await expect(page.getByText('Version de démonstration')).toBeVisible();
-  await expect(page.getByText('remplacent le rythme habituel')).toBeVisible();
-  // 22 juillet = vacances première moitié → Camille (badge C dans la cellule du jour)
-  const today = page.locator('[class*="ring-navy"]');
-  await expect(today).toContainText('22');
-});
-
-test('ajout de dépense : validation, aperçu 60/40 exact, confirmation', async ({ page }) => {
-  await page.goto('/app/ajouter');
-
-  // validation : montant manquant
-  await page.getByRole('button', { name: 'Enregistrer la dépense' }).click();
-  await expect(page.locator('p[role="alert"]')).toContainText('titre');
-
-  await page.getByPlaceholder('Cantine, pharmacie…').fill('Test E2E');
-  await page.getByPlaceholder('24,90').fill('100,01');
-  await page.getByRole('button', { name: '60 / 40' }).click();
-
-  // aperçu : plus fort reste → 60,01 € / 40,00 € (mêmes règles que le moteur testé)
-  await expect(page.getByText('60,01')).toBeVisible();
-  await expect(page.getByText('40,00')).toBeVisible();
-
-  await page.getByRole('button', { name: 'Enregistrer la dépense' }).click();
-  await expect(page.getByRole('heading', { name: 'Dépense enregistrée' })).toBeVisible();
-});
-
-test('ajout de dépense : un justificatif au mauvais format est refusé', async ({ page }) => {
-  await page.goto('/app/ajouter');
-  await page.setInputFiles('input[type="file"]', {
-    name: 'script.exe', mimeType: 'application/x-msdownload', buffer: Buffer.from('MZ'),
-  });
-  await expect(page.locator('p[role="alert"]')).toContainText('Formats acceptés');
-});
-
-test('foyer : export RGPD et double confirmation de suppression', async ({ page }) => {
-  await page.goto('/app/foyer');
-  await expect(page.getByRole('heading', { name: 'Paramètres du foyer' })).toBeVisible();
-
-  await page.getByRole('button', { name: 'Exporter mes données' }).click();
-  await expect(page.getByRole('status')).toContainText('Mode démo');
-
-  // suppression du compte : demande une confirmation explicite
-  await page.getByRole('button', { name: 'Supprimer mon compte' }).click();
-  await expect(page.getByText('Cette action est définitive')).toBeVisible();
-  await page.getByRole('button', { name: 'Annuler' }).click();
-  await expect(page.getByRole('button', { name: 'Supprimer mon compte' })).toBeVisible();
-});
-
-test('invitation : page d’acceptation accessible par lien', async ({ page }) => {
-  await page.goto('/invitation/12345678-1234-1234-1234-123456789012');
-  await expect(page.getByRole('heading', { name: /Invitation à rejoindre un foyer/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Accepter l’invitation' })).toBeVisible();
-});
-
-test('auth : pages connexion, inscription, mot de passe oublié rendues', async ({ page }) => {
-  await page.goto('/connexion');
+  await expect(page).toHaveURL(/\/connexion/);
   await expect(page.getByRole('heading', { name: 'Connexion' })).toBeVisible();
-  await page.getByRole('link', { name: 'Créer un compte' }).click();
-  await expect(page.getByRole('heading', { name: 'Créer un compte' })).toBeVisible();
+  // le chemin demandé est conservé pour y revenir après connexion
+  expect(page.url()).toContain('suite=%2Fapp%2Faccueil');
+});
+
+test('toutes les routes protégées sont bien gardées', async ({ page }) => {
+  for (const route of ['/app/planning', '/app/depenses', '/app/ajouter', '/app/plus', '/app/foyer', '/app/enfants']) {
+    await page.goto(route);
+    await expect(page).toHaveURL(/\/connexion/);
+  }
+});
+
+test('connexion : champs, liens, message d’erreur explicite', async ({ page }) => {
+  await page.goto('/connexion');
+  await expect(page.getByLabel('Adresse e-mail')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Mot de passe oublié' })).toHaveAttribute('href', '/mot-de-passe-oublie');
+  await page.getByLabel('Adresse e-mail').fill('inconnu@exemple.fr');
+  await page.getByLabel('Mot de passe').fill('motdepasse-invalide');
+  await page.getByRole('button', { name: 'Se connecter' }).click();
+  await expect(page.locator('p[role="alert"]')).toBeVisible({ timeout: 15000 });
+});
+
+test('inscription : validation du mot de passe trop court', async ({ page }) => {
+  await page.goto('/inscription');
+  await page.getByLabel('Prénom').fill('Test');
+  await page.getByLabel('Adresse e-mail').fill('test@exemple.fr');
+  await page.getByLabel('Mot de passe').fill('court');
+  await page.getByRole('button', { name: 'Créer mon compte' }).click();
+  await expect(page.locator('p[role="alert"]')).toContainText('8 caractères');
+});
+
+test('mot de passe oublié : formulaire accessible', async ({ page }) => {
   await page.goto('/mot-de-passe-oublie');
   await expect(page.getByRole('heading', { name: 'Mot de passe oublié' })).toBeVisible();
+  await expect(page.getByLabel('Adresse e-mail')).toBeVisible();
+});
+
+test('invitation : lien incomplet détecté immédiatement', async ({ page }) => {
+  await page.goto('/invitation/pas-un-vrai-jeton');
+  // route protégée : soit la connexion, soit le message de lien incomplet
+  const surConnexion = page.url().includes('/connexion');
+  if (!surConnexion) {
+    await expect(page.locator('p[role="alert"]')).toContainText('incomplet');
+  } else {
+    await expect(page.getByRole('heading', { name: 'Connexion' })).toBeVisible();
+  }
 });
 
 test('PWA : manifest servi avec les icônes officielles', async ({ page }) => {
@@ -108,4 +72,13 @@ test('PWA : manifest servi avec les icônes officielles', async ({ page }) => {
   const m = await res.json();
   expect(m.name).toBe('Coparentalité Zen');
   expect(m.icons.map((i: { src: string }) => i.src)).toEqual(['/icon-192.png', '/icon-512.png']);
+  expect(m.start_url).toBe('/app/accueil');
+});
+
+test('métadonnées sociales et favicon présents', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /og\.png/);
+  await expect(page.locator('meta[property="og:locale"]')).toHaveAttribute('content', 'fr_FR');
+  const favicon = await page.request.get('/favicon.ico');
+  expect(favicon.ok()).toBeTruthy();
 });

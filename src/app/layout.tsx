@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://coparentalite-zen-yvtn.vercel.app'),
   title: 'Coparentalité Zen — planning de garde et budget partagé',
   description:
     'Le planning de garde et le budget partagé des parents séparés, réunis dans une seule application simple et apaisante.',
