@@ -305,7 +305,7 @@ export async function reviserDepense(
 export interface Remboursement {
   id: string; deParent: string; versParent: string; montantCents: number;
   date: string; methode: string; reference: string | null; commentaire: string | null;
-  justificatif: string | null;
+  justificatif: string | null; creePar: string;
 }
 
 export const METHODES = [
@@ -358,7 +358,7 @@ export async function listerRemboursements(householdId: string): Promise<ActionR
   const supabase = supabaseBrowser();
   if (!supabase) return { status: 'demo' };
   const { data, error } = await supabase.from('reimbursements')
-    .select('id, from_parent, to_parent, amount_cents, paid_on, method, reference, comment, attachment_path')
+    .select('id, from_parent, to_parent, amount_cents, paid_on, method, reference, comment, attachment_path, created_by')
     .eq('household_id', householdId).is('deleted_at', null)
     .order('paid_on', { ascending: false }).limit(50);
   if (error) return err(lisible('Impossible de charger les remboursements.', error), detail(error));
@@ -372,7 +372,17 @@ export async function listerRemboursements(householdId: string): Promise<ActionR
     reference: (r.reference as string) ?? null,
     commentaire: (r.comment as string) ?? null,
     justificatif: (r.attachment_path as string) ?? null,
+    creePar: r.created_by as string,
   })));
+}
+
+/** Annulation logique d'un remboursement saisi par erreur (trace conservée). */
+export async function annulerRemboursement(id: string): Promise<ActionResult> {
+  const supabase = supabaseBrowser();
+  if (!supabase) return { status: 'demo' };
+  const { error } = await supabase.rpc('cancel_reimbursement', { p_id: id });
+  if (error) return err(lisible('L’annulation n’a pas abouti.', error), detail(error));
+  return ok(undefined);
 }
 
 /** URL signée d'un justificatif de remboursement. */

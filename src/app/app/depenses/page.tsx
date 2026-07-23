@@ -6,7 +6,7 @@ import { Chargement, Erreur, SansFoyer, Vide } from '@/components/etats';
 import { useContexte } from '@/lib/use-contexte';
 import {
   listerDepenses, reviserDepense, urlJustificatif, creerRemboursement, listerRemboursements,
-  urlJustificatifRemboursement, METHODES,
+  urlJustificatifRemboursement, annulerRemboursement, METHODES,
   type DepenseListe, type Membre, type Remboursement,
 } from '@/lib/actions';
 import { computePairBalance, balanceLabel, formatCents, type ExpenseForBalance, type ReimbursementForBalance } from '@/lib/money';
@@ -40,6 +40,7 @@ export default function Depenses() {
   const [refR, setRefR] = useState('');
   const [fichierR, setFichierR] = useState<File | null>(null);
   const [busyR, setBusyR] = useState(false);
+  const [sens, setSens] = useState<'je_rembourse' | 'il_me_rembourse'>('je_rembourse');
   const [erreur, setErreur] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -104,8 +105,10 @@ export default function Depenses() {
       if (!v.ok) { setErreur(v.message); return; }
     }
     setBusyR(true);
+    const de = sens === 'je_rembourse' ? moi : autre.profileId;
+    const vers = sens === 'je_rembourse' ? autre.profileId : moi;
     const r = await creerRemboursement({
-      householdId, deParent: moi, versParent: autre.profileId, montantCents: cents,
+      householdId, deParent: de, versParent: vers, montantCents: cents,
       methode: methodeR, date: dateR, reference: refR, justificatif: fichierR,
     });
     setBusyR(false);
@@ -114,6 +117,34 @@ export default function Depenses() {
       setFormRemb(false); setMontantR(''); setRefR(''); setFichierR(null);
       charger(householdId);
     } else if (r.status === 'error') setErreur(r.message);
+  }
+
+  /** Solde qui résultera de la saisie en cours — évite toute erreur de sens. */
+  function apercuSolde(): string | null {
+    if (!solde || !moi || !autre) return null;
+    const clean = montantR.replace(',', '.').trim();
+    if (!/^\d+(\.\d{1,2})?$/.test(clean)) return null;
+    const [e, c = ''] = clean.split('.');
+    const cents = Number(e) * 100 + Number((c + '00').slice(0, 2));
+    if (cents <= 0) return null;
+    const de = sens === 'je_rembourse' ? moi : autre.profileId;
+    const vers = sens === 'je_rembourse' ? autre.profileId : moi;
+    const validees: ExpenseForBalance[] = (depenses ?? [])
+      .filter((d) => d.statut === 'validated' || d.statut === 'reimbursed' || d.statut === 'partially_reimbursed')
+      .map((d) => ({ paidBy: d.payePar, allocations: d.parts }));
+    const regles: ReimbursementForBalance[] = [
+      ...remboursements.map((r) => ({ fromParent: r.deParent, toParent: r.versParent, amountCents: r.montantCents })),
+      { fromParent: de, toParent: vers, amountCents: cents },
+    ];
+    const futur = computePairBalance(p1!.profileId, p2!.profileId, validees, regles);
+    return balanceLabel(futur, moi);
+  }
+
+  async function annuler(id: string, householdId: string) {
+    if (!confirm('Annuler ce remboursement ? La ligne est conservée dans l’historique et la trace est journalisée.')) return;
+    const r = await annulerRemboursement(id);
+    if (r.status === 'ok') { setMsg('Remboursement annulé. Le solde a été recalculé.'); charger(householdId); }
+    else if (r.status === 'error') setErreur(r.message);
   }
 
   async function ouvrirJustificatifRemb(path: string) {
@@ -159,7 +190,22 @@ export default function Depenses() {
 
               {formRemb && autre && (
                 <div className="space-y-3 border-t border-line pt-3">
-                  <h3 className="font-bold">Remboursement vers {autre.nom}</h3>
+                  <h3 className="font-bold">Enregistrer un remboursement</h3>
+                  <fieldset>
+                    <legend className="mb-1 text-sm font-bold">Qui a payé qui ?</legend>
+                    <div className="flex flex-col gap-2">
+                      <button type="button" aria-pressed={sens === 'je_rembourse'}
+                        onClick={() => setSens('je_rembourse')}
+                        className={`btn ${sens === 'je_rembourse' ? 'btn-primary' : 'btn-ghost'}`}>
+                        J’ai remboursé {autre.nom}
+                      </button>
+                      <button type="button" aria-pressed={sens === 'il_me_rembourse'}
+                        onClick={() => setSens('il_me_rembourse')}
+                        className={`btn ${sens === 'il_me_rembourse' ? 'btn-primary' : 'btn-ghost'}`}>
+                        {autre.nom} m’a remboursé
+                      </button>
+                    </div>
+                  </fieldset>
                   <label className="block">
                     <span className="mb-1 block text-sm font-bold">Montant (€)</span>
                     <input inputMode="decimal" value={montantR} onChange={(e) => setMontantR(e.target.value)} placeholder="12,50" />
@@ -192,6 +238,11 @@ export default function Depenses() {
                       }} />
                     {fichierR && <span className="mt-1 block text-xs text-soft">{fichierR.name} · {formatBytes(fichierR.size)}</span>}
                   </label>
+                  {apercuSolde() && (
+                    <p className="rounded-xl bg-muted px-3 py-2 text-sm font-bold" aria-live="polite">
+                      Après enregistrement : {apercuSolde()}
+                    </p>
+                  )}
                   <button className="btn btn-primary w-full" disabled={busyR}
                     onClick={() => enregistrerRemboursement(ctx.contexte.foyer.id)}>
                     {busyR ? 'Enregistrement…' : 'Enregistrer le remboursement'}
@@ -219,12 +270,20 @@ export default function Depenses() {
                       <p className="text-sm text-soft">
                         {[methode, frDate(r.date), r.reference].filter(Boolean).join(' · ')}
                       </p>
-                      {r.justificatif && (
-                        <button type="button" className="mt-1 text-sm font-bold text-navy-text underline"
-                          onClick={() => ouvrirJustificatifRemb(r.justificatif!)}>
-                          Voir le justificatif
-                        </button>
-                      )}
+                      <div className="mt-1 flex flex-wrap items-center gap-4">
+                        {r.justificatif && (
+                          <button type="button" className="text-sm font-bold text-navy-text underline"
+                            onClick={() => ouvrirJustificatifRemb(r.justificatif!)}>
+                            Voir le justificatif
+                          </button>
+                        )}
+                        {(r.creePar === moi || r.deParent === moi || r.versParent === moi) && (
+                          <button type="button" className="text-sm font-bold text-err underline"
+                            onClick={() => annuler(r.id, ctx.contexte.foyer.id)}>
+                            Annuler
+                          </button>
+                        )}
+                      </div>
                     </li>
                   );
                 })}

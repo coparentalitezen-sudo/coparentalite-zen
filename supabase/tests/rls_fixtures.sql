@@ -39,3 +39,13 @@ create or replace function public.test_audit_existe(p_entity text, p_id uuid) re
 language sql security definer set search_path = public as $$
   select exists (select 1 from audit_logs where entity = p_entity and entity_id = p_id) $$;
 grant execute on function public.test_audit_existe(text, uuid) to authenticated;
+
+create or replace function public.test_remboursement_existe(p_id uuid) returns boolean
+language sql security definer set search_path = public as $$
+  select exists (select 1 from reimbursements where id = p_id) $$;
+grant execute on function public.test_remboursement_existe(uuid) to authenticated;
+
+create or replace function public.test_remboursement_actif(p_id uuid) returns boolean
+language sql security definer set search_path = public as $$
+  select exists (select 1 from reimbursements where id = p_id and deleted_at is null) $$;
+grant execute on function public.test_remboursement_actif(uuid) to authenticated;

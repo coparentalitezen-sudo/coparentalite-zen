@@ -118,3 +118,69 @@ begin
 end $$;
 
 select 'TOUS LES TESTS DE REMBOURSEMENT SONT PASSÉS' as resultat;
+
+-- ============ T77 : annulation par un parent concerné ============
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', false);
+do $$
+declare rid uuid;
+begin
+  rid := public.create_reimbursement('aaaaaaaa-0000-0000-0000-000000000001',
+    '00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-00000000000a',
+    500, 'cash', current_date, null, 'sens erroné');
+  perform public.cancel_reimbursement(rid);
+  if exists (select 1 from reimbursements where id = rid and deleted_at is null) then
+    raise exception 'ÉCHEC T77 : le remboursement est toujours actif';
+  end if;
+  if not public.test_audit_existe('reimbursement', rid) then
+    raise exception 'ÉCHEC T77b : annulation non tracée';
+  end if;
+  -- suppression logique : la ligne existe toujours
+  if not public.test_remboursement_existe(rid) then
+    raise exception 'ÉCHEC T77c : la ligne a été supprimée physiquement';
+  end if;
+  perform set_config('app.t77', rid::text, false);
+  raise notice 'T77 OK — annulation logique, ligne conservée, trace en audit';
+end $$;
+
+-- ============ T78 : double annulation refusée ============
+do $$
+begin
+  begin
+    perform public.cancel_reimbursement(current_setting('app.t77')::uuid);
+    raise exception 'ÉCHEC T78 : un remboursement déjà annulé a été annulé une 2e fois';
+  exception when others then
+    if sqlerrm like 'ÉCHEC%' then raise; end if;
+  end;
+  raise notice 'T78 OK — double annulation refusée';
+end $$;
+
+-- ============ T79 : un tiers connaissant l'identifiant ne peut pas annuler ============
+-- Bob crée un remboursement et en transmet l'identifiant ; Carol (foyer B) tente
+-- de l'annuler alors qu'elle ne peut même pas le lire.
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', false);
+do $$
+declare rid uuid;
+begin
+  rid := public.create_reimbursement('aaaaaaaa-0000-0000-0000-000000000001',
+    '00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-00000000000a',
+    900, 'cash', current_date, null, 'cible du test T79');
+  perform set_config('app.t79', rid::text, false);
+end $$;
+
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000c', false);
+do $$
+declare rid uuid := current_setting('app.t79')::uuid;
+begin
+  begin
+    perform public.cancel_reimbursement(rid);
+    raise exception 'ÉCHEC T79 : un membre d''un autre foyer a annulé un remboursement';
+  exception when others then
+    if sqlerrm like 'ÉCHEC%' then raise; end if;
+  end;
+  if not public.test_remboursement_actif(rid) then
+    raise exception 'ÉCHEC T79b : le remboursement a été annulé malgré le refus';
+  end if;
+  raise notice 'T79 OK — annulation refusée à un tiers, même avec l''identifiant';
+end $$;
+
+select 'TESTS D''ANNULATION PASSÉS' as resultat2;
