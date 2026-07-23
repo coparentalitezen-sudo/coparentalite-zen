@@ -54,10 +54,12 @@ export async function acceptInvitation(token: string): Promise<ActionResult<stri
   const { data, error } = await supabase.rpc('accept_invitation', { p_token: token });
   if (error) {
     const raw = error.message ?? '';
-    const message = raw.includes('expiré') ? 'Cette invitation a expiré. Demandez-en une nouvelle.'
+    const message = raw.includes('expiré') ? 'Cette invitation a expiré. Demandez au premier parent d’en créer une nouvelle.'
       : raw.includes('déjà') ? 'Cette invitation a déjà été utilisée.'
-      : raw.includes('révoquée') ? 'Cette invitation a été révoquée.'
-      : 'Cette invitation n’est pas valide.';
+      : raw.includes('révoquée') ? 'Cette invitation a été révoquée — une invitation plus récente l’a probablement remplacée. Utilisez le dernier lien créé.'
+      : raw.includes('introuvable') || raw.toLowerCase().includes('uuid') ? 'Lien incomplet ou erroné : recopiez le lien d’invitation en entier (bouton « Copier le lien »).'
+      : raw.includes('Authentification') ? 'Connectez-vous d’abord, puis rouvrez ce lien.'
+      : `Acceptation impossible : ${raw}`;
     return { status: 'error', message };
   }
   return { status: 'ok', data: data as string };

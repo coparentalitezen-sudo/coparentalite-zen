@@ -119,9 +119,22 @@ export default function Foyer() {
             </label>
             <button className="btn btn-primary w-full" onClick={onInvite}>Créer l’invitation</button>
             {inviteLink && (
-              <p className="break-all rounded-xl bg-muted px-3 py-2 text-xs">
-                Lien d’invitation : <strong>{inviteLink}</strong>
-              </p>
+              <div className="space-y-2">
+                <p className="break-all rounded-xl bg-muted px-3 py-2 text-xs">
+                  Lien d’invitation : <strong>{inviteLink}</strong>
+                </p>
+                <button type="button" className="btn btn-ghost w-full"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(inviteLink);
+                      setMsg({ kind: 'ok', text: 'Lien copié — collez-le dans un message au second parent (ou dans un onglet privé pour tester).' });
+                    } catch {
+                      setMsg({ kind: 'err', text: 'Copie automatique impossible : sélectionnez le lien ci-dessus et copiez-le manuellement, en entier.' });
+                    }
+                  }}>
+                  Copier le lien
+                </button>
+              </div>
             )}
           </section>
         </>

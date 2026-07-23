@@ -10,6 +10,7 @@ import { supabaseBrowser } from '@/lib/supabase/client';
 export default function Invitation({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);
   const router = useRouter();
+  const tokenValide = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token);
   const [state, setState] = useState<'idle' | 'busy' | 'error'>('idle');
   const [error, setError] = useState('');
   const [connected, setConnected] = useState<boolean | null>(null);
@@ -38,6 +39,12 @@ export default function Invitation({ params }: { params: Promise<{ token: string
           Vous avez été invité·e à rejoindre un foyer Coparentalité Zen pour organiser ensemble
           le planning de garde et les dépenses partagées. Vous resterez libre de quitter le foyer.
         </p>
+        {!tokenValide && (
+          <p role="alert" className="rounded-xl bg-err-bg px-3 py-2 text-sm font-bold text-err">
+            Ce lien est incomplet : il manque une partie du code d’invitation. Demandez au premier
+            parent d’utiliser le bouton « Copier le lien » et renvoyez-le en entier.
+          </p>
+        )}
         {state === 'error' && (
           <p role="alert" className="rounded-xl bg-err-bg px-3 py-2 text-sm font-bold text-err">{error}</p>
         )}
@@ -52,7 +59,7 @@ export default function Invitation({ params }: { params: Promise<{ token: string
           </>
         ) : (
           <>
-            <button className="btn btn-primary w-full" onClick={onAccept} disabled={state === 'busy' || connected === null}>
+            <button className="btn btn-primary w-full" onClick={onAccept} disabled={state === 'busy' || connected === null || !tokenValide}>
               {state === 'busy' ? 'Vérification…' : 'Accepter l’invitation'}
             </button>
             <Link href="/" className="block text-sm font-bold text-navy-text underline">Non merci</Link>
