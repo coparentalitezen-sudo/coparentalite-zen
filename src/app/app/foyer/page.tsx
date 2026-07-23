@@ -79,6 +79,7 @@ export default function Foyer() {
   return (
     <main className="space-y-4 px-4 py-4">
       <h1 className="font-display text-xl font-semibold">Paramètres du foyer</h1>
+      <p className="text-xs text-soft">Version bêta 0.3</p>
 
       {msg && (
         <p role={msg.kind === 'err' ? 'alert' : 'status'}
@@ -123,8 +124,18 @@ export default function Foyer() {
                 <p className="break-all rounded-xl bg-muted px-3 py-2 text-xs">
                   Lien d’invitation : <strong>{inviteLink}</strong>
                 </p>
-                <button type="button" className="btn btn-ghost w-full"
+                <button type="button" className="btn btn-primary w-full"
                   onClick={async () => {
+                    if (navigator.share) {
+                      try {
+                        await navigator.share({
+                          title: 'Invitation Coparentalité Zen',
+                          text: 'Rejoins notre foyer sur Coparentalité Zen :',
+                          url: inviteLink,
+                        });
+                        return;
+                      } catch { /* partage annulé → on retombe sur la copie */ }
+                    }
                     try {
                       await navigator.clipboard.writeText(inviteLink);
                       setMsg({ kind: 'ok', text: 'Lien copié — collez-le dans un message au second parent (ou dans un onglet privé pour tester).' });
@@ -132,7 +143,7 @@ export default function Foyer() {
                       setMsg({ kind: 'err', text: 'Copie automatique impossible : sélectionnez le lien ci-dessus et copiez-le manuellement, en entier.' });
                     }
                   }}>
-                  Copier le lien
+                  Partager / copier le lien
                 </button>
               </div>
             )}
