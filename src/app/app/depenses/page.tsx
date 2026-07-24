@@ -7,9 +7,10 @@ import { useContexte } from '@/lib/use-contexte';
 import {
   listerDepenses, reviserDepense, urlJustificatif, creerRemboursement, listerRemboursements,
   urlJustificatifRemboursement, annulerRemboursement, modifierDepense, supprimerDepense, METHODES,
+  getSolde, soldeLocalTransitoire, type Solde,
   type DepenseListe, type Membre, type Remboursement,
 } from '@/lib/actions';
-import { computePairBalance, balanceLabel, formatCents, type ExpenseForBalance, type ReimbursementForBalance } from '@/lib/money';
+import { balanceLabel, formatCents } from '@/lib/money';
 import { checkFile, formatBytes, MAX_JUSTIFICATIF_BYTES } from '@/lib/files';
 
 const LIBELLES: Record<string, { texte: string; classe: string }> = {
@@ -33,6 +34,7 @@ export default function Depenses() {
   const { ctx, recharger } = useContexte();
   const [depenses, setDepenses] = useState<DepenseListe[] | null>(null);
   const [remboursements, setRemboursements] = useState<Remboursement[]>([]);
+  const [solde, setSolde] = useState<Solde | null>(null);
   const [formRemb, setFormRemb] = useState(false);
   const [montantR, setMontantR] = useState('');
   const [methodeR, setMethodeR] = useState<string>('bank_transfer');
@@ -52,16 +54,25 @@ export default function Depenses() {
   const [msg, setMsg] = useState<string | null>(null);
 
 
-  const charger = useCallback(async (householdId: string) => {
-    const [d, rb] = await Promise.all([listerDepenses(householdId), listerRemboursements(householdId)]);
+  const charger = useCallback(async (householdId: string, p1?: string, p2?: string | null) => {
+    const [d, rb, sd] = await Promise.all([
+      listerDepenses(householdId), listerRemboursements(householdId), getSolde(householdId),
+    ]);
     if (d.status === 'ok') { setDepenses(d.data); setErreur(null); }
     else if (d.status === 'error') setErreur(d.message);
     if (rb.status === 'ok') setRemboursements(rb.data);
+
+    if (sd.status === 'ok') setSolde(sd.data);
+    else if (sd.status === 'error' && sd.message === 'SOLDE_SERVEUR_ABSENT' && p1) {
+      // Migration pas encore appliquée : repli unique, partagé avec l'accueil
+      setSolde(soldeLocalTransitoire(p1, p2 ?? null,
+        d.status === 'ok' ? d.data : [], rb.status === 'ok' ? rb.data : []));
+    } else if (sd.status === 'error') setErreur(sd.message);
   }, []);
 
   useEffect(() => {
     if (ctx.etat !== 'pret') return;
-    charger(ctx.contexte.foyer.id);
+    charger(ctx.contexte.foyer.id, ctx.contexte.membres[0]?.profileId, ctx.contexte.membres[1]?.profileId);
   }, [ctx, charger]);
 
   async function reviser(id: string, action: 'validate' | 'dispute', householdId: string) {
@@ -69,7 +80,7 @@ export default function Depenses() {
     const r = await reviserDepense(id, action);
     if (r.status === 'ok') {
       setMsg(action === 'validate' ? 'Dépense validée.' : 'Dépense signalée à vérifier — l’autre parent en est informé.');
-      charger(householdId);
+      charger(householdId, p1?.profileId, p2?.profileId);
     } else if (r.status === 'error') setErreur(r.message);
   }
 
@@ -83,19 +94,14 @@ export default function Depenses() {
   const moi = ctx.etat === 'pret' ? ctx.contexte.moi : null;
   const p1 = membres[0]; const p2 = membres[1];
 
-  let solde: ReturnType<typeof computePairBalance> | null = null;
-  if (p1 && p2 && depenses) {
-    const validees: ExpenseForBalance[] = depenses
-      .filter((d) => d.statut === 'validated' || d.statut === 'reimbursed' || d.statut === 'partially_reimbursed')
-      .map((d) => ({ paidBy: d.payePar, allocations: d.parts }));
-    const regles: ReimbursementForBalance[] = remboursements.map((r) => ({
-      fromParent: r.deParent, toParent: r.versParent, amountCents: r.montantCents,
-    }));
-    solde = computePairBalance(p1.profileId, p2.profileId, validees, regles);
-  }
   // Montant que l'utilisateur courant doit régler (0 s'il est créancier)
+  /** Adaptation du solde serveur au format d'affichage, sans recalcul. */
+  const soldeAffichable = solde && solde.parent2
+    ? { parentA: solde.parent1, parentB: solde.parent2, netCentsForA: solde.netCents }
+    : null;
+
   const monDu = solde && moi
-    ? (moi === solde.parentA ? -solde.netCentsForA : solde.netCentsForA)
+    ? (moi === solde.parent1 ? solde.netCents : -solde.netCents)
     : 0;
   const jeDois = monDu < 0 ? Math.abs(monDu) : 0;
   const autre = membres.find((m) => m.profileId !== moi);
@@ -122,35 +128,31 @@ export default function Depenses() {
     if (r.status === 'ok') {
       setMsg('Remboursement enregistré. Le solde a été mis à jour.');
       setFormRemb(false); setMontantR(''); setRefR(''); setFichierR(null);
-      charger(householdId);
+      charger(householdId, p1?.profileId, p2?.profileId);
     } else if (r.status === 'error') setErreur(r.message);
   }
 
-  /** Solde qui résultera de la saisie en cours — évite toute erreur de sens. */
+  /** Solde qui résultera de la saisie en cours — calculé à partir du solde serveur. */
   function apercuSolde(): string | null {
-    if (!solde || !moi || !autre) return null;
+    if (!solde || !moi || !autre || !solde.parent2) return null;
     const clean = montantR.replace(',', '.').trim();
     if (!/^\d+(\.\d{1,2})?$/.test(clean)) return null;
     const [e, c = ''] = clean.split('.');
     const cents = Number(e) * 100 + Number((c + '00').slice(0, 2));
     if (cents <= 0) return null;
     const de = sens === 'je_rembourse' ? moi : autre.profileId;
-    const vers = sens === 'je_rembourse' ? autre.profileId : moi;
-    const validees: ExpenseForBalance[] = (depenses ?? [])
-      .filter((d) => d.statut === 'validated' || d.statut === 'reimbursed' || d.statut === 'partially_reimbursed')
-      .map((d) => ({ paidBy: d.payePar, allocations: d.parts }));
-    const regles: ReimbursementForBalance[] = [
-      ...remboursements.map((r) => ({ fromParent: r.deParent, toParent: r.versParent, amountCents: r.montantCents })),
-      { fromParent: de, toParent: vers, amountCents: cents },
-    ];
-    const futur = computePairBalance(p1!.profileId, p2!.profileId, validees, regles);
-    return balanceLabel(futur, moi);
+    // Un règlement du parent 1 vers le parent 2 augmente le net du parent 1
+    const futurNet = solde.netCents + (de === solde.parent1 ? cents : -cents);
+    return balanceLabel(
+      { parentA: solde.parent1, parentB: solde.parent2, netCentsForA: futurNet },
+      moi,
+    );
   }
 
   async function annuler(id: string, householdId: string) {
     if (!confirm('Annuler ce remboursement ? La ligne est conservée dans l’historique et la trace est journalisée.')) return;
     const r = await annulerRemboursement(id);
-    if (r.status === 'ok') { setMsg('Remboursement annulé. Le solde a été recalculé.'); charger(householdId); }
+    if (r.status === 'ok') { setMsg('Remboursement annulé. Le solde a été recalculé.'); charger(householdId, p1?.profileId, p2?.profileId); }
     else if (r.status === 'error') setErreur(r.message);
   }
 
@@ -186,14 +188,14 @@ export default function Depenses() {
     setEBusy(false);
     if (r.status === 'ok') {
       setMsg('Dépense modifiée. Elle repasse en attente de validation par l’autre parent.');
-      setEditId(null); charger(householdId);
+      setEditId(null); charger(householdId, p1?.profileId, p2?.profileId);
     } else if (r.status === 'error') setErreur(r.message);
   }
 
   async function supprimer(d: DepenseListe, householdId: string) {
     if (!confirm(`Supprimer « ${d.titre} » ? La dépense sort du solde ; la ligne reste conservée dans l’historique.`)) return;
     const r = await supprimerDepense(d.id);
-    if (r.status === 'ok') { setMsg('Dépense supprimée.'); charger(householdId); }
+    if (r.status === 'ok') { setMsg('Dépense supprimée.'); charger(householdId, p1?.profileId, p2?.profileId); }
     else if (r.status === 'error') setErreur(r.message);
   }
 
@@ -220,15 +222,16 @@ export default function Depenses() {
             <section className="card space-y-2 p-4">
               <h2 className="text-sm font-bold text-soft">Solde entre parents</h2>
               <div className="flex items-center justify-between gap-2">
-                <p className="font-bold">{balanceLabel(solde, p1.profileId)}</p>
+                <p className="font-bold">{soldeAffichable && balanceLabel(soldeAffichable, p1.profileId)}</p>
                 <ParentBadge name={p1.nom} initial={p1.initiale} colorKey={p1.couleur === 'coral' ? 'coral' : 'navy'} compact />
               </div>
               <div className="flex items-center justify-between gap-2 border-t border-line pt-2">
-                <p className="font-bold">{balanceLabel(solde, p2.profileId)}</p>
+                <p className="font-bold">{soldeAffichable && balanceLabel(soldeAffichable, p2.profileId)}</p>
                 <ParentBadge name={p2.nom} initial={p2.initiale} colorKey={p2.couleur === 'coral' ? 'coral' : 'navy'} compact />
               </div>
               <p className="text-xs text-soft">
                 Calculé sur les dépenses validées, remboursements déduits.
+                {solde?.provisoire && ' — calcul provisoire, mise à jour de la base en attente.'}
               </p>
 
               {!formRemb && (

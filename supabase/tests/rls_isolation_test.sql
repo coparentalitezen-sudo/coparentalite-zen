@@ -55,16 +55,33 @@ begin
   raise notice 'T6 OK — Carol accède normalement à son foyer B';
 end $$;
 
--- Test 7 : Carol tente de MODIFIER une dépense du foyer A → 0 ligne touchée
-update expenses set title = 'PIRATÉ'
-where id = 'dddddddd-0000-0000-0000-000000000001';
+-- Test 7 : Carol tente de MODIFIER une dépense du foyer A.
+-- Depuis la migration 00013, l'écriture directe sur expenses n'est plus
+-- seulement filtrée par la RLS : elle est refusée au niveau des privilèges.
+-- La garantie est donc plus forte qu'avant — on vérifie les deux voies.
 do $$
 begin
+  begin
+    update expenses set title = 'PIRATÉ' where id = 'dddddddd-0000-0000-0000-000000000001';
+    -- si l'écriture directe passait encore, la RLS doit au moins n'avoir touché aucune ligne
+  exception when insufficient_privilege then
+    null;  -- refus attendu
+  end;
+  -- voie légitime : la fonction serveur doit refuser un foyer étranger
+  begin
+    perform public.update_expense('dddddddd-0000-0000-0000-000000000001', 'PIRATÉ', 100,
+      current_date, null, null,
+      '[{"parent_id":"00000000-0000-0000-0000-00000000000c","owed_cents":100}]'::jsonb);
+    raise exception 'ÉCHEC T7b : la fonction serveur a accepté une dépense d''un autre foyer';
+  exception when others then
+    if sqlerrm like 'ÉCHEC%' then raise; end if;
+  end;
+
   perform set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
   if exists (select 1 from expenses where title = 'PIRATÉ') then
     raise exception 'ÉCHEC T7 : Carol a modifié une dépense du foyer A';
   end if;
-  raise notice 'T7 OK — modification inter-foyers bloquée (0 ligne)';
+  raise notice 'T7 OK — modification inter-foyers bloquée (privilèges + fonction serveur)';
 end $$;
 
 -- ============ Contexte : MALLORY (aucun foyer) ============

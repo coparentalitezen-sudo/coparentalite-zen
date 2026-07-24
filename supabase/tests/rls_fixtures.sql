@@ -64,3 +64,13 @@ returns boolean language sql security definer set search_path = public as $$
 
 grant execute on function public.test_depense_existe(uuid) to authenticated;
 grant execute on function public.test_audit_avant_apres(text, uuid, bigint, bigint) to authenticated;
+
+-- Force un statut de dépense sans passer par les fonctions métier.
+-- Réservé aux tests : aucun parcours applicatif ne produit « partially_reimbursed »
+-- aujourd'hui, il faut donc pouvoir le simuler pour vérifier son traitement comptable.
+create or replace function public.test_forcer_statut(p_expense uuid, p_statut text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  update expenses set status = p_statut::expense_status where id = p_expense;
+end $$;
+grant execute on function public.test_forcer_statut(uuid, text) to authenticated;

@@ -7,13 +7,10 @@ import { Chargement, Erreur, SansFoyer, Vide } from '@/components/etats';
 import { Icone, PastilleIcone, categorieVisuel, type NomIcone, type Pastille } from '@/components/icons';
 import { useContexte } from '@/lib/use-contexte';
 import {
-  listerDepenses, listerRemboursements, getRegleGarde,
-  type DepenseListe, type RegleGarde, type Remboursement,
+  listerDepenses, listerRemboursements, getRegleGarde, getSolde, soldeLocalTransitoire,
+  type DepenseListe, type RegleGarde, type Remboursement, type Solde,
 } from '@/lib/actions';
-import {
-  computePairBalance, formatCents,
-  type ExpenseForBalance, type ReimbursementForBalance,
-} from '@/lib/money';
+import { formatCents } from '@/lib/money';
 import { buildSchedule, whereToday } from '@/lib/custody';
 import { calculerSerenite } from '@/lib/serenite';
 
@@ -79,15 +76,25 @@ export default function Accueil() {
   const [regle, setRegle] = useState<RegleGarde | null | 'inconnu'>('inconnu');
   const [remboursements, setRemboursements] = useState<Remboursement[]>([]);
   const [erreur, setErreur] = useState<string | null>(null);
+  const [solde, setSolde] = useState<Solde | null>(null);
 
   useEffect(() => {
     if (ctx.etat !== 'pret') return;
     const hid = ctx.contexte.foyer.id;
-    listerDepenses(hid).then((r) => {
-      if (r.status === 'ok') setDepenses(r.data);
-      else if (r.status === 'error') setErreur(r.message);
+    const p1 = ctx.contexte.membres[0]?.profileId;
+    const p2 = ctx.contexte.membres[1]?.profileId ?? null;
+    Promise.all([listerDepenses(hid), listerRemboursements(hid), getSolde(hid)]).then(([d, rb, sd]) => {
+      if (d.status === 'ok') setDepenses(d.data);
+      else if (d.status === 'error') setErreur(d.message);
+      if (rb.status === 'ok') setRemboursements(rb.data);
+
+      if (sd.status === 'ok') setSolde(sd.data);
+      else if (sd.status === 'error' && sd.message === 'SOLDE_SERVEUR_ABSENT' && p1) {
+        // Repli identique à celui de l'écran Dépenses : un seul calcul, jamais deux
+        setSolde(soldeLocalTransitoire(p1, p2,
+          d.status === 'ok' ? d.data : [], rb.status === 'ok' ? rb.data : []));
+      } else if (sd.status === 'error') setErreur(sd.message);
     });
-    listerRemboursements(hid).then((r) => { if (r.status === 'ok') setRemboursements(r.data); });
     getRegleGarde(hid).then((r) => {
       if (r.status === 'ok') setRegle(r.data);
       else if (r.status === 'error') setErreur(r.message);
@@ -117,20 +124,10 @@ export default function Accueil() {
     } catch { return null; }
   }, [regle, today]);
 
-  // --- Solde (money.ts, inchangé) ---
-  const solde = useMemo(() => {
-    if (!p1 || !p2 || !depenses) return null;
-    const validees: ExpenseForBalance[] = depenses
-      .filter((d) => d.statut === 'validated' || d.statut === 'reimbursed')
-      .map((d) => ({ paidBy: d.payePar, allocations: d.parts }));
-    const regles: ReimbursementForBalance[] = remboursements.map((r) => ({
-      fromParent: r.deParent, toParent: r.versParent, amountCents: r.montantCents,
-    }));
-    return computePairBalance(p1.profileId, p2.profileId, validees, regles);
-  }, [p1, p2, depenses, remboursements]);
-
   /** Montant net pour l'utilisateur : positif = à recevoir, négatif = à régulariser. */
-  const monSolde = solde && moi ? (moi === solde.parentA ? solde.netCentsForA : -solde.netCentsForA) : null;
+  const monSolde = solde && moi && solde.parent2
+    ? (moi === solde.parent1 ? solde.netCents : -solde.netCents)
+    : null;
   const jeDois = monSolde !== null && monSolde < 0 ? Math.abs(monSolde) : 0;
 
   const aValider = (depenses ?? []).filter((d) => d.statut === 'sent' && moi !== null && d.payePar !== moi);
@@ -241,6 +238,7 @@ export default function Accueil() {
                     </p>
                     <p className="mt-1.5 text-[11px] leading-snug text-soft/85">
                       Dépenses validées, remboursements déduits.
+                      {solde?.provisoire && ' Calcul provisoire.'}
                     </p>
                   </>
                 )}
