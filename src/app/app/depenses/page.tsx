@@ -42,7 +42,6 @@ export default function Depenses() {
   const [refR, setRefR] = useState('');
   const [fichierR, setFichierR] = useState<File | null>(null);
   const [busyR, setBusyR] = useState(false);
-  const [sens, setSens] = useState<'je_rembourse' | 'il_me_rembourse'>('je_rembourse');
   // Modification d'une dépense
   const [editId, setEditId] = useState<string | null>(null);
   const [eTitre, setETitre] = useState('');
@@ -118,10 +117,9 @@ export default function Depenses() {
       if (!v.ok) { setErreur(v.message); return; }
     }
     setBusyR(true);
-    const de = sens === 'je_rembourse' ? moi : autre.profileId;
-    const vers = sens === 'je_rembourse' ? autre.profileId : moi;
+    // Règle : chacun n'enregistre que les versements qu'il effectue lui-même.
     const r = await creerRemboursement({
-      householdId, deParent: de, versParent: vers, montantCents: cents,
+      householdId, deParent: moi, versParent: autre.profileId, montantCents: cents,
       methode: methodeR, date: dateR, reference: refR, justificatif: fichierR,
     });
     setBusyR(false);
@@ -140,9 +138,9 @@ export default function Depenses() {
     const [e, c = ''] = clean.split('.');
     const cents = Number(e) * 100 + Number((c + '00').slice(0, 2));
     if (cents <= 0) return null;
-    const de = sens === 'je_rembourse' ? moi : autre.profileId;
-    // Un règlement du parent 1 vers le parent 2 augmente le net du parent 1
-    const futurNet = solde.netCents + (de === solde.parent1 ? cents : -cents);
+    // Le versement part toujours du parent connecté vers l'autre.
+    // Un règlement du parent 1 vers le parent 2 augmente le net du parent 1.
+    const futurNet = solde.netCents + (moi === solde.parent1 ? cents : -cents);
     return balanceLabel(
       { parentA: solde.parent1, parentB: solde.parent2, netCentsForA: futurNet },
       moi,
@@ -234,31 +232,27 @@ export default function Depenses() {
                 {solde?.provisoire && ' — calcul provisoire, mise à jour de la base en attente.'}
               </p>
 
-              {!formRemb && (
+              {!formRemb && jeDois > 0 && (
                 <button className="btn btn-primary w-full"
-                  onClick={() => { setFormRemb(true); setMontantR(jeDois > 0 ? (jeDois / 100).toFixed(2).replace('.', ',') : ''); }}>
-                  {jeDois > 0 ? `Rembourser ${formatCents(jeDois)}` : 'Enregistrer un remboursement'}
+                  onClick={() => { setFormRemb(true); setMontantR((jeDois / 100).toFixed(2).replace('.', ',')); }}>
+                  Rembourser {formatCents(jeDois)}
                 </button>
+              )}
+              {!formRemb && jeDois === 0 && autre && (
+                <p className="rounded-xl bg-muted px-3 py-2 text-sm text-soft">
+                  {solde && solde.netCents !== 0
+                    ? `C’est à ${autre.nom} d’enregistrer son remboursement lorsqu’il ou elle vous aura payé : chaque parent enregistre les versements qu’il effectue.`
+                    : 'Rien à régulariser pour le moment.'}
+                </p>
               )}
 
               {formRemb && autre && (
                 <div className="space-y-3 border-t border-line pt-3">
-                  <h3 className="font-bold">Enregistrer un remboursement</h3>
-                  <fieldset>
-                    <legend className="mb-1 text-sm font-bold">Qui a payé qui ?</legend>
-                    <div className="flex flex-col gap-2">
-                      <button type="button" aria-pressed={sens === 'je_rembourse'}
-                        onClick={() => setSens('je_rembourse')}
-                        className={`btn ${sens === 'je_rembourse' ? 'btn-primary' : 'btn-ghost'}`}>
-                        J’ai remboursé {autre.nom}
-                      </button>
-                      <button type="button" aria-pressed={sens === 'il_me_rembourse'}
-                        onClick={() => setSens('il_me_rembourse')}
-                        className={`btn ${sens === 'il_me_rembourse' ? 'btn-primary' : 'btn-ghost'}`}>
-                        {autre.nom} m’a remboursé
-                      </button>
-                    </div>
-                  </fieldset>
+                  <h3 className="font-bold">Vous remboursez {autre.nom}</h3>
+                  <p className="rounded-xl bg-muted px-3 py-2 text-xs text-soft">
+                    Chaque parent enregistre uniquement les versements qu’il effectue lui-même.
+                    {autre.nom} enregistrera de son côté les remboursements qu’il ou elle vous fera.
+                  </p>
                   <label className="block">
                     <span className="mb-1 block text-sm font-bold">Montant (€)</span>
                     <input inputMode="decimal" value={montantR} onChange={(e) => setMontantR(e.target.value)} placeholder="12,50" />

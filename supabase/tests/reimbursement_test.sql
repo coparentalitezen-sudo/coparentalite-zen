@@ -4,8 +4,23 @@
 -- ============================================================
 \set ON_ERROR_STOP on
 
--- ============ T70 : Bob rembourse Alice ============
+-- Mise en situation : un remboursement n'est désormais possible que s'il
+-- correspond à une dette réelle. Alice avance 200,00 € partagés 50/50,
+-- Bob valide : Bob doit donc 100,00 € à Alice.
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
+do $$
+declare eid uuid;
+begin
+  eid := public.create_expense_full('aaaaaaaa-0000-0000-0000-000000000001','Avance socle',20000,current_date,null,
+    '00000000-0000-0000-0000-00000000000a', null,
+    '[{"parent_id":"00000000-0000-0000-0000-00000000000a","owed_cents":10000,"basis_points":5000},
+      {"parent_id":"00000000-0000-0000-0000-00000000000b","owed_cents":10000,"basis_points":5000}]'::jsonb);
+  perform set_config('app.socle', eid::text, false);
+end $$;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', false);
+do $$ begin perform public.review_expense(current_setting('app.socle')::uuid, 'validate'); end $$;
+
+-- ============ T70 : Bob rembourse Alice ============
 do $$
 declare rid uuid; montant bigint;
 begin
@@ -50,7 +65,7 @@ begin
     raise exception 'ÉCHEC T72 : remboursement vers un parent extérieur accepté';
   exception when others then
     if sqlerrm like 'ÉCHEC%' then raise; end if;
-    if sqlerrm not like '%membres du foyer%' then
+    if sqlerrm not like '%parents comptables du foyer%' then
       raise exception 'ÉCHEC T72b : mauvais motif (%)', sqlerrm;
     end if;
   end;
@@ -99,11 +114,11 @@ begin
     raise exception 'ÉCHEC T75 : un membre non concerné a enregistré un remboursement';
   exception when others then
     if sqlerrm like 'ÉCHEC%' then raise; end if;
-    if sqlerrm not like '%vous concerne%' then
+    if sqlerrm not like '%effectue le paiement%' then
       raise exception 'ÉCHEC T75b : mauvais motif (%)', sqlerrm;
     end if;
   end;
-  raise notice 'T75 OK — seuls les parents concernés peuvent enregistrer';
+  raise notice 'T75 OK — seul le parent qui paie peut enregistrer le remboursement';
 end $$;
 
 -- ============ T76 : isolation — le foyer B ne voit pas ce remboursement ============

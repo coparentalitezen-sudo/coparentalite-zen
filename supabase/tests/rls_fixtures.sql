@@ -74,3 +74,38 @@ begin
   update expenses set status = p_statut::expense_status where id = p_expense;
 end $$;
 grant execute on function public.test_forcer_statut(uuid, text) to authenticated;
+
+-- ---- Helpers de test (SECURITY DEFINER) : contourner volontairement les
+-- ---- verrous pour construire des situations que l'application interdit.
+create or replace function public.test_forcer_statut(p_expense uuid, p_statut text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  update expenses set status = p_statut::expense_status where id = p_expense;
+end $$;
+
+create or replace function public.test_ajouter_membre(p_household uuid, p_profile uuid, p_role text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  insert into household_members (household_id, profile_id, role, color_key)
+  values (p_household, p_profile, p_role::member_role, 'sage')
+  on conflict (household_id, profile_id) do update set role = excluded.role, deleted_at = null;
+end $$;
+
+create or replace function public.test_retirer_membre(p_household uuid, p_profile uuid) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  update household_members set deleted_at = now()
+  where household_id = p_household and profile_id = p_profile;
+end $$;
+
+grant execute on function public.test_forcer_statut(uuid, text) to authenticated;
+grant execute on function public.test_ajouter_membre(uuid, uuid, text) to authenticated;
+grant execute on function public.test_retirer_membre(uuid, uuid) to authenticated;
+
+-- Lecture des membres comptables pour les tests (comptable_members est
+-- volontairement inaccessible au rôle applicatif).
+create or replace function public.test_comptables(p_household uuid)
+returns table (rang int, profile_id uuid)
+language sql security definer set search_path = public as $$
+  select * from public.comptable_members(p_household) $$;
+grant execute on function public.test_comptables(uuid) to authenticated;
