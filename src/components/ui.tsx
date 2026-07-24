@@ -42,7 +42,7 @@ export function BottomNav({ active }: { active: string }) {
       className="fixed inset-x-0 bottom-0 z-40 pb-[env(safe-area-inset-bottom)]"
     >
       <div className="mx-auto max-w-md px-2">
-        <div className="flex items-end justify-around rounded-t-3xl bg-card px-2 pb-1.5 pt-2 shadow-[0_-2px_16px_rgb(16_27_44_/.08)]">
+        <div className="flex items-end justify-around rounded-t-3xl bg-card px-2 pb-2 pt-2.5 shadow-[0_-2px_16px_rgb(16_27_44_/.07)]">
           {tabs.map((t) =>
             t.central ? (
               <Link key={t.href} href={t.href} aria-label="Ajouter"

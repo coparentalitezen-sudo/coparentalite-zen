@@ -51,22 +51,22 @@ interface Action { cle: string; titre: string; sous: string; href: string; nom: 
 
 /** Anneau de sérénité : complétude administrative du foyer, jamais une comparaison de parents. */
 function AnneauSerenite({ pourcentage, libelle }: { pourcentage: number; libelle: string }) {
-  const r = 46;
+  const r = 45;
   const circonference = 2 * Math.PI * r;
   const rempli = (Math.max(0, Math.min(100, pourcentage)) / 100) * circonference;
   return (
     <div className="relative grid place-items-center" role="img"
       aria-label={`Sérénité du foyer : ${pourcentage} %. ${libelle}.`}>
-      <svg width="132" height="132" viewBox="0 0 120 120" className="-rotate-90">
-        <circle cx="60" cy="60" r={r} fill="none" stroke="var(--color-muted)" strokeWidth="9" />
-        <circle cx="60" cy="60" r={r} fill="none" stroke="#22A15B" strokeWidth="9"
+      <svg width="88" height="88" viewBox="0 0 120 120" className="-rotate-90">
+        <circle cx="60" cy="60" r={r} fill="none" stroke="var(--color-muted)" strokeWidth="10" />
+        <circle cx="60" cy="60" r={r} fill="none" stroke="#22A15B" strokeWidth="10"
           strokeLinecap="round" strokeDasharray={`${rempli} ${circonference}`} />
       </svg>
       <div className="absolute inset-0 grid place-items-center">
         <div className="text-center leading-none">
-          <p className="text-[26px] font-extrabold tracking-tight">{pourcentage} %</p>
-          <p className="mt-1 text-xs font-semibold text-soft">Sérénité</p>
-          <span className="mt-1.5 inline-block text-[#22A15B]"><Icone nom="pousse" taille={18} /></span>
+          <p className="text-[17px] font-extrabold tracking-tight">{pourcentage} %</p>
+          <p className="mt-0.5 text-[9px] font-semibold text-soft">Sérénité</p>
+          <span className="mt-0.5 inline-block text-[#22A15B]"><Icone nom="pousse" taille={12} /></span>
         </div>
       </div>
     </div>
@@ -193,7 +193,7 @@ export default function Accueil() {
   const recentes = (depenses ?? []).slice(0, 3);
 
   return (
-    <main className="space-y-4 px-4 pb-4 pt-4">
+    <main className="space-y-5 px-4 pb-6 pt-3">
       {ctx.etat === 'chargement' && <Chargement />}
       {ctx.etat === 'erreur' && <Erreur message={ctx.message} details={ctx.details} onReessayer={recharger} />}
       {ctx.etat === 'sans-foyer' && <SansFoyer />}
@@ -203,118 +203,119 @@ export default function Accueil() {
       {ctx.etat === 'pret' && (
         <>
           {/* 1. Salutation + état du foyer */}
-          <header className="flex items-start justify-between gap-3">
+          <header className="flex items-center justify-between gap-3 pt-1">
             <div className="min-w-0">
-              <h1 className="font-display text-[26px] font-semibold leading-tight tracking-tight">
-                Bonjour {monProfil?.nom ?? ''} <span aria-hidden>👋</span>
+              <h1 className="font-display text-[20px] font-semibold leading-tight tracking-tight">
+                Bonjour {monProfil?.nom ?? ''}
               </h1>
-              <p className="mt-1 text-sm text-soft">{majuscule(dateLongue(today))}</p>
+              <p className="mt-0.5 text-[13px] text-soft/85">{majuscule(dateLongue(today))}</p>
             </div>
-            <div className="shrink-0 rounded-2xl bg-[#E7F4EC] px-3 py-2 text-right">
-              <p className="flex items-center justify-end gap-1.5 text-sm font-bold text-[#1F7A45]">
-                <Icone nom="check" taille={16} />
-                {serenite.libelle}
-              </p>
-              <p className="text-[11px] text-[#4A6B57]">Sérénité du foyer</p>
-            </div>
+            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#EEF5F0] px-2.5 py-1.5 text-[11px] font-bold text-[#1F7A45]">
+              <Icone nom="check" taille={13} />
+              {serenite.libelle}
+            </span>
           </header>
 
           {/* 2. Carte principale : solde · sérénité · prochain changement */}
-          <section className="card p-4" aria-labelledby="titre-solde">
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+          <section className="card px-4 py-5" aria-labelledby="titre-solde">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-2">
               <div className="min-w-0">
-                <p id="titre-solde" className="flex items-center gap-1 text-sm font-semibold text-soft">
+                <p id="titre-solde" className="flex items-center gap-1 whitespace-nowrap text-[11px] font-semibold text-soft/80">
                   Solde actuel
-                  <span title="Dépenses validées, remboursements déduits." className="text-soft/70">
-                    <Icone nom="info" taille={14} />
+                  <span title="Dépenses validées, remboursements déduits." className="text-soft/60">
+                    <Icone nom="info" taille={13} />
                   </span>
                 </p>
                 {monSolde === null ? (
                   <>
-                    <p className="mt-1 text-[26px] font-extrabold leading-tight tracking-tight">—</p>
-                    <p className="mt-1 text-xs leading-snug text-soft">
-                      Le solde apparaîtra dès que le second parent aura rejoint le foyer.
+                    <p className="mt-1.5 text-[clamp(19px,5.4vw,24px)] font-extrabold leading-none tracking-tight">—</p>
+                    <p className="mt-1.5 text-[11px] leading-snug text-soft/85">
+                      En attente du second parent.
                     </p>
                   </>
                 ) : (
                   <>
-                    <p className={`mt-1 text-[27px] font-extrabold leading-tight tracking-tight ${
+                    <p className={`mt-1.5 whitespace-nowrap text-[clamp(19px,5.4vw,24px)] font-extrabold leading-none tracking-tight tabular-nums ${
                       monSolde > 0 ? 'text-[#1F7A45]' : monSolde < 0 ? 'text-coral-text' : ''}`}>
-                      {monSolde > 0 ? '+ ' : monSolde < 0 ? '− ' : ''}{formatCents(Math.abs(monSolde))}
+                      {monSolde > 0 ? '+' : monSolde < 0 ? '−' : ''}{formatCents(Math.abs(monSolde))}
                     </p>
-                    <p className="mt-1 text-xs leading-snug text-soft">
+                    <p className="mt-1.5 text-[11px] leading-snug text-soft/85">
                       Dépenses validées, remboursements déduits.
                     </p>
                   </>
                 )}
                 <Link href="/app/depenses"
-                  className="mt-3 inline-flex min-h-9 items-center rounded-xl bg-[#E7F4EC] px-3 text-sm font-bold text-[#1F7A45]">
+                  className="mt-2.5 inline-flex items-center gap-1 text-[13px] font-bold text-navy-text">
                   Voir le détail
+                  <span aria-hidden className="translate-y-px"><Icone nom="chevron" taille={13} /></span>
                 </Link>
               </div>
 
               <AnneauSerenite pourcentage={serenite.pourcentage} libelle={serenite.libelle} />
 
               <div className="min-w-0 text-right">
-                <p className="text-sm font-semibold text-soft">Prochain changement</p>
-                <span className="mt-2 inline-grid h-11 w-11 place-items-center rounded-2xl bg-[#E7F4EC] text-[#1F7A45]">
-                  <Icone nom="calendrier" taille={21} />
+                <p className="text-[11px] font-semibold leading-tight text-soft/80">
+                  Prochain<br />changement
+                </p>
+                <span className="mt-1.5 inline-grid h-9 w-9 place-items-center rounded-xl bg-muted text-soft">
+                  <Icone nom="calendrier" taille={18} />
                 </span>
                 {garde?.prochain && garde.prochainParent ? (
                   <>
-                    <p className="mt-2 text-[15px] font-bold leading-tight">
+                    <p className="mt-1.5 whitespace-nowrap text-[14px] font-bold leading-tight">
                       {majuscule(dateCourte(garde.prochain))}
                     </p>
-                    <p className="text-xs text-soft">chez {nom(garde.prochainParent)}</p>
+                    <p className="truncate text-[11px] text-soft/85">chez {nom(garde.prochainParent)}</p>
                   </>
                 ) : (
-                  <p className="mt-2 text-xs leading-snug text-soft">
-                    {regle === null ? 'Rythme de garde à définir' : 'Aucun changement prévu'}
+                  <p className="mt-1.5 text-[11px] leading-snug text-soft/85">
+                    {regle === null ? 'Rythme à définir' : 'Aucun changement prévu'}
                   </p>
                 )}
                 <Link href="/app/planning"
-                  className="mt-3 inline-flex min-h-9 items-center rounded-xl bg-[#E7F4EC] px-3 text-sm font-bold text-[#1F7A45]">
+                  className="mt-2.5 inline-flex items-center gap-1 text-[13px] font-bold text-navy-text">
                   Voir le planning
+                  <span aria-hidden className="translate-y-px"><Icone nom="chevron" taille={13} /></span>
                 </Link>
               </div>
             </div>
           </section>
 
           {/* 3. À faire aujourd'hui */}
-          <section id="a-faire" className="card p-4">
+          <section id="a-faire" className="card px-4 py-5">
             <div className="flex items-center justify-between gap-2">
-              <h2 className="flex items-center gap-2 font-display text-lg font-semibold tracking-tight">
+              <h2 className="flex items-center gap-2 font-display text-[17px] font-semibold tracking-tight">
                 À faire aujourd’hui
                 {actions.length > 0 && (
-                  <span className="grid h-6 min-w-6 place-items-center rounded-full bg-err px-1.5 text-xs font-bold text-white">
+                  <span className="grid h-5 min-w-5 place-items-center rounded-full bg-err-bg px-1.5 text-[11px] font-bold text-err">
                     {actions.length}
                   </span>
                 )}
               </h2>
               {actions.length > 0 && (
-                <Link href="/app/depenses" className="text-sm font-bold text-soft underline">Tout voir</Link>
+                <Link href="/app/depenses" className="text-[13px] font-semibold text-soft/85">Tout voir</Link>
               )}
             </div>
 
             {actions.length === 0 ? (
-              <div className="mt-3 flex items-center gap-3 rounded-2xl bg-[#E7F4EC] px-4 py-3.5">
+              <div className="mt-3 flex items-center gap-3 rounded-2xl bg-[#EEF5F0] px-4 py-4">
                 <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-[#1F7A45]">
                   <Icone nom="check" taille={18} />
                 </span>
                 <p className="font-bold text-[#1F7A45]">Tout est à jour</p>
               </div>
             ) : (
-              <ul className="mt-1 divide-y divide-line">
+              <ul className="mt-2 divide-y divide-line-soft">
                 {actions.map((a) => (
                   <li key={a.cle}>
                     <Link href={a.href}
-                      className="flex min-h-16 items-center gap-3 py-2.5 text-left">
+                      className="flex min-h-[60px] items-center gap-3 py-3 text-left">
                       <PastilleIcone nom={a.nom} ton={a.ton} />
                       <span className="min-w-0 flex-1">
                         <span className="block font-bold leading-snug">{a.titre}</span>
-                        <span className="block text-sm text-soft">{a.sous}</span>
+                        <span className="mt-0.5 block text-[13px] leading-snug text-soft/85">{a.sous}</span>
                       </span>
-                      <span aria-hidden className="shrink-0 text-soft"><Icone nom="chevron" taille={18} /></span>
+                      <span aria-hidden className="shrink-0 text-soft/60"><Icone nom="chevron" taille={17} /></span>
                     </Link>
                   </li>
                 ))}
@@ -323,10 +324,10 @@ export default function Accueil() {
           </section>
 
           {/* 4. Dernières dépenses */}
-          <section className="card p-4">
+          <section className="card px-4 py-5">
             <div className="flex items-center justify-between gap-2">
-              <h2 className="font-display text-lg font-semibold tracking-tight">Dernières dépenses</h2>
-              <Link href="/app/depenses" className="text-sm font-bold text-soft underline">Voir toutes</Link>
+              <h2 className="font-display text-[17px] font-semibold tracking-tight">Dernières dépenses</h2>
+              <Link href="/app/depenses" className="text-[13px] font-semibold text-soft/85">Voir toutes</Link>
             </div>
 
             {depenses === null ? (
@@ -338,22 +339,22 @@ export default function Accueil() {
                 <Link href="/app/ajouter" className="btn btn-primary mt-3 w-full">Ajouter une dépense</Link>
               </div>
             ) : (
-              <ul className="mt-1 divide-y divide-line">
+              <ul className="mt-2 divide-y divide-line-soft">
                 {recentes.map((d) => {
                   const v = categorieVisuel(d.categorie);
                   const s = STATUTS[d.statut] ?? { texte: d.statut, point: 'bg-line', texteCls: 'text-soft' };
                   return (
-                    <li key={d.id} className="flex items-center gap-3 py-2.5">
+                    <li key={d.id} className="flex items-center gap-3 py-3">
                       <PastilleIcone nom={v.nom} ton={v.ton} />
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-bold leading-snug">{d.titre}</p>
-                        <p className="truncate text-sm text-soft">
+                        <p className="mt-0.5 truncate text-[13px] leading-snug text-soft/85">
                           {dateCourte(d.date)} • {nom(d.payePar)}
                         </p>
                       </div>
                       <div className="shrink-0 text-right">
-                        <p className="font-bold">{formatCents(d.montantCents)}</p>
-                        <p className={`flex items-center justify-end gap-1.5 text-xs font-semibold ${s.texteCls}`}>
+                        <p className="whitespace-nowrap font-bold tabular-nums">{formatCents(d.montantCents)}</p>
+                        <p className={`mt-0.5 flex items-center justify-end gap-1.5 text-[12px] font-semibold ${s.texteCls}`}>
                           <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${s.point}`} />
                           {s.texte}
                         </p>
