@@ -39,25 +39,30 @@ export function BottomNav({ active }: { active: string }) {
   return (
     <nav
       aria-label="Navigation principale"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"
+      className="fixed inset-x-0 bottom-0 z-40 pb-[env(safe-area-inset-bottom)]"
     >
-      <div className="mx-auto flex max-w-md items-end justify-around px-2 py-1.5">
-        {tabs.map((t) =>
-          t.central ? (
-            <Link key={t.href} href={t.href} aria-label="Ajouter"
-              className="-mt-6 grid h-14 w-14 place-items-center rounded-full bg-navy text-white shadow-lg">
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d={t.icon} /></svg>
-            </Link>
-          ) : (
-            <Link key={t.href} href={t.href} aria-current={active === t.href ? 'page' : undefined}
-              className={`flex min-h-11 min-w-14 flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-[11px] font-bold ${
-                active === t.href ? 'text-navy-text' : 'text-soft'
-              }`}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={t.icon} /></svg>
-              {t.label}
-            </Link>
-          )
-        )}
+      <div className="mx-auto max-w-md px-2">
+        <div className="flex items-end justify-around rounded-t-3xl bg-card px-2 pb-1.5 pt-2 shadow-[0_-2px_16px_rgb(16_27_44_/.08)]">
+          {tabs.map((t) =>
+            t.central ? (
+              <Link key={t.href} href={t.href} aria-label="Ajouter"
+                className="-mt-7 grid h-16 w-16 place-items-center rounded-full bg-ink text-white shadow-[0_6px_18px_rgb(16_27_44_/.28)] transition-transform active:scale-95">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d={t.icon} /></svg>
+              </Link>
+            ) : (
+              <Link key={t.href} href={t.href} aria-current={active === t.href ? 'page' : undefined}
+                className={`flex min-h-12 min-w-14 flex-col items-center justify-center gap-1 rounded-2xl px-2 py-1 text-[11px] font-bold transition-colors ${
+                  active === t.href ? 'text-ink' : 'text-soft'
+                }`}>
+                <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  strokeWidth={active === t.href ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round">
+                  <path d={t.icon} />
+                </svg>
+                {t.label}
+              </Link>
+            )
+          )}
+        </div>
       </div>
     </nav>
   );

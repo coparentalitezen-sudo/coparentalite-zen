@@ -1,18 +1,76 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { BottomNav, ParentBadge } from '@/components/ui';
+import { BottomNav } from '@/components/ui';
 import { Chargement, Erreur, SansFoyer, Vide } from '@/components/etats';
+import { Icone, PastilleIcone, categorieVisuel, type NomIcone, type Pastille } from '@/components/icons';
 import { useContexte } from '@/lib/use-contexte';
-import { listerDepenses, listerRemboursements, getRegleGarde, type DepenseListe, type RegleGarde, type Remboursement } from '@/lib/actions';
-import { computePairBalance, balanceLabel, formatCents, type ExpenseForBalance, type ReimbursementForBalance } from '@/lib/money';
+import {
+  listerDepenses, listerRemboursements, getRegleGarde,
+  type DepenseListe, type RegleGarde, type Remboursement,
+} from '@/lib/actions';
+import {
+  computePairBalance, formatCents,
+  type ExpenseForBalance, type ReimbursementForBalance,
+} from '@/lib/money';
 import { buildSchedule, whereToday } from '@/lib/custody';
+import { calculerSerenite } from '@/lib/serenite';
 
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
 
-function frDate(d: string) {
-  return new Date(d + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+function dateLongue(d: string) {
+  return new Date(d + 'T12:00:00').toLocaleDateString('fr-FR',
+    { weekday: 'long', day: 'numeric', month: 'long' });
+}
+function dateCourte(d: string) {
+  return new Date(d + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+}
+function majuscule(s: string) { return s.charAt(0).toUpperCase() + s.slice(1); }
+function joursAvant(cible: string) {
+  const a = new Date(aujourdhui() + 'T12:00:00').getTime();
+  const b = new Date(cible + 'T12:00:00').getTime();
+  return Math.round((b - a) / 86400000);
+}
+
+/** Pastille de statut d'une dépense : point coloré + libellé, jamais la couleur seule. */
+const STATUTS: Record<string, { texte: string; point: string; texteCls: string }> = {
+  sent: { texte: 'En attente', point: 'bg-[#D98324]', texteCls: 'text-[#8A6A1F]' },
+  seen: { texte: 'En attente', point: 'bg-[#D98324]', texteCls: 'text-[#8A6A1F]' },
+  to_validate: { texte: 'Précision demandée', point: 'bg-[#D98324]', texteCls: 'text-[#8A6A1F]' },
+  validated: { texte: 'Validée', point: 'bg-[#1F7A45]', texteCls: 'text-[#1F7A45]' },
+  partially_validated: { texte: 'Partielle', point: 'bg-[#D98324]', texteCls: 'text-[#8A6A1F]' },
+  disputed: { texte: 'À vérifier', point: 'bg-[#B3423A]', texteCls: 'text-err' },
+  reimbursed: { texte: 'Remboursée', point: 'bg-[#1F7A45]', texteCls: 'text-[#1F7A45]' },
+  partially_reimbursed: { texte: 'Partielle', point: 'bg-[#D98324]', texteCls: 'text-[#8A6A1F]' },
+  draft: { texte: 'Brouillon', point: 'bg-line', texteCls: 'text-soft' },
+  cancelled: { texte: 'Annulée', point: 'bg-line', texteCls: 'text-soft' },
+};
+
+interface Action { cle: string; titre: string; sous: string; href: string; nom: NomIcone; ton: Pastille }
+
+/** Anneau de sérénité : complétude administrative du foyer, jamais une comparaison de parents. */
+function AnneauSerenite({ pourcentage, libelle }: { pourcentage: number; libelle: string }) {
+  const r = 46;
+  const circonference = 2 * Math.PI * r;
+  const rempli = (Math.max(0, Math.min(100, pourcentage)) / 100) * circonference;
+  return (
+    <div className="relative grid place-items-center" role="img"
+      aria-label={`Sérénité du foyer : ${pourcentage} %. ${libelle}.`}>
+      <svg width="132" height="132" viewBox="0 0 120 120" className="-rotate-90">
+        <circle cx="60" cy="60" r={r} fill="none" stroke="var(--color-muted)" strokeWidth="9" />
+        <circle cx="60" cy="60" r={r} fill="none" stroke="#22A15B" strokeWidth="9"
+          strokeLinecap="round" strokeDasharray={`${rempli} ${circonference}`} />
+      </svg>
+      <div className="absolute inset-0 grid place-items-center">
+        <div className="text-center leading-none">
+          <p className="text-[26px] font-extrabold tracking-tight">{pourcentage} %</p>
+          <p className="mt-1 text-xs font-semibold text-soft">Sérénité</p>
+          <span className="mt-1.5 inline-block text-[#22A15B]"><Icone nom="pousse" taille={18} /></span>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function Accueil() {
@@ -38,44 +96,104 @@ export default function Accueil() {
 
   const membres = ctx.etat === 'pret' ? ctx.contexte.membres : [];
   const enfants = ctx.etat === 'pret' ? ctx.contexte.enfants : [];
+  const moi = ctx.etat === 'pret' ? ctx.contexte.moi : null;
   const p1 = membres[0]; const p2 = membres[1];
+  const monProfil = membres.find((m) => m.profileId === moi);
+  const autre = membres.find((m) => m.profileId !== moi);
   const today = aujourdhui();
-
-  // Garde du jour, calculée par le moteur à partir de la règle du foyer
-  let gardeAujourdhui: { parent: string; prochain: string | null; prochainParent: string | null } | null = null;
-  if (regle && regle !== 'inconnu' && regle.parent2) {
-    try {
-      const debut = regle.startDate;
-      const fin = new Date(Date.now() + 120 * 86400000).toISOString().slice(0, 10);
-      const periodes = buildSchedule(
-        { pattern: regle.pattern, startDate: debut, parent1: regle.parent1, parent2: regle.parent2 },
-        debut < today ? debut : today, fin
-      );
-      const t = whereToday(periodes, today);
-      if (t) gardeAujourdhui = { parent: t.parentId, prochain: t.nextChange, prochainParent: t.nextParent };
-    } catch { /* règle incohérente : on n'affiche rien plutôt qu'une information fausse */ }
-  }
-
   const nom = (id: string) => membres.find((m) => m.profileId === id)?.nom ?? 'Parent';
-  const membre = (id: string) => membres.find((m) => m.profileId === id);
 
-  let solde = null;
-  if (p1 && p2 && depenses) {
+  // --- Garde du jour et prochain changement (moteur custody, inchangé) ---
+  const garde = useMemo(() => {
+    if (!regle || regle === 'inconnu' || !regle.parent2) return null;
+    try {
+      const fin = new Date(Date.now() + 120 * 86400000).toISOString().slice(0, 10);
+      const debut = regle.startDate < today ? regle.startDate : today;
+      const periodes = buildSchedule(
+        { pattern: regle.pattern, startDate: regle.startDate, parent1: regle.parent1, parent2: regle.parent2 },
+        debut, fin);
+      const t = whereToday(periodes, today);
+      return t ? { parent: t.parentId, prochain: t.nextChange, prochainParent: t.nextParent } : null;
+    } catch { return null; }
+  }, [regle, today]);
+
+  // --- Solde (money.ts, inchangé) ---
+  const solde = useMemo(() => {
+    if (!p1 || !p2 || !depenses) return null;
     const validees: ExpenseForBalance[] = depenses
       .filter((d) => d.statut === 'validated' || d.statut === 'reimbursed')
       .map((d) => ({ paidBy: d.payePar, allocations: d.parts }));
     const regles: ReimbursementForBalance[] = remboursements.map((r) => ({
       fromParent: r.deParent, toParent: r.versParent, amountCents: r.montantCents,
     }));
-    solde = computePairBalance(p1.profileId, p2.profileId, validees, regles);
+    return computePairBalance(p1.profileId, p2.profileId, validees, regles);
+  }, [p1, p2, depenses, remboursements]);
+
+  /** Montant net pour l'utilisateur : positif = à recevoir, négatif = à régulariser. */
+  const monSolde = solde && moi ? (moi === solde.parentA ? solde.netCentsForA : -solde.netCentsForA) : null;
+  const jeDois = monSolde !== null && monSolde < 0 ? Math.abs(monSolde) : 0;
+
+  const aValider = (depenses ?? []).filter((d) => d.statut === 'sent' && moi !== null && d.payePar !== moi);
+  const aVerifier = (depenses ?? []).filter((d) => d.statut === 'disputed');
+  const sansJustificatif = (depenses ?? []).filter((d) => d.payePar === moi && d.justificatifs === 0);
+
+  const serenite = calculerSerenite({
+    deuxParents: membres.length >= 2,
+    auMoinsUnEnfant: enfants.length > 0,
+    rythmeDefini: regle !== 'inconnu' && regle !== null,
+    depensesEnAttente: (depenses ?? []).filter((d) => d.statut === 'sent').length,
+    depensesAVerifier: aVerifier.length,
+    soldeCents: monSolde ?? 0,
+  });
+
+  // --- À faire aujourd'hui : uniquement des actions réellement nécessaires ---
+  const actions: Action[] = [];
+  if (membres.length < 2) actions.push({
+    cle: 'inviter', titre: 'Inviter le second parent', sous: 'Pour partager planning et dépenses',
+    href: '/app/foyer', nom: 'personnes', ton: 'bleu',
+  });
+  if (enfants.length === 0) actions.push({
+    cle: 'enfant', titre: 'Ajouter un enfant', sous: 'Indispensable pour les dépenses et le planning',
+    href: '/app/enfants', nom: 'ecole', ton: 'violet',
+  });
+  if (regle === null && membres.length >= 2) actions.push({
+    cle: 'rythme', titre: 'Définir le rythme de garde', sous: 'Le planning se génère ensuite tout seul',
+    href: '/app/foyer', nom: 'calendrier', ton: 'violet',
+  });
+  if (aValider.length > 0) actions.push({
+    cle: 'valider',
+    titre: `${aValider.length} dépense${aValider.length > 1 ? 's' : ''} à valider`,
+    sous: aValider.length === 1 ? `Ajoutée par ${nom(aValider[0].payePar)}` : 'En attente de votre validation',
+    href: '/app/depenses', nom: 'presse-papier', ton: 'ambre',
+  });
+  if (aVerifier.length > 0) actions.push({
+    cle: 'verifier',
+    titre: `${aVerifier.length} dépense${aVerifier.length > 1 ? 's' : ''} à vérifier`,
+    sous: 'Un désaccord a été signalé', href: '/app/depenses', nom: 'recu', ton: 'rose',
+  });
+  if (jeDois > 0) actions.push({
+    cle: 'rembourser', titre: `Rembourser ${formatCents(jeDois)}`,
+    sous: autre ? `À régulariser avec ${autre.nom}` : 'À régulariser',
+    href: '/app/depenses', nom: 'echange', ton: 'bleu',
+  });
+  if (garde?.prochain) {
+    const j = joursAvant(garde.prochain);
+    if (j >= 0 && j <= 2) actions.push({
+      cle: 'garde', titre: 'Préparer le changement de garde',
+      sous: j === 0 ? "Aujourd'hui" : j === 1 ? 'Demain' : `Dans ${j} jours`,
+      href: '/app/planning', nom: 'calendrier', ton: 'violet',
+    });
   }
-  const aValider = (depenses ?? []).filter((d) => d.statut === 'sent');
+  if (sansJustificatif.length > 0) actions.push({
+    cle: 'justif',
+    titre: `${sansJustificatif.length} justificatif${sansJustificatif.length > 1 ? 's' : ''} à ajouter`,
+    sous: 'Sur vos dépenses récentes', href: '/app/depenses', nom: 'recu', ton: 'gris',
+  });
+
   const recentes = (depenses ?? []).slice(0, 3);
 
   return (
-    <main className="space-y-4 px-4 py-4">
-      <h1 className="sr-only">Accueil</h1>
-
+    <main className="space-y-4 px-4 pb-4 pt-4">
       {ctx.etat === 'chargement' && <Chargement />}
       {ctx.etat === 'erreur' && <Erreur message={ctx.message} details={ctx.details} onReessayer={recharger} />}
       {ctx.etat === 'sans-foyer' && <SansFoyer />}
@@ -84,88 +202,168 @@ export default function Accueil() {
 
       {ctx.etat === 'pret' && (
         <>
-          <section className="card p-4">
-            <h2 className="text-sm font-bold text-soft">Aujourd’hui, {frDate(today)}</h2>
-            {enfants.length === 0 ? (
-              <p className="mt-2 text-sm">
-                Ajoutez vos enfants pour voir leur planning.{' '}
-                <Link href="/app/enfants" className="font-bold text-navy-text underline">Ajouter un enfant</Link>
+          {/* 1. Salutation + état du foyer */}
+          <header className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="font-display text-[26px] font-semibold leading-tight tracking-tight">
+                Bonjour {monProfil?.nom ?? ''} <span aria-hidden>👋</span>
+              </h1>
+              <p className="mt-1 text-sm text-soft">{majuscule(dateLongue(today))}</p>
+            </div>
+            <div className="shrink-0 rounded-2xl bg-[#E7F4EC] px-3 py-2 text-right">
+              <p className="flex items-center justify-end gap-1.5 text-sm font-bold text-[#1F7A45]">
+                <Icone nom="check" taille={16} />
+                {serenite.libelle}
               </p>
-            ) : gardeAujourdhui ? (
-              <>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <span className="text-lg font-bold">{enfants.map((e) => e.prenom).join(' et ')} :</span>
-                  {membre(gardeAujourdhui.parent) && (
-                    <ParentBadge name={nom(gardeAujourdhui.parent)}
-                      initial={membre(gardeAujourdhui.parent)!.initiale}
-                      colorKey={membre(gardeAujourdhui.parent)!.couleur === 'coral' ? 'coral' : 'navy'} />
-                  )}
-                </div>
-                {gardeAujourdhui.prochain && gardeAujourdhui.prochainParent && (
-                  <p className="mt-2 rounded-xl bg-muted px-3 py-2 text-sm">
-                    Prochain changement le <strong>{frDate(gardeAujourdhui.prochain)}</strong> — chez{' '}
-                    <strong>{nom(gardeAujourdhui.prochainParent)}</strong>.
+              <p className="text-[11px] text-[#4A6B57]">Sérénité du foyer</p>
+            </div>
+          </header>
+
+          {/* 2. Carte principale : solde · sérénité · prochain changement */}
+          <section className="card p-4" aria-labelledby="titre-solde">
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+              <div className="min-w-0">
+                <p id="titre-solde" className="flex items-center gap-1 text-sm font-semibold text-soft">
+                  Solde actuel
+                  <span title="Dépenses validées, remboursements déduits." className="text-soft/70">
+                    <Icone nom="info" taille={14} />
+                  </span>
+                </p>
+                {monSolde === null ? (
+                  <>
+                    <p className="mt-1 text-[26px] font-extrabold leading-tight tracking-tight">—</p>
+                    <p className="mt-1 text-xs leading-snug text-soft">
+                      Le solde apparaîtra dès que le second parent aura rejoint le foyer.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className={`mt-1 text-[27px] font-extrabold leading-tight tracking-tight ${
+                      monSolde > 0 ? 'text-[#1F7A45]' : monSolde < 0 ? 'text-coral-text' : ''}`}>
+                      {monSolde > 0 ? '+ ' : monSolde < 0 ? '− ' : ''}{formatCents(Math.abs(monSolde))}
+                    </p>
+                    <p className="mt-1 text-xs leading-snug text-soft">
+                      Dépenses validées, remboursements déduits.
+                    </p>
+                  </>
+                )}
+                <Link href="/app/depenses"
+                  className="mt-3 inline-flex min-h-9 items-center rounded-xl bg-[#E7F4EC] px-3 text-sm font-bold text-[#1F7A45]">
+                  Voir le détail
+                </Link>
+              </div>
+
+              <AnneauSerenite pourcentage={serenite.pourcentage} libelle={serenite.libelle} />
+
+              <div className="min-w-0 text-right">
+                <p className="text-sm font-semibold text-soft">Prochain changement</p>
+                <span className="mt-2 inline-grid h-11 w-11 place-items-center rounded-2xl bg-[#E7F4EC] text-[#1F7A45]">
+                  <Icone nom="calendrier" taille={21} />
+                </span>
+                {garde?.prochain && garde.prochainParent ? (
+                  <>
+                    <p className="mt-2 text-[15px] font-bold leading-tight">
+                      {majuscule(dateCourte(garde.prochain))}
+                    </p>
+                    <p className="text-xs text-soft">chez {nom(garde.prochainParent)}</p>
+                  </>
+                ) : (
+                  <p className="mt-2 text-xs leading-snug text-soft">
+                    {regle === null ? 'Rythme de garde à définir' : 'Aucun changement prévu'}
                   </p>
                 )}
-              </>
+                <Link href="/app/planning"
+                  className="mt-3 inline-flex min-h-9 items-center rounded-xl bg-[#E7F4EC] px-3 text-sm font-bold text-[#1F7A45]">
+                  Voir le planning
+                </Link>
+              </div>
+            </div>
+          </section>
+
+          {/* 3. À faire aujourd'hui */}
+          <section id="a-faire" className="card p-4">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="flex items-center gap-2 font-display text-lg font-semibold tracking-tight">
+                À faire aujourd’hui
+                {actions.length > 0 && (
+                  <span className="grid h-6 min-w-6 place-items-center rounded-full bg-err px-1.5 text-xs font-bold text-white">
+                    {actions.length}
+                  </span>
+                )}
+              </h2>
+              {actions.length > 0 && (
+                <Link href="/app/depenses" className="text-sm font-bold text-soft underline">Tout voir</Link>
+              )}
+            </div>
+
+            {actions.length === 0 ? (
+              <div className="mt-3 flex items-center gap-3 rounded-2xl bg-[#E7F4EC] px-4 py-3.5">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-[#1F7A45]">
+                  <Icone nom="check" taille={18} />
+                </span>
+                <p className="font-bold text-[#1F7A45]">Tout est à jour</p>
+              </div>
             ) : (
-              <p className="mt-2 text-sm">
-                Aucun rythme de garde défini.{' '}
-                <Link href="/app/foyer" className="font-bold text-navy-text underline">Le définir maintenant</Link>
-              </p>
+              <ul className="mt-1 divide-y divide-line">
+                {actions.map((a) => (
+                  <li key={a.cle}>
+                    <Link href={a.href}
+                      className="flex min-h-16 items-center gap-3 py-2.5 text-left">
+                      <PastilleIcone nom={a.nom} ton={a.ton} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-bold leading-snug">{a.titre}</span>
+                        <span className="block text-sm text-soft">{a.sous}</span>
+                      </span>
+                      <span aria-hidden className="shrink-0 text-soft"><Icone nom="chevron" taille={18} /></span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             )}
           </section>
 
-          {solde && p1 && (
-            <section className="card p-4">
-              <h2 className="text-sm font-bold text-soft">Entre vous</h2>
-              <p className="mt-1 text-lg font-bold">{balanceLabel(solde, p1.profileId)}</p>
-              <p className="text-sm text-soft">Dépenses validées, remboursements déduits.</p>
-              <Link href="/app/depenses" className="btn btn-ghost mt-3 w-full">Voir le détail</Link>
-            </section>
-          )}
+          {/* 4. Dernières dépenses */}
+          <section className="card p-4">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="font-display text-lg font-semibold tracking-tight">Dernières dépenses</h2>
+              <Link href="/app/depenses" className="text-sm font-bold text-soft underline">Voir toutes</Link>
+            </div>
 
-          {aValider.length > 0 && (
-            <section className="card p-4">
-              <h2 className="text-sm font-bold text-soft">En attente de validation ({aValider.length})</h2>
-              <ul className="mt-2 divide-y divide-line">
-                {aValider.slice(0, 4).map((d) => (
-                  <li key={d.id} className="flex items-center justify-between gap-2 py-2.5">
-                    <div>
-                      <p className="font-bold">{d.titre}</p>
-                      <p className="text-sm text-soft">payé par {nom(d.payePar)}</p>
-                    </div>
-                    <span className="font-bold">{formatCents(d.montantCents)}</span>
-                  </li>
-                ))}
+            {depenses === null ? (
+              <p className="mt-3 text-sm text-soft" role="status">Chargement…</p>
+            ) : recentes.length === 0 ? (
+              <div className="mt-3 rounded-2xl bg-muted px-4 py-5 text-center">
+                <p className="font-bold">Aucune dépense pour l’instant</p>
+                <p className="mt-1 text-sm text-soft">Enregistrez votre première dépense partagée.</p>
+                <Link href="/app/ajouter" className="btn btn-primary mt-3 w-full">Ajouter une dépense</Link>
+              </div>
+            ) : (
+              <ul className="mt-1 divide-y divide-line">
+                {recentes.map((d) => {
+                  const v = categorieVisuel(d.categorie);
+                  const s = STATUTS[d.statut] ?? { texte: d.statut, point: 'bg-line', texteCls: 'text-soft' };
+                  return (
+                    <li key={d.id} className="flex items-center gap-3 py-2.5">
+                      <PastilleIcone nom={v.nom} ton={v.ton} />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-bold leading-snug">{d.titre}</p>
+                        <p className="truncate text-sm text-soft">
+                          {dateCourte(d.date)} • {nom(d.payePar)}
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="font-bold">{formatCents(d.montantCents)}</p>
+                        <p className={`flex items-center justify-end gap-1.5 text-xs font-semibold ${s.texteCls}`}>
+                          <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${s.point}`} />
+                          {s.texte}
+                        </p>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
-              <Link href="/app/depenses" className="btn btn-ghost mt-3 w-full">Ouvrir les dépenses</Link>
-            </section>
-          )}
-
-          {depenses === null && <Chargement />}
-          {depenses?.length === 0 && (
-            <Vide titre="Aucune dépense pour l’instant"
-                  texte="Enregistrez votre première dépense partagée."
-                  action={{ href: '/app/ajouter', label: 'Ajouter une dépense' }} />
-          )}
-
-          {recentes.length > 0 && (
-            <section className="card p-4">
-              <h2 className="text-sm font-bold text-soft">Dépenses récentes</h2>
-              <ul className="mt-2 divide-y divide-line">
-                {recentes.map((d) => (
-                  <li key={d.id} className="flex items-center justify-between gap-2 py-2.5">
-                    <div>
-                      <p className="font-bold">{d.titre}</p>
-                      <p className="text-sm text-soft">{frDate(d.date)}</p>
-                    </div>
-                    <span className="font-bold">{formatCents(d.montantCents)}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
+            )}
+          </section>
         </>
       )}
 
