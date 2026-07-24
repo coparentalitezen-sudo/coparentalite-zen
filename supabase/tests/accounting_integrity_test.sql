@@ -704,3 +704,70 @@ begin
 end $$;
 
 select 'TESTS D''INTÉGRITÉ COMPTABLE PASSÉS' as resultat;
+
+-- ============================================================
+-- V27 — RÉGRESSION : scénario réel « Vacances 15 € → 10 € »
+-- Un remboursement ANCIEN, sans rapport avec cette dépense, ne doit pas
+-- empêcher de corriger une dépense validée plus tard.
+-- ============================================================
+do $$
+declare eid uuid; rid uuid; m bigint; s bigint;
+begin
+  perform set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
+
+  -- 1. Une dépense ancienne est validée puis remboursée : le foyer contient
+  --    désormais un remboursement actif.
+  eid := public.create_expense_full('aaaaaaaa-0000-0000-0000-000000000001','Ancienne',4000,current_date,null,
+    '00000000-0000-0000-0000-00000000000a', null,
+    '[{"parent_id":"00000000-0000-0000-0000-00000000000a","owed_cents":2000},
+      {"parent_id":"00000000-0000-0000-0000-00000000000b","owed_cents":2000}]'::jsonb);
+  perform set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', false);
+  perform public.review_expense(eid, 'validate');
+  rid := public.create_reimbursement('aaaaaaaa-0000-0000-0000-000000000001',
+    '00000000-0000-0000-0000-00000000000b','00000000-0000-0000-0000-00000000000a',
+    500,'cash',current_date,null,'remboursement ancien');
+  perform set_config('app.v27_anc', eid::text, false);
+
+  -- 2. Une NOUVELLE dépense « Vacances » de 15 €, créée après ce remboursement
+  perform set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
+  eid := public.create_expense_full('aaaaaaaa-0000-0000-0000-000000000001','Vacances',1500,current_date,null,
+    '00000000-0000-0000-0000-00000000000a', null,
+    '[{"parent_id":"00000000-0000-0000-0000-00000000000a","owed_cents":750,"basis_points":5000},
+      {"parent_id":"00000000-0000-0000-0000-00000000000b","owed_cents":750,"basis_points":5000}]'::jsonb);
+
+  -- 3. Correction 15 € → 10 € : doit aboutir malgré le remboursement ancien
+  perform public.update_expense(eid,'Vacances',1000,current_date,null,null,
+    '[{"parent_id":"00000000-0000-0000-0000-00000000000a","owed_cents":500,"basis_points":5000},
+      {"parent_id":"00000000-0000-0000-0000-00000000000b","owed_cents":500,"basis_points":5000}]'::jsonb);
+
+  select amount_cents into m from expenses where id = eid;
+  select sum(owed_cents) into s from expense_shares where expense_id = eid;
+  if m <> 1000 then
+    raise exception 'ÉCHEC V27 : montant resté à % au lieu de 1000', m;
+  end if;
+  if s <> 1000 then
+    raise exception 'ÉCHEC V27b : parts non recalculées (somme = %)', s;
+  end if;
+  if (select count(*) from expense_shares where expense_id = eid) <> 2 then
+    raise exception 'ÉCHEC V27c : parts dupliquées';
+  end if;
+  if (select status from expenses where id = eid) <> 'sent' then
+    raise exception 'ÉCHEC V27d : la dépense n''est pas repassée en attente de validation';
+  end if;
+  raise notice 'V27 OK — 15 € → 10 € appliqué : montant, parts et statut mis à jour malgré un remboursement antérieur';
+
+  -- 4. Le verrou reste actif là où il doit l'être : la dépense ANCIENNE,
+  --    validée AVANT le remboursement, demeure protégée.
+  begin
+    perform public.update_expense(current_setting('app.v27_anc')::uuid,'Ancienne gonflee',9000,current_date,null,null,
+      '[{"parent_id":"00000000-0000-0000-0000-00000000000a","owed_cents":4500},
+        {"parent_id":"00000000-0000-0000-0000-00000000000b","owed_cents":4500}]'::jsonb);
+    raise exception 'ÉCHEC V27e : une dépense déjà réglée a pu être modifiée';
+  exception when others then
+    if sqlerrm like 'ÉCHEC%' then raise; end if;
+    if sqlerrm not like '%déjà été remboursée%' then
+      raise exception 'ÉCHEC V27f : mauvais motif (%)', sqlerrm;
+    end if;
+  end;
+  raise notice 'V27 OK — le verrou protège toujours les dépenses réglées avant le remboursement';
+end $$;

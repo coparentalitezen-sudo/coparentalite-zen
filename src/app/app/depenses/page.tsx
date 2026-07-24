@@ -49,6 +49,7 @@ export default function Depenses() {
   const [eDate, setEDate] = useState('');
   const [eSplit, setESplit] = useState(5000);
   const [eBusy, setEBusy] = useState(false);
+  const [eErreur, setEErreur] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -156,6 +157,7 @@ export default function Depenses() {
 
   function ouvrirEdition(d: DepenseListe) {
     setEditId(d.id);
+    setEErreur(null);
     setETitre(d.titre);
     setEMontant((d.montantCents / 100).toFixed(2).replace('.', ','));
     setEDate(d.date);
@@ -165,10 +167,10 @@ export default function Depenses() {
 
   async function enregistrerEdition(d: DepenseListe, householdId: string) {
     if (!p1) return;
-    setErreur(null);
-    if (!eTitre.trim()) { setErreur('Indiquez un titre.'); return; }
+    setEErreur(null);
+    if (!eTitre.trim()) { setEErreur('Indiquez un titre.'); return; }
     const clean = eMontant.replace(',', '.').trim();
-    if (!/^\d+(\.\d{1,2})?$/.test(clean)) { setErreur('Indiquez un montant valide, par exemple 24,90.'); return; }
+    if (!/^\d+(\.\d{1,2})?$/.test(clean)) { setEErreur('Indiquez un montant valide, par exemple 24,90.'); return; }
     const [ent, cts = ''] = clean.split('.');
     const cents = Number(ent) * 100 + Number((cts + '00').slice(0, 2));
     const payeur = membres.find((m) => m.profileId === d.payePar) ?? p1;
@@ -186,15 +188,21 @@ export default function Depenses() {
     setEBusy(false);
     if (r.status === 'ok') {
       setMsg('Dépense modifiée. Elle repasse en attente de validation par l’autre parent.');
-      setEditId(null); charger(householdId, p1?.profileId, p2?.profileId);
-    } else if (r.status === 'error') setErreur(r.message);
+      setEditId(null); setEErreur(null);
+      charger(householdId, p1?.profileId, p2?.profileId);
+    } else if (r.status === 'error') {
+      // affichée DANS le formulaire : l'utilisateur agit ici, pas en haut de page
+      setEErreur(r.message);
+    } else {
+      setEErreur('Modification indisponible : session non authentifiée. Reconnectez-vous.');
+    }
   }
 
   async function supprimer(d: DepenseListe, householdId: string) {
     if (!confirm(`Supprimer « ${d.titre} » ? La dépense sort du solde ; la ligne reste conservée dans l’historique.`)) return;
     const r = await supprimerDepense(d.id);
     if (r.status === 'ok') { setMsg('Dépense supprimée.'); charger(householdId, p1?.profileId, p2?.profileId); }
-    else if (r.status === 'error') setErreur(r.message);
+    else if (r.status === 'error') { setEditId(d.id); setEErreur(r.message); }
   }
 
   async function ouvrirJustificatifRemb(path: string) {
@@ -432,6 +440,11 @@ export default function Depenses() {
                               ))}
                             </div>
                           </fieldset>
+                        )}
+                        {eErreur && (
+                          <p role="alert" className="rounded-xl bg-err-bg px-3 py-2 text-sm font-bold text-err">
+                            {eErreur}
+                          </p>
                         )}
                         <button className="btn btn-primary w-full" disabled={eBusy}
                           onClick={() => enregistrerEdition(d, ctx.contexte.foyer.id)}>

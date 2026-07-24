@@ -51,9 +51,16 @@ language sql stable security definer set search_path = public as $$
                  where cm.profile_id = p_profile)
 $$;
 
--- Une dépense est VERROUILLÉE si elle compte dans le solde (validée,
--- partiellement remboursée ou remboursée) alors qu'un remboursement actif
--- existe dans le foyer : la modifier déplacerait un solde déjà réglé.
+-- Une dépense est VERROUILLÉE lorsqu'un remboursement actif a été calculé
+-- sur un solde qui l'incluait déjà : la modifier déplacerait rétroactivement
+-- un montant que l'autre parent a réglé.
+--
+-- Critère chronologique : la dépense compte dans le solde (validée,
+-- partiellement remboursée ou remboursée) ET il existe un remboursement actif
+-- enregistré APRÈS son entrée dans le solde.
+-- Une dépense validée après le dernier remboursement n'a jamais été réglée :
+-- elle reste librement modifiable. C'est ce qui permet de corriger une saisie
+-- récente sans devoir annuler des remboursements anciens et sans rapport.
 create or replace function public.expense_verrouillee(p_expense uuid)
 returns boolean
 language sql stable security definer set search_path = public as $$
@@ -63,8 +70,16 @@ language sql stable security definer set search_path = public as $$
     where e.id = p_expense
       and e.deleted_at is null
       and e.status in ('validated', 'partially_reimbursed', 'reimbursed')
-      and exists (select 1 from reimbursements r
-                  where r.household_id = e.household_id and r.deleted_at is null)
+      and exists (
+        select 1 from reimbursements r
+        where r.household_id = e.household_id
+          and r.deleted_at is null
+          -- remboursement postérieur à l'entrée de la dépense dans le solde
+          and r.created_at >= coalesce(
+                (select max(c.created_at) from expense_comments c
+                  where c.expense_id = e.id and c.kind = 'validation'),
+                e.created_at)
+      )
   )
 $$;
 
