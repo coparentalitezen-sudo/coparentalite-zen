@@ -169,18 +169,26 @@ export function buildSchedule(
   exceptions: ExceptionOverride[] = []
 ): Period[] {
   const byDate = new Map<string, DayAssignment>();
+
+  // ORDRE DE PRIORITÉ (du plus faible au plus fort) :
+  //   1. rythme récurrent  2. changement ponctuel  3. vacances
+  // Chaque couche écrase la précédente sur les jours qu'elle couvre. Le rythme
+  // récurrent reste calculé sur son calendrier d'origine : une exception ne le
+  // décale pas, elle le masque le temps de sa durée.
   for (const a of assignDays(rule, from, to)) byDate.set(a.date, a);
-  for (const h of holidays) {
-    for (const a of holidayAssignments(h)) {
-      if (byDate.has(a.date)) byDate.set(a.date, a); // ne s'applique que dans la plage demandée
-    }
-  }
+
   for (const e of exceptions) {
     for (let t = toUTC(e.startsOn); t <= toUTC(e.endsOn); t += DAY) {
       const date = fromUTC(t);
       if (byDate.has(date)) {
         byDate.set(date, { date, parentId: e.parentId, source: e.source ?? 'exception' });
       }
+    }
+  }
+
+  for (const h of holidays) {
+    for (const a of holidayAssignments(h)) {
+      if (byDate.has(a.date)) byDate.set(a.date, a); // les vacances priment sur tout
     }
   }
 
@@ -196,6 +204,28 @@ export function buildSchedule(
     }
   }
   return periods;
+}
+
+/**
+ * Attribution jour par jour, avec la source retenue.
+ * Utile à l'affichage : la grille a besoin du type d'exception, pas seulement
+ * du parent gardien.
+ */
+export function buildDayMap(
+  rule: CustodyRule,
+  from: string,
+  to: string,
+  holidays: HolidayOverride[] = [],
+  exceptions: ExceptionOverride[] = []
+): Map<string, DayAssignment> {
+  const map = new Map<string, DayAssignment>();
+  for (const p of buildSchedule(rule, from, to, holidays, exceptions)) {
+    for (let t = toUTC(p.start); t <= toUTC(p.end); t += DAY) {
+      const date = fromUTC(t);
+      map.set(date, { date, parentId: p.parentId, source: p.source });
+    }
+  }
+  return map;
 }
 
 /** Vérifie l'intégrité d'un calendrier : couverture complète, aucun chevauchement. */

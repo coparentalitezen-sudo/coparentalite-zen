@@ -24,7 +24,7 @@ test('garde d’authentification : /app/* renvoie vers la connexion', async ({ p
 });
 
 test('toutes les routes protégées sont bien gardées', async ({ page }) => {
-  for (const route of ['/app/planning', '/app/depenses', '/app/ajouter', '/app/plus', '/app/foyer', '/app/enfants']) {
+  for (const route of ['/app/planning', '/app/depenses', '/app/ajouter', '/app/plus', '/app/foyer', '/app/enfants', '/app/exceptions']) {
     // on attend la fin de chaque navigation : enchaîner sans attendre annulerait
     // la redirection en cours (comportement de navigateur, pas de l'application)
     await page.goto(route, { waitUntil: 'load' });
@@ -112,4 +112,10 @@ test('PWA : service worker et balises d’installation présents', async ({ page
 test('PWA : page hors ligne autonome', async ({ page }) => {
   await page.goto('/hors-ligne');
   await expect(page.getByRole('heading', { name: /Connexion indisponible/ })).toBeVisible();
+});
+
+test('planning : exceptions et légende accessibles', async ({ page }) => {
+  // routes protégées : la garde d'authentification doit s'appliquer aussi ici
+  await page.goto('/app/exceptions', { waitUntil: 'load' });
+  await expect(page).toHaveURL(/\/connexion/);
 });

@@ -1,9 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  assignDays, buildSchedule, validateSchedule, whereToday,
-  holidayAssignments, isoWeek, addDays,
-  type CustodyRule,
-} from '../src/lib/custody';
+import { assignDays, buildSchedule, validateSchedule, whereToday, holidayAssignments, isoWeek, addDays, type CustodyRule, buildDayMap } from '../src/lib/custody';
 
 const P1 = 'alice', P2 = 'bob';
 // Lundi 5 janvier 2026 comme ancre (2026-01-05 est bien un lundi)
@@ -105,15 +101,30 @@ describe('vacances scolaires — prioritaires sur la règle régulière', () => 
   });
 });
 
-describe('exceptions et échanges — prioritaires sur tout', () => {
-  it('une exception écrase même les vacances', () => {
+describe('exceptions et échanges — priorité sur le rythme récurrent', () => {
+  // Règle produit : vacances > changement ponctuel > rythme récurrent.
+  // Les vacances sont la période la plus structurante de l'année ; un
+  // changement ponctuel ne doit pas pouvoir la trouer à l'insu des parents.
+  it('les vacances l’emportent sur un changement ponctuel', () => {
     const periods = buildSchedule(base, '2026-02-01', '2026-03-01',
       [{ startsOn: '2026-02-14', endsOn: '2026-02-28', firstHalf: P2, secondHalf: P1 }],
       [{ startsOn: '2026-02-16', endsOn: '2026-02-17', parentId: P1 }]
     );
-    expect(whereToday(periods, '2026-02-16')!.parentId).toBe(P1);
+    // le changement ponctuel désignait P1 ; la première moitié des vacances
+    // revient à P2, qui l'emporte
+    expect(whereToday(periods, '2026-02-16')!.parentId).toBe(P2);
     expect(whereToday(periods, '2026-02-15')!.parentId).toBe(P2);
     expect(whereToday(periods, '2026-02-18')!.parentId).toBe(P2);
+  });
+
+  it('hors vacances, le changement ponctuel s’applique bien', () => {
+    const periods = buildSchedule(base, '2026-02-01', '2026-03-01',
+      [{ startsOn: '2026-02-14', endsOn: '2026-02-28', firstHalf: P2, secondHalf: P1 }],
+      [{ startsOn: '2026-02-05', endsOn: '2026-02-06', parentId: P2 }]
+    );
+    expect(whereToday(periods, '2026-02-05')!.parentId).toBe(P2);
+    const p = periods.find((x) => x.start === '2026-02-05')!;
+    expect(p.source).toBe('exception');
   });
 
   it('un échange accepté est tracé avec sa source', () => {
@@ -155,5 +166,91 @@ describe('intégrité du calendrier', () => {
     const v = validateSchedule(broken, '2026-01-05', '2026-01-18');
     expect(v.ok).toBe(false);
     expect(v.issues[0]).toMatch(/Discontinuité/);
+  });
+});
+
+describe('exceptions de garde — priorité et retour au rythme', () => {
+  const P1 = 'p1', P2 = 'p2';
+  const rythme = {
+    pattern: 'alternating_weeks' as const,
+    startDate: '2026-07-06',   // lundi, cycle démarre chez P1
+    parent1: P1,
+    parent2: P2,
+  };
+
+  it('sans exception, le rythme alterne semaine par semaine', () => {
+    const m = buildDayMap(rythme, '2026-07-06', '2026-07-26');
+    expect(m.get('2026-07-08')!.parentId).toBe(P1);
+    expect(m.get('2026-07-15')!.parentId).toBe(P2);
+    expect(m.get('2026-07-22')!.parentId).toBe(P1);
+    expect(m.get('2026-07-08')!.source).toBe('rule');
+  });
+
+  it('un changement ponctuel prime sur le rythme récurrent', () => {
+    const m = buildDayMap(rythme, '2026-07-06', '2026-07-26', [], [
+      { startsOn: '2026-07-08', endsOn: '2026-07-09', parentId: P2, source: 'exception' },
+    ]);
+    expect(m.get('2026-07-08')!.parentId).toBe(P2);
+    expect(m.get('2026-07-08')!.source).toBe('exception');
+    expect(m.get('2026-07-09')!.parentId).toBe(P2);
+  });
+
+  it('les vacances priment sur un changement ponctuel qui les recouvre', () => {
+    const m = buildDayMap(
+      rythme, '2026-07-06', '2026-07-26',
+      [{ startsOn: '2026-07-08', endsOn: '2026-07-11', firstHalf: P1, secondHalf: P1 }],
+      [{ startsOn: '2026-07-08', endsOn: '2026-07-09', parentId: P2, source: 'exception' }],
+    );
+    // le changement ponctuel désignait P2 ; les vacances désignent P1 et l'emportent
+    expect(m.get('2026-07-08')!.parentId).toBe(P1);
+    expect(m.get('2026-07-08')!.source).toBe('holiday');
+    expect(m.get('2026-07-09')!.source).toBe('holiday');
+  });
+
+  it('après une exception, le rythme reprend sur son calendrier d’origine, sans décalage', () => {
+    const sans = buildDayMap(rythme, '2026-07-06', '2026-08-02');
+    const avec = buildDayMap(rythme, '2026-07-06', '2026-08-02', [], [
+      { startsOn: '2026-07-08', endsOn: '2026-07-12', parentId: P2, source: 'exception' },
+    ]);
+    // hors de la fenêtre d'exception, les deux calendriers sont identiques
+    for (const date of ['2026-07-13', '2026-07-15', '2026-07-20', '2026-07-27', '2026-08-01']) {
+      expect(avec.get(date)!.parentId).toBe(sans.get(date)!.parentId);
+      expect(avec.get(date)!.source).toBe('rule');
+    }
+  });
+
+  it('une exception ne déborde jamais de ses dates', () => {
+    const m = buildDayMap(rythme, '2026-07-06', '2026-07-26', [], [
+      { startsOn: '2026-07-08', endsOn: '2026-07-09', parentId: P2, source: 'exception' },
+    ]);
+    expect(m.get('2026-07-07')!.source).toBe('rule');   // veille
+    expect(m.get('2026-07-10')!.source).toBe('rule');   // lendemain
+  });
+
+  it('une exception d’un seul jour est correctement appliquée', () => {
+    const m = buildDayMap(rythme, '2026-07-06', '2026-07-26', [], [
+      { startsOn: '2026-07-08', endsOn: '2026-07-08', parentId: P2, source: 'exception' },
+    ]);
+    expect(m.get('2026-07-08')!.parentId).toBe(P2);
+    expect(m.get('2026-07-09')!.parentId).toBe(P1);
+  });
+
+  it('plusieurs exceptions successives cohabitent sans se perturber', () => {
+    const m = buildDayMap(rythme, '2026-07-06', '2026-07-26', [], [
+      { startsOn: '2026-07-08', endsOn: '2026-07-09', parentId: P2, source: 'exception' },
+      { startsOn: '2026-07-16', endsOn: '2026-07-17', parentId: P1, source: 'exception' },
+    ]);
+    expect(m.get('2026-07-08')!.parentId).toBe(P2);
+    expect(m.get('2026-07-16')!.parentId).toBe(P1);
+    expect(m.get('2026-07-13')!.source).toBe('rule');
+  });
+
+  it('le calendrier reste intègre : aucun trou, aucun chevauchement', () => {
+    const periodes = buildSchedule(rythme, '2026-07-06', '2026-08-02',
+      [{ startsOn: '2026-07-20', endsOn: '2026-07-24', firstHalf: P2, secondHalf: P2 }],
+      [{ startsOn: '2026-07-08', endsOn: '2026-07-09', parentId: P2, source: 'exception' }]);
+    const v = validateSchedule(periodes, '2026-07-06', '2026-08-02');
+    expect(v.issues).toEqual([]);
+    expect(v.ok).toBe(true);
   });
 });
