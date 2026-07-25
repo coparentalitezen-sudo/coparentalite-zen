@@ -65,6 +65,7 @@ export default function Depenses() {
   const [contesteId, setContesteId] = useState<string | null>(null);
   const [motif, setMotif] = useState('');
   const [ouvertId, setOuvertId] = useState<string | null>(null);
+  const [ouvertRembId, setOuvertRembId] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -333,43 +334,6 @@ export default function Depenses() {
             </section>
           )}
 
-          {remboursements.length > 0 && (
-            <section className="card p-4">
-              <h2 className="text-sm font-bold text-soft">Remboursements ({remboursements.length})</h2>
-              <ul className="mt-2 divide-y divide-line">
-                {remboursements.map((r) => {
-                  const de = membres.find((m) => m.profileId === r.deParent);
-                  const vers = membres.find((m) => m.profileId === r.versParent);
-                  const methode = METHODES.find((m) => m.valeur === r.methode)?.libelle ?? r.methode;
-                  return (
-                    <li key={r.id} className="py-2.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="font-bold">{de?.nom ?? 'Parent'} → {vers?.nom ?? 'Parent'}</p>
-                        <span className="font-bold">{formatCents(r.montantCents)}</span>
-                      </div>
-                      <p className="text-sm text-soft">
-                        {[methode, frDate(r.date), r.reference].filter(Boolean).join(' · ')}
-                      </p>
-                      <div className="mt-1 flex flex-wrap items-center gap-4">
-                        {r.justificatif && (
-                          <button type="button" className="text-sm font-bold text-navy-text underline"
-                            onClick={() => ouvrirJustificatifRemb(r.justificatif!)}>
-                            Voir le justificatif
-                          </button>
-                        )}
-                        {(r.creePar === moi || r.deParent === moi || r.versParent === moi) && (
-                          <button type="button" className="text-sm font-bold text-err underline"
-                            onClick={() => annuler(r.id, ctx.contexte.foyer.id)}>
-                            Annuler
-                          </button>
-                        )}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          )}
           {p1 && !p2 && (
             <p className="rounded-xl bg-muted px-3 py-2 text-sm text-soft">
               Le solde apparaîtra dès que le second parent aura rejoint le foyer.
@@ -612,6 +576,138 @@ export default function Depenses() {
                                   {eErreur}
                                 </p>
                               )}
+                            </div>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              );
+            });
+          })()}
+
+          {remboursements.length > 0 && (() => {
+            // Même grammaire de lecture que les dépenses : groupé par mois,
+            // ligne compacte, détail au clic.
+            const parMois = new Map<string, Remboursement[]>();
+            for (const r of remboursements) {
+              const cle = r.date.slice(0, 7);
+              if (!parMois.has(cle)) parMois.set(cle, []);
+              parMois.get(cle)!.push(r);
+            }
+
+            return [...parMois.entries()].map(([mois, items]) => {
+              const total = items.reduce((n, r) => n + r.montantCents, 0);
+              return (
+                <section key={`remb-${mois}`} className="card px-4 py-4">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <h2 className="font-display text-[15px] font-semibold tracking-tight">
+                      Remboursements · {majuscule(moisLong(mois))}
+                    </h2>
+                    <span className="text-[13px] font-semibold tabular-nums text-soft/85">
+                      {formatCents(total)}
+                    </span>
+                  </div>
+
+                  <ul className="mt-1 divide-y divide-line-soft">
+                    {items.map((r) => {
+                      const de = membres.find((m) => m.profileId === r.deParent);
+                      const vers = membres.find((m) => m.profileId === r.versParent);
+                      const methode = METHODES.find((m) => m.valeur === r.methode)?.libelle ?? r.methode;
+                      const ouvert = ouvertRembId === r.id;
+                      const monOperation = r.creePar === moi || r.deParent === moi || r.versParent === moi;
+                      const jeSuisPayeur = r.deParent === moi;
+
+                      return (
+                        <li key={r.id}>
+                          <button
+                            type="button"
+                            onClick={() => setOuvertRembId(ouvert ? null : r.id)}
+                            aria-expanded={ouvert}
+                            className="flex min-h-14 w-full items-center gap-2.5 py-2.5 text-left"
+                          >
+                            <span className="w-9 shrink-0 text-[12px] font-bold tabular-nums text-soft/85">
+                              {jourMois(r.date)}
+                            </span>
+                            {de && (
+                              <span aria-label={`versé par ${de.nom}`}
+                                className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] font-black ${
+                                  de.couleur === 'coral' ? 'bg-p2-bg text-coral-text' : 'bg-p1-bg text-navy-text'}`}>
+                                {de.initiale}
+                              </span>
+                            )}
+                            <span aria-hidden className="shrink-0 text-soft/60">
+                              <Icone nom="chevron" taille={13} />
+                            </span>
+                            {vers && (
+                              <span aria-label={`reçu par ${vers.nom}`}
+                                className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] font-black ${
+                                  vers.couleur === 'coral' ? 'bg-p2-bg text-coral-text' : 'bg-p1-bg text-navy-text'}`}>
+                                {vers.initiale}
+                              </span>
+                            )}
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-[15px] font-bold leading-snug">
+                                {jeSuisPayeur ? `Vous avez remboursé ${vers?.nom ?? ''}` : `${de?.nom ?? 'Parent'} vous a remboursé`}
+                              </span>
+                              <span className="mt-0.5 block truncate text-[11px] font-semibold text-soft/85">
+                                {methode}
+                              </span>
+                            </span>
+                            <span className="shrink-0 whitespace-nowrap text-[15px] font-bold tabular-nums">
+                              {formatCents(r.montantCents)}
+                            </span>
+                            <span aria-hidden className={`shrink-0 text-soft/60 transition-transform ${ouvert ? 'rotate-90' : ''}`}>
+                              <Icone nom="chevron" taille={16} />
+                            </span>
+                          </button>
+
+                          {ouvert && (
+                            <div className="space-y-3 pb-4 pl-11 pr-1">
+                              <dl className="space-y-1 text-[13px]">
+                                <div className="flex gap-2">
+                                  <dt className="w-24 shrink-0 text-soft/85">Date</dt>
+                                  <dd className="font-semibold">{frDate(r.date)}</dd>
+                                </div>
+                                <div className="flex gap-2">
+                                  <dt className="w-24 shrink-0 text-soft/85">Sens</dt>
+                                  <dd className="font-semibold">
+                                    {de?.nom ?? 'Parent'} → {vers?.nom ?? 'Parent'}
+                                  </dd>
+                                </div>
+                                <div className="flex gap-2">
+                                  <dt className="w-24 shrink-0 text-soft/85">Moyen</dt>
+                                  <dd className="font-semibold">{methode}</dd>
+                                </div>
+                                {r.reference && (
+                                  <div className="flex gap-2">
+                                    <dt className="w-24 shrink-0 text-soft/85">Référence</dt>
+                                    <dd className="break-all font-semibold">{r.reference}</dd>
+                                  </div>
+                                )}
+                                {r.commentaire && (
+                                  <div className="flex gap-2">
+                                    <dt className="w-24 shrink-0 text-soft/85">Note</dt>
+                                    <dd>{r.commentaire}</dd>
+                                  </div>
+                                )}
+                              </dl>
+
+                              <div className="flex flex-wrap items-center gap-4">
+                                {r.justificatif && (
+                                  <button type="button" className="text-[13px] font-bold text-navy-text underline"
+                                          onClick={() => ouvrirJustificatifRemb(r.justificatif!)}>
+                                    Voir le justificatif
+                                  </button>
+                                )}
+                                {monOperation && (
+                                  <button type="button" className="text-[13px] font-bold text-err underline"
+                                          onClick={() => annuler(r.id, ctx.contexte.foyer.id)}>
+                                    Annuler ce remboursement
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           )}
                         </li>
