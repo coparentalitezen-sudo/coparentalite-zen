@@ -12,6 +12,7 @@ import {
 } from '@/lib/actions';
 import { balanceLabel, formatCents } from '@/lib/money';
 import { checkFile, formatBytes, MAX_JUSTIFICATIF_BYTES } from '@/lib/files';
+import { Icone, PASTILLES, categorieVisuel } from '@/components/icons';
 
 const LIBELLES: Record<string, { texte: string; classe: string }> = {
   draft: { texte: 'Brouillon', classe: 'bg-muted text-soft' },
@@ -26,6 +27,16 @@ const LIBELLES: Record<string, { texte: string; classe: string }> = {
   reimbursed: { texte: 'Remboursée', classe: 'bg-ok-bg text-ok' },
 };
 
+function majuscule(t: string) { return t.charAt(0).toUpperCase() + t.slice(1); }
+/** « 25 juil. » — repère court en tête de ligne. */
+function jourMois(d: string) {
+  return new Date(d + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+    .replace('.', '');
+}
+/** « juillet 2026 » à partir d'une clé AAAA-MM. */
+function moisLong(cle: string) {
+  return new Date(cle + '-01T12:00:00').toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+}
 function frDate(d: string) {
   return new Date(d + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 }
@@ -50,6 +61,10 @@ export default function Depenses() {
   const [eSplit, setESplit] = useState(5000);
   const [eBusy, setEBusy] = useState(false);
   const [eErreur, setEErreur] = useState<string | null>(null);
+  const [busyRevue, setBusyRevue] = useState<string | null>(null);
+  const [contesteId, setContesteId] = useState<string | null>(null);
+  const [motif, setMotif] = useState('');
+  const [ouvertId, setOuvertId] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -75,13 +90,22 @@ export default function Depenses() {
     charger(ctx.contexte.foyer.id, ctx.contexte.membres[0]?.profileId, ctx.contexte.membres[1]?.profileId);
   }, [ctx, charger]);
 
-  async function reviser(id: string, action: 'validate' | 'dispute', householdId: string) {
-    setMsg(null);
-    const r = await reviserDepense(id, action);
+  async function reviser(id: string, action: 'validate' | 'dispute', householdId: string, motif?: string) {
+    setMsg(null); setEErreur(null); setEditId(null);
+    if (busyRevue) return;                       // garde contre le double clic
+    setBusyRevue(id);
+    const r = await reviserDepense(id, action, motif);
+    setBusyRevue(null);
     if (r.status === 'ok') {
-      setMsg(action === 'validate' ? 'Dépense validée.' : 'Dépense signalée à vérifier — l’autre parent en est informé.');
+      setMsg(action === 'validate'
+        ? 'Dépense validée. Le solde est à jour.'
+        : 'Dépense signalée à vérifier. Elle apparaît maintenant comme telle pour les deux parents.');
+      setContesteId(null); setMotif('');
       charger(householdId, p1?.profileId, p2?.profileId);
-    } else if (r.status === 'error') setErreur(r.message);
+    } else if (r.status === 'error') {
+      // affichée sur la dépense concernée, là où l'action a été déclenchée
+      setEditId(id); setEErreur(r.message);
+    }
   }
 
   async function ouvrirJustificatif(id: string) {
@@ -92,6 +116,7 @@ export default function Depenses() {
 
   const membres: Membre[] = ctx.etat === 'pret' ? ctx.contexte.membres : [];
   const moi = ctx.etat === 'pret' ? ctx.contexte.moi : null;
+  const nom = (id: string) => membres.find((m) => m.profileId === id)?.nom ?? 'Parent';
   const p1 = membres[0]; const p2 = membres[1];
 
   // Montant que l'utilisateur courant doit régler (0 s'il est créancier)
@@ -358,106 +383,246 @@ export default function Depenses() {
                   action={{ href: '/app/ajouter', label: 'Ajouter une dépense' }} />
           )}
 
-          {depenses && depenses.length > 0 && (
-            <ul className="space-y-3">
-              {depenses.map((d) => {
-                const payeur = membres.find((m) => m.profileId === d.payePar);
-                const statut = LIBELLES[d.statut] ?? { texte: d.statut, classe: 'bg-muted text-soft' };
-                const aValider = d.statut === 'sent' && moi !== null && d.payePar !== moi;
-                const monEcriture = moi !== null && (d.payePar === moi || d.creePar === moi);
-                return (
-                  <li key={d.id} className="card space-y-2 p-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="font-bold">{d.titre}</p>
-                        <p className="text-sm text-soft">
-                          {[d.categorie, frDate(d.date)].filter(Boolean).join(' · ')}
-                        </p>
-                      </div>
-                      <span className="shrink-0 text-lg font-bold">{formatCents(d.montantCents)}</span>
-                    </div>
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      {payeur && (
-                        <ParentBadge name={payeur.nom} initial={payeur.initiale}
-                          colorKey={payeur.couleur === 'coral' ? 'coral' : 'navy'} />
-                      )}
-                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${statut.classe}`}>{statut.texte}</span>
-                    </div>
-                    {d.justificatifs > 0 && (
-                      <button type="button" className="text-sm font-bold text-navy-text underline"
-                              onClick={() => ouvrirJustificatif(d.id)}>
-                        Voir le justificatif
-                      </button>
-                    )}
-                    {aValider && (
-                      <div className="flex gap-2 border-t border-line pt-2">
-                        <button className="btn btn-primary flex-1"
-                          onClick={() => reviser(d.id, 'validate', ctx.contexte.foyer.id)}>Valider</button>
-                        <button className="btn btn-ghost flex-1"
-                          onClick={() => reviser(d.id, 'dispute', ctx.contexte.foyer.id)}>À vérifier</button>
-                      </div>
-                    )}
+          {depenses && depenses.length > 0 && (() => {
+            // Regroupement par mois : repère de lecture immédiat dans une liste longue
+            const parMois = new Map<string, DepenseListe[]>();
+            for (const d of depenses) {
+              const cle = d.date.slice(0, 7);
+              if (!parMois.has(cle)) parMois.set(cle, []);
+              parMois.get(cle)!.push(d);
+            }
 
-                    {monEcriture && editId !== d.id && (
-                      <div className="flex gap-4 border-t border-line pt-2">
-                        <button type="button" className="text-sm font-bold text-navy-text underline"
-                          onClick={() => ouvrirEdition(d)}>Modifier</button>
-                        <button type="button" className="text-sm font-bold text-err underline"
-                          onClick={() => supprimer(d, ctx.contexte.foyer.id)}>Supprimer</button>
-                      </div>
-                    )}
+            return [...parMois.entries()].map(([mois, items]) => {
+              const totalMois = items.reduce((n, d) => n + d.montantCents, 0);
+              return (
+                <section key={mois} className="card px-4 py-4">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <h2 className="font-display text-[15px] font-semibold tracking-tight">
+                      {majuscule(moisLong(mois))}
+                    </h2>
+                    <span className="text-[13px] font-semibold tabular-nums text-soft/85">
+                      {formatCents(totalMois)}
+                    </span>
+                  </div>
 
-                    {editId === d.id && (
-                      <div className="space-y-3 border-t border-line pt-3">
-                        <h3 className="font-bold">Modifier la dépense</h3>
-                        {d.statut === 'validated' && (
-                          <p className="rounded-xl bg-wait-bg px-3 py-2 text-xs font-bold text-wait">
-                            Cette dépense est validée : après modification, l’autre parent devra la valider à nouveau.
-                          </p>
-                        )}
-                        <label className="block">
-                          <span className="mb-1 block text-sm font-bold">Titre</span>
-                          <input value={eTitre} onChange={(ev) => setETitre(ev.target.value)} />
-                        </label>
-                        <label className="block">
-                          <span className="mb-1 block text-sm font-bold">Montant (€)</span>
-                          <input inputMode="decimal" value={eMontant} onChange={(ev) => setEMontant(ev.target.value)} />
-                        </label>
-                        <label className="block">
-                          <span className="mb-1 block text-sm font-bold">Date</span>
-                          <input type="date" value={eDate} onChange={(ev) => setEDate(ev.target.value)} />
-                        </label>
-                        {p2 && (
-                          <fieldset>
-                            <legend className="mb-1 text-sm font-bold">Répartition (part du payeur)</legend>
-                            <div className="grid grid-cols-4 gap-2">
-                              {[5000, 6000, 7000, 10000].map((bp) => (
-                                <button key={bp} type="button" aria-pressed={eSplit === bp}
-                                  onClick={() => setESplit(bp)}
-                                  className={`btn ${eSplit === bp ? 'btn-primary' : 'btn-ghost'} px-0 text-sm`}>
-                                  {bp / 100} %
+                  <ul className="mt-1 divide-y divide-line-soft">
+                    {items.map((d) => {
+                      const payeur = membres.find((m) => m.profileId === d.payePar);
+                      const st = LIBELLES[d.statut] ?? { texte: d.statut, classe: 'bg-muted text-soft' };
+                      const aValider = d.statut === 'sent' && moi !== null && d.payePar !== moi && d.creePar !== moi;
+                      const monEcriture = moi !== null && (d.payePar === moi || d.creePar === moi);
+                      const ouvert = ouvertId === d.id;
+                      const v = categorieVisuel(d.categorie);
+
+                      return (
+                        <li key={d.id}>
+                          {/* Ligne compacte : date · parent · titre · montant */}
+                          <button
+                            type="button"
+                            onClick={() => { setOuvertId(ouvert ? null : d.id); setEditId(null); setEErreur(null); }}
+                            aria-expanded={ouvert}
+                            className="flex min-h-14 w-full items-center gap-2.5 py-2.5 text-left"
+                          >
+                            <span className="w-9 shrink-0 text-[12px] font-bold tabular-nums text-soft/85">
+                              {jourMois(d.date)}
+                            </span>
+                            {payeur && (
+                              <span aria-label={`payé par ${payeur.nom}`}
+                                className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] font-black ${
+                                  payeur.couleur === 'coral' ? 'bg-p2-bg text-coral-text' : 'bg-p1-bg text-navy-text'}`}>
+                                {payeur.initiale}
+                              </span>
+                            )}
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-[15px] font-bold leading-snug">{d.titre}</span>
+                              <span className={`mt-0.5 inline-flex items-center gap-1 text-[11px] font-semibold ${
+                                d.statut === 'validated' || d.statut === 'reimbursed' ? 'text-[#1F7A45]'
+                                : d.statut === 'disputed' ? 'text-err' : 'text-soft/85'}`}>
+                                <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${
+                                  d.statut === 'validated' || d.statut === 'reimbursed' ? 'bg-[#1F7A45]'
+                                  : d.statut === 'disputed' ? 'bg-err' : 'bg-[#D98324]'}`} />
+                                {st.texte}
+                              </span>
+                            </span>
+                            <span className="shrink-0 text-right">
+                              <span className="block whitespace-nowrap text-[15px] font-bold tabular-nums">
+                                {formatCents(d.montantCents)}
+                              </span>
+                            </span>
+                            <span aria-hidden className={`shrink-0 text-soft/60 transition-transform ${ouvert ? 'rotate-90' : ''}`}>
+                              <Icone nom="chevron" taille={16} />
+                            </span>
+                          </button>
+
+                          {/* Détail déplié */}
+                          {ouvert && (
+                            <div className="space-y-3 pb-4 pl-11 pr-1">
+                              <dl className="space-y-1 text-[13px]">
+                                <div className="flex gap-2">
+                                  <dt className="w-24 shrink-0 text-soft/85">Date</dt>
+                                  <dd className="font-semibold">{frDate(d.date)}</dd>
+                                </div>
+                                <div className="flex gap-2">
+                                  <dt className="w-24 shrink-0 text-soft/85">Payé par</dt>
+                                  <dd className="font-semibold">{nom(d.payePar)}</dd>
+                                </div>
+                                {d.categorie && (
+                                  <div className="flex gap-2">
+                                    <dt className="w-24 shrink-0 text-soft/85">Catégorie</dt>
+                                    <dd className="flex items-center gap-1.5 font-semibold">
+                                      <span className={`grid h-5 w-5 place-items-center rounded-md ${PASTILLES[v.ton]}`}>
+                                        <Icone nom={v.nom} taille={12} />
+                                      </span>
+                                      {d.categorie}
+                                    </dd>
+                                  </div>
+                                )}
+                                {p2 && d.parts.length > 1 && (
+                                  <div className="flex gap-2">
+                                    <dt className="w-24 shrink-0 text-soft/85">Répartition</dt>
+                                    <dd className="font-semibold">
+                                      {d.parts.map((part, i) => (
+                                        <span key={part.parentId}>
+                                          {i > 0 && ' · '}{nom(part.parentId)} {formatCents(part.owedCents)}
+                                        </span>
+                                      ))}
+                                    </dd>
+                                  </div>
+                                )}
+                                <div className="flex gap-2">
+                                  <dt className="w-24 shrink-0 text-soft/85">Statut</dt>
+                                  <dd>
+                                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${st.classe}`}>
+                                      {st.texte}
+                                    </span>
+                                  </dd>
+                                </div>
+                              </dl>
+
+                              {d.statut === 'disputed' && (
+                                <p className="rounded-xl bg-err-bg px-3 py-2 text-[13px] text-err">
+                                  <strong>À vérifier</strong>
+                                  {d.contestePar && ` — signalé par ${nom(d.contestePar)}`}
+                                  {d.motifContestation ? ` : « ${d.motifContestation} »` : '.'}
+                                  {monEcriture && ' Modifiez la dépense pour repartir sur une base acceptée.'}
+                                </p>
+                              )}
+
+                              {d.justificatifs > 0 && (
+                                <button type="button" className="text-[13px] font-bold text-navy-text underline"
+                                        onClick={() => ouvrirJustificatif(d.id)}>
+                                  Voir le justificatif
                                 </button>
-                              ))}
+                              )}
+
+                              {aValider && contesteId !== d.id && (
+                                <div className="flex gap-2">
+                                  <button className="btn btn-primary flex-1" disabled={busyRevue === d.id}
+                                    onClick={() => reviser(d.id, 'validate', ctx.contexte.foyer.id)}>
+                                    {busyRevue === d.id ? '…' : 'Valider'}
+                                  </button>
+                                  <button className="btn btn-ghost flex-1" disabled={busyRevue === d.id}
+                                    onClick={() => { setContesteId(d.id); setMotif(''); }}>
+                                    À vérifier
+                                  </button>
+                                </div>
+                              )}
+
+                              {aValider && contesteId === d.id && (
+                                <div className="space-y-2 rounded-xl bg-muted p-3">
+                                  <label className="block">
+                                    <span className="mb-1 block text-[13px] font-bold">
+                                      Qu’est-ce qui vous semble à vérifier ?
+                                    </span>
+                                    <input value={motif} onChange={(e) => setMotif(e.target.value)}
+                                      maxLength={200} placeholder="Montant, date, dépense déjà réglée…" />
+                                    <span className="mt-1 block text-[11px] text-soft/85">
+                                      Ce motif sera visible par {nom(d.payePar)}, qui pourra corriger la dépense.
+                                    </span>
+                                  </label>
+                                  <button className="btn btn-primary w-full" disabled={busyRevue === d.id || motif.trim().length < 3}
+                                    onClick={() => reviser(d.id, 'dispute', ctx.contexte.foyer.id, motif.trim())}>
+                                    {busyRevue === d.id ? 'Envoi…' : 'Signaler à vérifier'}
+                                  </button>
+                                  <button className="btn btn-ghost w-full" onClick={() => setContesteId(null)}>
+                                    Annuler
+                                  </button>
+                                </div>
+                              )}
+
+                              {monEcriture && editId !== d.id && (
+                                <div className="flex gap-4">
+                                  <button type="button" className="text-[13px] font-bold text-navy-text underline"
+                                          onClick={() => ouvrirEdition(d)}>Modifier</button>
+                                  <button type="button" className="text-[13px] font-bold text-err underline"
+                                          onClick={() => supprimer(d, ctx.contexte.foyer.id)}>Supprimer</button>
+                                </div>
+                              )}
+
+                              {editId === d.id && (
+                                <div className="space-y-3 border-t border-line-soft pt-3">
+                                  <h3 className="font-bold">Modifier la dépense</h3>
+                                  {d.statut === 'validated' && (
+                                    <p className="rounded-xl bg-wait-bg px-3 py-2 text-xs font-bold text-wait">
+                                      Cette dépense est validée : après modification, l’autre parent devra la valider à nouveau.
+                                    </p>
+                                  )}
+                                  <label className="block">
+                                    <span className="mb-1 block text-sm font-bold">Titre</span>
+                                    <input value={eTitre} onChange={(ev) => setETitre(ev.target.value)} />
+                                  </label>
+                                  <label className="block">
+                                    <span className="mb-1 block text-sm font-bold">Montant (€)</span>
+                                    <input inputMode="decimal" value={eMontant} onChange={(ev) => setEMontant(ev.target.value)} />
+                                  </label>
+                                  <label className="block">
+                                    <span className="mb-1 block text-sm font-bold">Date</span>
+                                    <input type="date" value={eDate} onChange={(ev) => setEDate(ev.target.value)} />
+                                  </label>
+                                  {p2 && (
+                                    <fieldset>
+                                      <legend className="mb-1 text-sm font-bold">Répartition (part du payeur)</legend>
+                                      <div className="grid grid-cols-4 gap-2">
+                                        {[5000, 6000, 7000, 10000].map((bp) => (
+                                          <button key={bp} type="button" aria-pressed={eSplit === bp}
+                                            onClick={() => setESplit(bp)}
+                                            className={`btn ${eSplit === bp ? 'btn-primary' : 'btn-ghost'} px-0 text-sm`}>
+                                            {bp / 100} %
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </fieldset>
+                                  )}
+                                  {eErreur && (
+                                    <p role="alert" className="rounded-xl bg-err-bg px-3 py-2 text-sm font-bold text-err">
+                                      {eErreur}
+                                    </p>
+                                  )}
+                                  <button className="btn btn-primary w-full" disabled={eBusy}
+                                    onClick={() => enregistrerEdition(d, ctx.contexte.foyer.id)}>
+                                    {eBusy ? 'Enregistrement…' : 'Enregistrer les modifications'}
+                                  </button>
+                                  <button className="btn btn-ghost w-full" onClick={() => setEditId(null)}>Annuler</button>
+                                </div>
+                              )}
+
+                              {eErreur && editId === d.id && null}
+                              {eErreur && editId !== d.id && ouvertId === d.id && (
+                                <p role="alert" className="rounded-xl bg-err-bg px-3 py-2 text-sm font-bold text-err">
+                                  {eErreur}
+                                </p>
+                              )}
                             </div>
-                          </fieldset>
-                        )}
-                        {eErreur && (
-                          <p role="alert" className="rounded-xl bg-err-bg px-3 py-2 text-sm font-bold text-err">
-                            {eErreur}
-                          </p>
-                        )}
-                        <button className="btn btn-primary w-full" disabled={eBusy}
-                          onClick={() => enregistrerEdition(d, ctx.contexte.foyer.id)}>
-                          {eBusy ? 'Enregistrement…' : 'Enregistrer les modifications'}
-                        </button>
-                        <button className="btn btn-ghost w-full" onClick={() => setEditId(null)}>Annuler</button>
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              );
+            });
+          })()}
+
         </>
       )}
 

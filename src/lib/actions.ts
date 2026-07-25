@@ -46,6 +46,9 @@ export interface DepenseListe {
   categorie: string | null; payePar: string; statut: string;
   enfants: string[]; parts: Allocation[]; justificatifs: number;
   creePar: string; categorieId: string | null; repartition: number | null;
+  /** Motif de la dernière contestation, s'il y en a une. */
+  motifContestation: string | null;
+  contestePar: string | null;
 }
 
 // ---------------- Contexte du foyer ----------------
@@ -441,7 +444,8 @@ export async function listerDepenses(householdId: string): Promise<ActionResult<
              expense_categories(name),
              expense_shares(parent_id, owed_cents, basis_points),
              expense_children(child_id),
-             expense_attachments(id)`)
+             expense_attachments(id),
+             expense_comments(kind, body, author_id, created_at)`)
     .eq('household_id', householdId).is('deleted_at', null)
     .order('spent_on', { ascending: false }).limit(100);
   if (error) return err(lisible('Impossible de charger les dépenses.', error));
@@ -460,6 +464,17 @@ export async function listerDepenses(householdId: string): Promise<ActionResult<
     justificatifs: ((e.expense_attachments ?? []) as unknown[]).length,
     creePar: e.created_by as string,
     categorieId: (e.category_id as string) ?? null,
+    ...(() => {
+      const commentaires = ((e.expense_comments ?? []) as
+        { kind: string; body: string | null; author_id: string; created_at: string }[])
+        .filter((c) => c.kind === 'dispute')
+        .sort((a, b) => b.created_at.localeCompare(a.created_at));
+      const dernier = commentaires[0];
+      return {
+        motifContestation: dernier?.body ?? null,
+        contestePar: dernier?.author_id ?? null,
+      };
+    })(),
     repartition: (() => {
       const parts = (e.expense_shares ?? []) as { parent_id: string; basis_points: number | null }[];
       const payeur = parts.find((s2) => s2.parent_id === e.paid_by);
