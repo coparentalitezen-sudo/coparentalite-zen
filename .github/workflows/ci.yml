@@ -1,1 +1,104 @@
+Contrôles
 
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  application:
+    name: Application (types, tests, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Vérification des types
+        run: npm run typecheck
+
+      - name: Tests unitaires
+        run: npm test
+
+      - name: Construction de production
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://exemple.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: cle-publique-factice-pour-la-construction
+
+      - name: Navigateur pour les tests de bout en bout
+        run: npx playwright install chromium
+
+      - name: Tests de bout en bout
+        run: npx playwright test
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://exemple.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: cle-publique-factice-pour-la-construction
+
+      - name: Conserver les traces en cas d'échec
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
+
+  base_de_donnees:
+    name: Base de données (migrations et 116 assertions)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Client PostgreSQL
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+
+      - name: Migrations et suites de tests
+        run: ./scripts/test-sql.sh
+        env:
+          PGHOST: localhost
+          PGPORT: 5432
+          PGUSER: postgres
+          PGPASSWORD: postgres
+
+  verdict:
+    name: Verdict
+    runs-on: ubuntu-latest
+    needs: [application, base_de_donnees]
+    if: always()
+    steps:
+      - name: Bloquer si un contrôle a échoué
+        run: |
+          if [ "${{ needs.application.result }}" != "success" ] || [ "${{ needs.base_de_donnees.result }}" != "success" ]; then
+            echo "Des contrôles ont échoué — cette modification ne doit pas être déployée."
+            exit 1
+          fi
+          echo "Tous les contrôles sont passés."
