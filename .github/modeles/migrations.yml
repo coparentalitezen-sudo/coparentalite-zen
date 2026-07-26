@@ -1,0 +1,66 @@
+name: Migrations Supabase
+
+# Applique les migrations à la base de production.
+#
+# Déclenchement MANUEL uniquement, et volontairement.
+# Une migration touche des données réelles de familles : elle ne doit jamais
+# partir par accident au fil d'un commit. Le mode « verification » permet de
+# voir ce qui serait appliqué avant de décider.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Que faire
+        required: true
+        default: verification
+        type: choice
+        options:
+          - verification      # liste les migrations en attente, n'écrit rien
+          - appliquer         # applique réellement les migrations manquantes
+
+jobs:
+  migrations:
+    name: ${{ inputs.mode }}
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Contrôle des secrets
+        run: |
+          manquants=""
+          [ -z "${{ secrets.SUPABASE_ACCESS_TOKEN }}" ] && manquants="$manquants SUPABASE_ACCESS_TOKEN"
+          [ -z "${{ secrets.SUPABASE_PROJECT_REF }}" ] && manquants="$manquants SUPABASE_PROJECT_REF"
+          [ -z "${{ secrets.SUPABASE_DB_PASSWORD }}" ] && manquants="$manquants SUPABASE_DB_PASSWORD"
+          if [ -n "$manquants" ]; then
+            echo "Secrets manquants :$manquants"
+            echo "À renseigner dans Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+      - name: Rattacher le projet
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}" -p "${{ secrets.SUPABASE_DB_PASSWORD }}"
+
+      - name: Migrations en attente
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase migration list -p "${{ secrets.SUPABASE_DB_PASSWORD }}"
+
+      - name: Appliquer
+        if: inputs.mode == 'appliquer'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase db push -p "${{ secrets.SUPABASE_DB_PASSWORD }}"
+
+      - name: État final
+        if: inputs.mode == 'appliquer'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase migration list -p "${{ secrets.SUPABASE_DB_PASSWORD }}"
