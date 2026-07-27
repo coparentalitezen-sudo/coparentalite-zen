@@ -292,11 +292,6 @@ export default function Exceptions() {
                 </section>
               )}
 
-              {!formOuvert && (
-                <button className="btn btn-primary w-full" onClick={ouvrirCreation}>
-                  Ajouter une période
-                </button>
-              )}
             </>
           )}
         </>
