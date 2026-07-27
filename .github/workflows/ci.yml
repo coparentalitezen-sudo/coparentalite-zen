@@ -45,7 +45,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Tests de bout en bout
-        run: run: npx playwright test
+        run: npx playwright test
         env:
           CI: true
           NEXT_PUBLIC_SUPABASE_URL: https://exemple.supabase.co
