@@ -2,18 +2,18 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
+
   timeout: 30_000,
+
   use: {
-    baseURL: 'http://localhost:3200',
-    launchOptions: {
-      executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
-      args: ['--no-sandbox'],
-    },
+    baseURL: 'http://127.0.0.1:3200',
+    headless: true,
   },
+
   webServer: {
-    command: 'npx next start -p 3200',
-    url: 'http://localhost:3200',
-    reuseExistingServer: true,
-    timeout: 60_000,
+    command: 'npm run build && npx next start -p 3200',
+    url: 'http://127.0.0.1:3200',
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
   },
 });
