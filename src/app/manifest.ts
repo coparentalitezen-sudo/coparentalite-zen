@@ -99,6 +99,13 @@ export default function manifest(): MetadataRoute.Manifest {
         purpose: 'any',
       },
       {
+        // Grand format demandé par certains magasins et par les aperçus système
+        src: '/icons/icon-1024.png',
+        sizes: '1024x1024',
+        type: 'image/png',
+        purpose: 'any',
+      },
+      {
         src: '/icons/maskable-192.png',
         sizes: '192x192',
         type: 'image/png',

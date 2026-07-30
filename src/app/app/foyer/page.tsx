@@ -9,6 +9,8 @@ import { useContexte } from '@/lib/use-contexte';
 import {
   createHousehold, inviteParent, exportMyData, deleteMyAccount, deleteHousehold,
   getRegleGarde, setRegleGarde, renommerMonProfil, type RegleGarde,
+  getZone, setZone, getEtatCalendrier, ZONES,
+  type Zone, type EtatCalendrier,
 } from '@/lib/actions';
 import type { CustodyPattern } from '@/lib/custody';
 
@@ -22,6 +24,10 @@ const RYTHMES: { valeur: CustodyPattern; libelle: string }[] = [
 ];
 
 export default function Foyer() {
+  const [zone, setZoneLocale] = useState<Zone | null>(null);
+  const [etatCal, setEtatCal] = useState<EtatCalendrier | null>(null);
+  const [zoneBusy, setZoneBusy] = useState(false);
+  const [zoneMsg, setZoneMsg] = useState<string | null>(null);
   const router = useRouter();
   const { ctx, recharger } = useContexte();
   const [nom, setNom] = useState('');
@@ -47,7 +53,32 @@ export default function Foyer() {
         setDebut(r.data.startDate);
       }
     });
+    getZone(ctx.contexte.foyer.id).then((r) => {
+      if (r.status === 'ok') setZoneLocale(r.data);
+    });
+    getEtatCalendrier(ctx.contexte.foyer.id).then((r) => {
+      if (r.status === 'ok') setEtatCal(r.data);
+    });
   }, [ctx]);
+
+  /**
+   * Changer de zone ne touche jamais aux exceptions créées par les parents :
+   * seule la couche d'information « vacances scolaires » est concernée.
+   */
+  async function changerZone(nouvelle: Zone) {
+    if (ctx.etat !== 'pret' || zoneBusy) return;
+    setZoneBusy(true); setZoneMsg(null);
+    const r = await setZone(ctx.contexte.foyer.id, nouvelle);
+    if (r.status === 'ok') {
+      setZoneLocale(nouvelle);
+      setZoneMsg(`Zone ${nouvelle} enregistrée. Les vacances scolaires apparaissent dans le planning.`);
+      const e = await getEtatCalendrier(ctx.contexte.foyer.id);
+      if (e.status === 'ok') setEtatCal(e.data);
+    } else if (r.status === 'error') {
+      setZoneMsg(r.message);
+    }
+    setZoneBusy(false);
+  }
 
   async function creerFoyer() {
     setMsg(null);
@@ -254,6 +285,71 @@ export default function Foyer() {
             )}
           </section>
         </>
+      )}
+
+      {ctx.etat === 'pret' && ctx.contexte.foyer.id && (
+        <section className="card space-y-3 p-4">
+          <h2 className="font-bold">Vacances scolaires</h2>
+          <p className="text-sm text-soft">
+            Indiquez votre zone académique une seule fois : les vacances
+            scolaires apparaissent ensuite automatiquement dans le planning, et
+            se mettent à jour à chaque nouvelle année scolaire. Vous n’avez
+            jamais à les saisir.
+          </p>
+
+          <fieldset>
+            <legend className="mb-1.5 text-sm font-bold">Votre zone</legend>
+            <div className="grid grid-cols-3 gap-2">
+              {ZONES.map((z) => (
+                <button key={z.zone} type="button" aria-pressed={zone === z.zone}
+                  disabled={zoneBusy}
+                  onClick={() => changerZone(z.zone)}
+                  className={`btn ${zone === z.zone ? 'btn-primary' : 'btn-ghost'}`}>
+                  Zone {z.zone}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 text-[12px] leading-snug text-soft">
+              {zone
+                ? ZONES.find((z) => z.zone === zone)?.academies
+                : 'Votre zone dépend de votre académie. Sélectionnez-la pour voir la liste.'}
+            </p>
+          </fieldset>
+
+          {zoneMsg && (
+            <p role="status" className="rounded-xl bg-ok-bg px-3 py-2 text-sm font-bold text-ok">
+              {zoneMsg}
+            </p>
+          )}
+
+          {/* On dit la vérité sur l'état du calendrier plutôt que de laisser
+              croire qu'il est complet. */}
+          {zone && etatCal && (
+            etatCal.periodes === 0 ? (
+              <p className="rounded-xl bg-wait-bg px-3 py-2 text-[13px] leading-snug text-wait">
+                Le calendrier officiel n’a pas encore été importé pour cette
+                zone. Les vacances apparaîtront dès la prochaine
+                synchronisation ; vos périodes de garde ne sont pas affectées.
+              </p>
+            ) : (
+              <p className="rounded-xl bg-muted px-3 py-2 text-[13px] leading-snug text-soft">
+                {etatCal.periodes} période{etatCal.periodes > 1 ? 's' : ''} de
+                vacances chargée{etatCal.periodes > 1 ? 's' : ''}
+                {etatCal.derniereDate && `, jusqu’au ${new Date(etatCal.derniereDate + 'T12:00:00')
+                  .toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`}.
+                {!etatCal.couvreUnAn && ' La prochaine année scolaire sera ajoutée dès sa publication officielle.'}
+              </p>
+            )
+          )}
+
+          <p className="text-[11px] leading-snug text-soft/85">
+            Source : calendrier scolaire officiel du ministère de l’Éducation
+            nationale. Les vacances scolaires n’attribuent pas la garde par
+            elles-mêmes — ce sont vos périodes de vacances, définies dans
+            « Vacances et changements », qui décident chez quel parent sont les
+            enfants.
+          </p>
+        </section>
       )}
 
       <section className="card space-y-3 p-4">

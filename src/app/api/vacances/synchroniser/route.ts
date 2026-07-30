@@ -1,0 +1,152 @@
+import { NextResponse } from 'next/server';
+import { supabaseService } from '@/lib/supabase/server';
+
+/**
+ * Import du calendrier scolaire officiel.
+ *
+ * Source : data.education.gouv.fr, jeu « fr-en-calendrier-scolaire », publié
+ * par le ministère de l'Éducation nationale. C'est la référence : aucune date
+ * n'est déduite ni approximée ici. Une date fausse dans un planning de garde,
+ * c'est un enfant qui attend devant une école.
+ *
+ * Déclenchement : tâche planifiée Vercel (voir vercel.json) ou appel manuel
+ * protégé par CRON_SECRET. Idempotent — rejouable sans créer de doublon.
+ */
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
+
+const SOURCE = 'https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets'
+  + '/fr-en-calendrier-scolaire/records';
+
+/** Seules les zones métropolitaines nous concernent. */
+const ZONES = ['A', 'B', 'C'] as const;
+
+interface EnregistrementOfficiel {
+  description?: string;
+  start_date?: string;
+  end_date?: string;
+  zones?: string;
+  annee_scolaire?: string;
+  population?: string;
+}
+
+/** « Zone A » → « A ». */
+function zoneCourte(zones: string | undefined): string | null {
+  if (!zones) return null;
+  const m = /Zone\s+([ABC])/i.exec(zones);
+  return m ? m[1].toUpperCase() : null;
+}
+
+/** Les dates officielles sont des horodatages ; le planning raisonne en jours. */
+function jour(iso: string | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+}
+
+function autorise(requete: Request): boolean {
+  const attendu = process.env.CRON_SECRET;
+  if (!attendu) return false;
+  const entete = requete.headers.get('authorization');
+  // Vercel envoie « Bearer <CRON_SECRET> » pour les tâches planifiées
+  return entete === `Bearer ${attendu}`;
+}
+
+export async function GET(requete: Request) {
+  if (!autorise(requete)) {
+    return NextResponse.json({ message: 'Non autorisé.' }, { status: 401 });
+  }
+
+  const service = supabaseService();
+  if (!service) {
+    return NextResponse.json(
+      { message: 'Clé de service absente : import impossible.' },
+      { status: 503 },
+    );
+  }
+
+  // On couvre l'année scolaire en cours et les deux suivantes : le planning
+  // doit pouvoir aller au-delà d'un an pour les abonnés.
+  const annee = new Date().getFullYear();
+  const anneesScolaires = [
+    `${annee - 1}-${annee}`, `${annee}-${annee + 1}`,
+    `${annee + 1}-${annee + 2}`, `${annee + 2}-${annee + 3}`,
+  ];
+
+  try {
+    const parametres = new URLSearchParams({
+      limit: '100',
+      where: `annee_scolaire in (${anneesScolaires.map((a) => `"${a}"`).join(',')})`,
+      select: 'description,start_date,end_date,zones,annee_scolaire,population',
+    });
+
+    const reponse = await fetch(`${SOURCE}?${parametres}`, {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+    });
+    if (!reponse.ok) {
+      throw new Error(`la source officielle a répondu ${reponse.status}`);
+    }
+
+    const corps = (await reponse.json()) as { results?: EnregistrementOfficiel[] };
+    const brut = corps.results ?? [];
+
+    const periodes = brut
+      .map((e) => {
+        const zone = zoneCourte(e.zones);
+        const debut = jour(e.start_date);
+        const fin = jour(e.end_date);
+        if (!zone || !ZONES.includes(zone as 'A' | 'B' | 'C') || !debut || !fin) return null;
+        return {
+          label: e.description ?? 'Vacances scolaires',
+          zone,
+          school_year: e.annee_scolaire ?? null,
+          starts_on: debut,
+          ends_on: fin,
+          population: e.population ?? null,
+          external_id: `${e.annee_scolaire ?? ''}|${zone}|${e.description ?? ''}|${debut}`,
+        };
+      })
+      .filter((p): p is NonNullable<typeof p> => p !== null);
+
+    if (periodes.length === 0) {
+      await service.rpc('log_calendar_sync', {
+        p_zone: null, p_annee: null, p_periodes: 0,
+        p_statut: 'echec', p_message: 'aucune période exploitable dans la réponse',
+      });
+      return NextResponse.json(
+        { message: 'La source officielle n’a renvoyé aucune période exploitable.' },
+        { status: 502 },
+      );
+    }
+
+    const { data: importees, error } = await service.rpc('import_school_holidays', {
+      p_periodes: periodes,
+    });
+    if (error) throw new Error(error.message);
+
+    await service.rpc('log_calendar_sync', {
+      p_zone: null, p_annee: anneesScolaires.join(', '),
+      p_periodes: Number(importees ?? 0),
+      p_statut: 'succes', p_message: null,
+    });
+
+    return NextResponse.json({
+      importees: Number(importees ?? 0),
+      annees: anneesScolaires,
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.error('[vacances]', message);
+    await service.rpc('log_calendar_sync', {
+      p_zone: null, p_annee: null, p_periodes: 0,
+      p_statut: 'echec', p_message: message,
+    });
+    // Aucune donnée approximative n'est écrite : mieux vaut un calendrier vide
+    // qu'un calendrier faux.
+    return NextResponse.json(
+      { message: 'Import impossible pour le moment.' },
+      { status: 502 },
+    );
+  }
+}

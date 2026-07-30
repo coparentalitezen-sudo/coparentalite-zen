@@ -8,8 +8,8 @@ import { Icone } from '@/components/icons';
 import { BandeauHorizon, dansHorizon } from '@/components/premium';
 import { useContexte } from '@/lib/use-contexte';
 import {
-  getRegleGarde, listerExceptions, getOffre,
-  type RegleGarde, type ExceptionGarde, type Offre,
+  getRegleGarde, listerExceptions, getOffre, listerVacances,
+  type RegleGarde, type ExceptionGarde, type Offre, type VacancesScolaires,
 } from '@/lib/actions';
 import { buildDayMap, addDays, type Source, type HolidayOverride, type ExceptionOverride } from '@/lib/custody';
 
@@ -34,6 +34,7 @@ export default function Planning() {
   const [decalage, setDecalage] = useState(0);
   const [jourOuvert, setJourOuvert] = useState<string | null>(null);
   const [offre, setOffre] = useState<Offre | null>(null);
+  const [vacances, setVacances] = useState<VacancesScolaires[]>([]);
 
   const membres = ctx.etat === 'pret' ? ctx.contexte.membres : [];
   const enfants = ctx.etat === 'pret' ? ctx.contexte.enfants : [];
@@ -61,6 +62,9 @@ export default function Planning() {
       else if (r.status === 'error') setErreur(r.message);
     });
     getOffre(hid).then((r) => { if (r.status === 'ok') setOffre(r.data); });
+    listerVacances(hid, premierJour, dernierJour).then((r) => {
+      if (r.status === 'ok') setVacances(r.data);
+    });
   }, [ctx, premierJour, dernierJour]);
 
   useEffect(charger, [charger]);
@@ -93,6 +97,22 @@ export default function Planning() {
       return new Map<string, { parentId: string; source: Source }>();
     }
   }, [regle, exceptions, premierJour, dernierJour]);
+
+  /** Jours couverts par une période de vacances scolaires officielle. */
+  const joursVacances = useMemo(() => {
+    const set = new Set<string>();
+    for (const v of vacances) {
+      for (let t = new Date(v.debut + 'T12:00:00').getTime();
+           t <= new Date(v.fin + 'T12:00:00').getTime();
+           t += 86400000) {
+        set.add(new Date(t).toISOString().slice(0, 10));
+      }
+    }
+    return set;
+  }, [vacances]);
+
+  const vacancesDuJour = (jour: string) =>
+    vacances.filter((v) => v.debut <= jour && jour <= v.fin);
 
   const membre = (id: string) => membres.find((m) => m.profileId === id);
   const nom = (id: string) => membre(id)?.nom ?? 'Parent';
@@ -160,27 +180,35 @@ export default function Planning() {
                     const coral = m?.couleur === 'coral';
                     const fond = m ? (coral ? 'bg-p2-bg' : 'bg-p1-bg') : '';
                     const texte = m ? (coral ? 'text-coral-text' : 'text-navy-text') : '';
-                    const vacances = a?.source === 'holiday';
+                    const vacancesExc = a?.source === 'holiday';
                     const ponctuel = a?.source === 'exception' || a?.source === 'exchange';
                     return (
                       <button
                         key={d}
                         type="button"
                         onClick={() => setJourOuvert(jourOuvert === d ? null : d)}
-                        aria-label={m
-                          ? `${d}, chez ${m.nom}${vacances ? ', vacances' : ponctuel ? ', changement ponctuel' : ''}`
-                          : couvert ? d : `${d}, au-delà de votre offre`}
+                        aria-label={[
+                          m ? `${d}, chez ${m.nom}` : couvert ? d : `${d}, au-delà de votre offre`,
+                          vacancesExc ? 'vacances définies par les parents' : null,
+                          ponctuel ? 'changement ponctuel' : null,
+                          joursVacances.has(d) ? 'vacances scolaires' : null,
+                        ].filter(Boolean).join(', ')}
                         className={`relative aspect-square border-b border-r border-line p-1 text-left ${fond}
                           ${!couvert ? 'bg-muted/60' : ''}
                           ${estAujourdhui ? 'ring-2 ring-inset ring-navy' : ''}
                           ${ponctuel ? 'border-2 border-dashed border-ink/40' : ''}
                           ${jourOuvert === d ? 'ring-2 ring-inset ring-ink' : ''}`}
                       >
+                        {joursVacances.has(d) && (
+                          <span aria-hidden
+                            className="absolute inset-x-0 top-0 h-[3px] bg-[#C9A227]"
+                            title="Vacances scolaires" />
+                        )}
                         <span className="text-xs font-bold">{Number(d.slice(8))}</span>
                         {m && (
                           <span className={`mt-0.5 block text-[10px] font-black ${texte}`}>{m.initiale}</span>
                         )}
-                        {vacances && (
+                        {vacancesExc && (
                           <span aria-hidden className="absolute bottom-0.5 right-0.5 text-[9px] leading-none">🌴</span>
                         )}
                         {ponctuel && (
@@ -213,6 +241,12 @@ export default function Planning() {
                       <Icone nom="echange" taille={9} />
                     </span>
                     Changement ponctuel — bordure pointillée
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span aria-hidden className="relative h-5 w-5 shrink-0 overflow-hidden rounded-md bg-muted">
+                      <span className="absolute inset-x-0 top-0 h-[3px] bg-[#C9A227]" />
+                    </span>
+                    Vacances scolaires — liseré doré, ajoutées automatiquement
                   </li>
                 </ul>
               </section>
@@ -266,6 +300,20 @@ export default function Planning() {
                       </>
                     );
                   })()}
+
+                  {vacancesDuJour(jourOuvert).length > 0 && (
+                    <ul className="border-t border-line-soft pt-2.5">
+                      {vacancesDuJour(jourOuvert).map((v) => (
+                        <li key={v.id} className="text-[13px] leading-snug">
+                          <span className="font-bold">{v.libelle}</span>
+                          {v.zone && <span className="text-soft/85"> · zone {v.zone}</span>}
+                          <span className="block text-soft/85">
+                            Vacances scolaires — n’attribuent pas la garde par elles-mêmes.
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
 
                   {exceptionsDuJour(jourOuvert).length > 0 && (
                     <ul className="divide-y divide-line-soft border-t border-line-soft pt-1">

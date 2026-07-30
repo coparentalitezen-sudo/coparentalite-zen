@@ -162,3 +162,11 @@ end $$;
 
 grant execute on function public.test_fixer_prix(bigint, bigint) to authenticated;
 grant execute on function public.test_fixer_tarifs_stripe(text, text) to authenticated;
+
+-- ---- Import du calendrier scolaire : réservé au rôle de service en production.
+create or replace function public.test_importer_vacances(p_periodes jsonb)
+returns int language plpgsql security definer set search_path = public as $$
+begin
+  return public.import_school_holidays(p_periodes);
+end $$;
+grant execute on function public.test_importer_vacances(jsonb) to authenticated;

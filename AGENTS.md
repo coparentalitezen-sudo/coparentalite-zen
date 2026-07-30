@@ -55,6 +55,7 @@ Aucune dépendance d'interface ajoutée : les icônes sont des tracés SVG maiso
 | `/api/paiement` | `api/paiement/route.ts` | ouverture d'un paiement Stripe |
 | `/api/paiement/portail` | `api/paiement/portail/route.ts` | portail de gestion |
 | `/api/stripe/webhook` | `api/stripe/webhook/route.ts` | réception des événements |
+| `/api/vacances/synchroniser` | `api/vacances/synchroniser/route.ts` | import du calendrier officiel |
 | `/hors-ligne` | `hors-ligne/page.tsx` | repli du service worker |
 | `/sw.js` | `sw.js/route.ts` | service worker, version injectée au build |
 
@@ -75,6 +76,7 @@ découpage interne peut évoluer sans rien casser.
 | `stripe.ts` | appels Stripe en HTTP et vérification de signature, **serveur seul** |
 | `premium-horizon.ts` | garde d'horizon, fonction pure testable |
 | `tarifs.ts` | lecture de la grille publique ; **aucun montant en dur** |
+| `actions/vacances.ts` | zone académique et calendrier scolaire officiel |
 | `custody.ts` | moteur de planning : six rythmes, priorités, périodes continues |
 | `money.ts` | répartition au plus fort reste, solde, formulations neutres |
 | `serenite.ts` | score de complétude administrative du foyer (présentation seule) |
@@ -108,6 +110,7 @@ SQL et leurs jeux d'essai.
 | `00014` | exceptions de planning : vacances et changements ponctuels |
 | `00015` | **offres** : horizon de planning, extensions, abonnement, facturation |
 | `00016` | **grille tarifaire unique** : prix, formules, tarifs Stripe, fonctions |
+| `00017` | **vacances scolaires** : zone académique, calendrier officiel, import |
 
 ---
 
@@ -164,6 +167,25 @@ authentification. **Aucun montant n'est écrit dans le code** — trois prix
 différents avaient coexisté dans le projet, et annoncer un tarif tout en
 facturant un autre se règle devant un médiateur de la consommation. Ajuster un
 prix se fait par un `update` sur ces tables, et nulle part ailleurs.
+
+**Vacances scolaires.** Le foyer choisit sa zone académique (A, B ou C) ; les
+périodes viennent du calendrier officiel du ministère de l'Éducation nationale,
+importé chaque semaine par une tâche planifiée. Aucun parent ne saisit jamais de
+vacances. **Aucune date n'est déduite ni approximée** : si l'import n'a pas eu
+lieu, l'interface le dit plutôt que d'afficher un calendrier approximatif — une
+date fausse dans un planning de garde, c'est un enfant qui attend devant une
+école. Les vacances scolaires n'attribuent pas la garde : elles informent. Ce
+sont les exceptions créées par les parents qui décident, et changer de zone n'en
+supprime aucune.
+
+**Icônes.** Le symbole source touche les bords de son fichier ; toute icône
+générée avec une marge insuffisante est rognée par les masques d'iOS et
+d'Android. `scripts/generer-icones.py` recadre le symbole sur son contenu réel
+puis applique les marges conformes : 80 % de la largeur pour les icônes
+standard, **54 % pour les maskable** — un carré inscrit dans le cercle de
+sécurité d'Android ne mesure que 0,8/√2 ≈ 56 % du côté. Le script vérifie
+ensuite qu'aucun logo ne touche un bord. Régénérer après tout changement de
+logo : `python3 scripts/generer-icones.py`.
 
 **Offres.** L'offre gratuite couvre trois mois de planning à compter de la
 création du foyer ; les extensions achetées s'y ajoutent et restent acquises ;
