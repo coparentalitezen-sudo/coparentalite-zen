@@ -9,8 +9,8 @@ import { useContexte } from '@/lib/use-contexte';
 import {
   createHousehold, inviteParent, exportMyData, deleteMyAccount, deleteHousehold,
   getRegleGarde, setRegleGarde, renommerMonProfil, type RegleGarde,
-  getZone, setZone, getEtatCalendrier, ZONES,
-  type Zone, type EtatCalendrier,
+  getEtatCalendrier, listerPays, listerZones, getLocalisation, setLocalisation,
+  type EtatCalendrier, type Pays, type ZoneDisponible, type Localisation,
 } from '@/lib/actions';
 import type { CustodyPattern } from '@/lib/custody';
 
@@ -24,10 +24,13 @@ const RYTHMES: { valeur: CustodyPattern; libelle: string }[] = [
 ];
 
 export default function Foyer() {
-  const [zone, setZoneLocale] = useState<Zone | null>(null);
+  const [pays, setPays] = useState<Pays[]>([]);
+  const [zonesDispo, setZonesDispo] = useState<ZoneDisponible[]>([]);
+  const [loc, setLoc] = useState<Localisation | null>(null);
+  const [codePostal, setCodePostal] = useState('');
   const [etatCal, setEtatCal] = useState<EtatCalendrier | null>(null);
   const [zoneBusy, setZoneBusy] = useState(false);
-  const [zoneMsg, setZoneMsg] = useState<string | null>(null);
+  const [zoneMsg, setZoneMsg] = useState<{ kind: 'ok' | 'info' | 'err'; text: string } | null>(null);
   const router = useRouter();
   const { ctx, recharger } = useContexte();
   const [nom, setNom] = useState('');
@@ -53,29 +56,81 @@ export default function Foyer() {
         setDebut(r.data.startDate);
       }
     });
-    getZone(ctx.contexte.foyer.id).then((r) => {
-      if (r.status === 'ok') setZoneLocale(r.data);
+    listerPays().then((r) => { if (r.status === 'ok') setPays(r.data); });
+    getLocalisation(ctx.contexte.foyer.id).then(async (r) => {
+      if (r.status !== 'ok') return;
+      setLoc(r.data);
+      setCodePostal(r.data.codePostal ?? '');
+      const code = r.data.pays ?? 'FR';
+      const z = await listerZones(code);
+      if (z.status === 'ok') setZonesDispo(z.data);
     });
     getEtatCalendrier(ctx.contexte.foyer.id).then((r) => {
       if (r.status === 'ok') setEtatCal(r.data);
     });
   }, [ctx]);
 
-  /**
-   * Changer de zone ne touche jamais aux exceptions créées par les parents :
-   * seule la couche d'information « vacances scolaires » est concernée.
-   */
-  async function changerZone(nouvelle: Zone) {
+  async function rafraichirLocalisation(householdId: string) {
+    const [l, e] = await Promise.all([
+      getLocalisation(householdId), getEtatCalendrier(householdId),
+    ]);
+    if (l.status === 'ok') setLoc(l.data);
+    if (e.status === 'ok') setEtatCal(e.data);
+  }
+
+  async function choisirPays(code: string) {
     if (ctx.etat !== 'pret' || zoneBusy) return;
     setZoneBusy(true); setZoneMsg(null);
-    const r = await setZone(ctx.contexte.foyer.id, nouvelle);
+    const z = await listerZones(code);
+    if (z.status === 'ok') setZonesDispo(z.data);
+    // Changer de pays remet la subdivision à zéro : elle n'a plus de sens.
+    // Aucune exception de garde n'est touchée.
+    const r = await setLocalisation({ householdId: ctx.contexte.foyer.id, pays: code });
+    if (r.status === 'error') setZoneMsg({ kind: 'err', text: r.message });
+    await rafraichirLocalisation(ctx.contexte.foyer.id);
+    setZoneBusy(false);
+  }
+
+  /**
+   * Enregistre la subdivision. Aucune décision de garde n'est affectée : les
+   * vacances scolaires sont une donnée de référence, pas une règle de garde.
+   */
+  async function choisirZone(zone: string) {
+    if (ctx.etat !== 'pret' || zoneBusy) return;
+    setZoneBusy(true); setZoneMsg(null);
+    const r = await setLocalisation({
+      householdId: ctx.contexte.foyer.id,
+      pays: loc?.pays ?? 'FR',
+      zone,
+      codePostal: codePostal || null,
+    });
     if (r.status === 'ok') {
-      setZoneLocale(nouvelle);
-      setZoneMsg(`Zone ${nouvelle} enregistrée. Les vacances scolaires apparaissent dans le planning.`);
-      const e = await getEtatCalendrier(ctx.contexte.foyer.id);
-      if (e.status === 'ok') setEtatCal(e.data);
+      setZoneMsg({ kind: 'ok',
+        text: 'Enregistré. Les vacances scolaires apparaissent dans le planning ; vos périodes de garde sont inchangées.' });
+      await rafraichirLocalisation(ctx.contexte.foyer.id);
     } else if (r.status === 'error') {
-      setZoneMsg(r.message);
+      setZoneMsg({ kind: 'err', text: r.message });
+    }
+    setZoneBusy(false);
+  }
+
+  /** Tente la déduction depuis le code postal, sans jamais deviner. */
+  async function deduireDepuisCodePostal() {
+    if (ctx.etat !== 'pret' || zoneBusy) return;
+    setZoneBusy(true); setZoneMsg(null);
+    const r = await setLocalisation({
+      householdId: ctx.contexte.foyer.id,
+      pays: loc?.pays ?? 'FR',
+      codePostal: codePostal || null,
+    });
+    if (r.status === 'ok') {
+      setZoneMsg(r.data.zone
+        ? { kind: 'ok', text: `Zone ${r.data.zone} déterminée depuis votre code postal.` }
+        : { kind: 'info',
+            text: 'Votre code postal ne permet pas encore de déterminer la zone. Choisissez-la ci-dessous.' });
+      await rafraichirLocalisation(ctx.contexte.foyer.id);
+    } else if (r.status === 'error') {
+      setZoneMsg({ kind: 'err', text: r.message });
     }
     setZoneBusy(false);
   }
@@ -291,44 +346,91 @@ export default function Foyer() {
         <section className="card space-y-3 p-4">
           <h2 className="font-bold">Vacances scolaires</h2>
           <p className="text-sm text-soft">
-            Indiquez votre zone académique une seule fois : les vacances
-            scolaires apparaissent ensuite automatiquement dans le planning, et
-            se mettent à jour à chaque nouvelle année scolaire. Vous n’avez
-            jamais à les saisir.
+            Indiquez votre localisation une seule fois : les vacances scolaires
+            officielles apparaissent ensuite automatiquement dans le planning et
+            se mettent à jour à chaque nouvelle année scolaire, corrections
+            comprises. Vous n’avez jamais à les saisir.
           </p>
 
-          <fieldset>
-            <legend className="mb-1.5 text-sm font-bold">Votre zone</legend>
-            <div className="grid grid-cols-3 gap-2">
-              {ZONES.map((z) => (
-                <button key={z.zone} type="button" aria-pressed={zone === z.zone}
-                  disabled={zoneBusy}
-                  onClick={() => changerZone(z.zone)}
-                  className={`btn ${zone === z.zone ? 'btn-primary' : 'btn-ghost'}`}>
-                  Zone {z.zone}
-                </button>
-              ))}
+          {/* Pays : la liste vient de la base, d'autres s'ajouteront sans
+              modification de cet écran. */}
+          {pays.length > 1 && (
+            <fieldset>
+              <legend className="mb-1.5 text-sm font-bold">Pays</legend>
+              <div className="flex flex-wrap gap-2">
+                {pays.map((p) => (
+                  <button key={p.code} type="button" aria-pressed={loc?.pays === p.code}
+                    disabled={zoneBusy}
+                    onClick={() => choisirPays(p.code)}
+                    className={`btn ${loc?.pays === p.code ? 'btn-primary' : 'btn-ghost'}`}>
+                    {p.libelle}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+          )}
+
+          {/* Déduction automatique quand le pays le permet */}
+          {loc?.deduction && (
+            <div>
+              <label className="block">
+                <span className="mb-1 block text-sm font-bold">
+                  Code postal <span className="font-normal text-soft">(facultatif)</span>
+                </span>
+                <input inputMode="numeric" maxLength={5} value={codePostal}
+                  onChange={(e) => setCodePostal(e.target.value.replace(/\D/g, ''))}
+                  placeholder="75001" />
+              </label>
+              <button type="button" className="btn btn-ghost mt-2 w-full"
+                disabled={zoneBusy || codePostal.length < 4}
+                onClick={deduireDepuisCodePostal}>
+                {zoneBusy ? 'Recherche…' : `Déterminer ma ${(loc.libelleZone ?? 'zone').toLowerCase()}`}
+              </button>
             </div>
-            <p className="mt-1.5 text-[12px] leading-snug text-soft">
-              {zone
-                ? ZONES.find((z) => z.zone === zone)?.academies
-                : 'Votre zone dépend de votre académie. Sélectionnez-la pour voir la liste.'}
-            </p>
-          </fieldset>
+          )}
+
+          {/* Choix manuel : toujours disponible, et jamais contourné par une
+              déduction approximative. */}
+          {zonesDispo.length > 0 && (
+            <fieldset>
+              <legend className="mb-1.5 text-sm font-bold">
+                {loc?.libelleZone ?? 'Zone'}
+              </legend>
+              <div className={`grid gap-2 ${zonesDispo.length <= 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                {zonesDispo.map((z) => (
+                  <button key={z.code} type="button" aria-pressed={loc?.zone === z.code}
+                    disabled={zoneBusy}
+                    onClick={() => choisirZone(z.code)}
+                    className={`btn ${loc?.zone === z.code ? 'btn-primary' : 'btn-ghost'}`}>
+                    {z.libelle}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1.5 text-[12px] leading-snug text-soft">
+                {loc?.zone
+                  ? zonesDispo.find((z) => z.code === loc.zone)?.aide
+                    ?? 'Subdivision enregistrée.'
+                  : 'Sélectionnez votre subdivision pour voir les académies concernées.'}
+              </p>
+            </fieldset>
+          )}
 
           {zoneMsg && (
-            <p role="status" className="rounded-xl bg-ok-bg px-3 py-2 text-sm font-bold text-ok">
-              {zoneMsg}
+            <p role="status" className={`rounded-xl px-3 py-2 text-sm font-bold ${
+              zoneMsg.kind === 'ok' ? 'bg-ok-bg text-ok'
+              : zoneMsg.kind === 'err' ? 'bg-err-bg text-err'
+              : 'bg-wait-bg text-wait'}`}>
+              {zoneMsg.text}
             </p>
           )}
 
           {/* On dit la vérité sur l'état du calendrier plutôt que de laisser
               croire qu'il est complet. */}
-          {zone && etatCal && (
+          {loc?.zone && etatCal && (
             etatCal.periodes === 0 ? (
               <p className="rounded-xl bg-wait-bg px-3 py-2 text-[13px] leading-snug text-wait">
                 Le calendrier officiel n’a pas encore été importé pour cette
-                zone. Les vacances apparaîtront dès la prochaine
+                subdivision. Les vacances apparaîtront dès la prochaine
                 synchronisation ; vos périodes de garde ne sont pas affectées.
               </p>
             ) : (
@@ -343,11 +445,11 @@ export default function Foyer() {
           )}
 
           <p className="text-[11px] leading-snug text-soft/85">
-            Source : calendrier scolaire officiel du ministère de l’Éducation
-            nationale. Les vacances scolaires n’attribuent pas la garde par
-            elles-mêmes — ce sont vos périodes de vacances, définies dans
-            « Vacances et changements », qui décident chez quel parent sont les
-            enfants.
+            {loc?.source ? `Source : ${loc.source}.` : ''} Les vacances scolaires
+            sont une donnée de référence : elles n’attribuent pas la garde. Ce
+            sont votre rythme et vos périodes définies dans « Vacances et
+            changements » qui décident chez quel parent sont les enfants.
+            Changer de pays ou de subdivision ne supprime aucune de vos décisions.
           </p>
         </section>
       )}

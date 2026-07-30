@@ -20,3 +20,4 @@ export * from './attachments';
 export * from './privacy';
 export * from './premium';
 export * from './vacances';
+export * from './localisation';

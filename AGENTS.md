@@ -76,7 +76,8 @@ découpage interne peut évoluer sans rien casser.
 | `stripe.ts` | appels Stripe en HTTP et vérification de signature, **serveur seul** |
 | `premium-horizon.ts` | garde d'horizon, fonction pure testable |
 | `tarifs.ts` | lecture de la grille publique ; **aucun montant en dur** |
-| `actions/vacances.ts` | zone académique et calendrier scolaire officiel |
+| `actions/vacances.ts` | calendrier scolaire officiel du foyer |
+| `actions/localisation.ts` | pays, subdivision, déduction depuis le code postal |
 | `custody.ts` | moteur de planning : six rythmes, priorités, périodes continues |
 | `money.ts` | répartition au plus fort reste, solde, formulations neutres |
 | `serenite.ts` | score de complétude administrative du foyer (présentation seule) |
@@ -110,7 +111,8 @@ SQL et leurs jeux d'essai.
 | `00014` | exceptions de planning : vacances et changements ponctuels |
 | `00015` | **offres** : horizon de planning, extensions, abonnement, facturation |
 | `00016` | **grille tarifaire unique** : prix, formules, tarifs Stripe, fonctions |
-| `00017` | **vacances scolaires** : zone académique, calendrier officiel, import |
+| `00017` | **vacances scolaires** : calendrier officiel, import, suivi |
+| `00018` | **localisation multi-pays** : pays, subdivisions, déduction de zone |
 
 ---
 
@@ -168,15 +170,30 @@ différents avaient coexisté dans le projet, et annoncer un tarif tout en
 facturant un autre se règle devant un médiateur de la consommation. Ajuster un
 prix se fait par un `update` sur ces tables, et nulle part ailleurs.
 
-**Vacances scolaires.** Le foyer choisit sa zone académique (A, B ou C) ; les
-périodes viennent du calendrier officiel du ministère de l'Éducation nationale,
-importé chaque semaine par une tâche planifiée. Aucun parent ne saisit jamais de
-vacances. **Aucune date n'est déduite ni approximée** : si l'import n'a pas eu
-lieu, l'interface le dit plutôt que d'afficher un calendrier approximatif — une
-date fausse dans un planning de garde, c'est un enfant qui attend devant une
-école. Les vacances scolaires n'attribuent pas la garde : elles informent. Ce
-sont les exceptions créées par les parents qui décident, et changer de zone n'en
-supprime aucune.
+**Vacances scolaires et localisation.** Le foyer enregistre son pays et sa
+subdivision ; les périodes viennent des calendriers officiels, importés chaque
+semaine par une tâche planifiée. Aucun parent ne saisit jamais de vacances.
+
+L'architecture est indépendante du pays : `calendar_countries` déclare pour
+chacun comment sa subdivision se détermine — `zone` (découpe nationale, cas de
+la France), `region` (canton suisse, communauté belge, province québécoise) ou
+`national` (Luxembourg). Ajouter un pays revient à activer sa ligne et à
+brancher un importateur : **aucune migration de structure**. Cinq pays sont
+déclarés, la France est active.
+
+**Aucune date n'est écrite dans le code, et aucune zone n'est devinée.** La
+table `calendar_area_zones` (département → zone) est vide à l'installation et
+alimentée par l'import officiel ; sans correspondance connue, la fonction
+renvoie null et l'utilisateur choisit lui-même. Si l'import n'a pas eu lieu,
+l'interface le dit plutôt que d'afficher un calendrier approximatif — une date
+fausse dans un planning de garde, c'est un enfant qui attend devant une école.
+
+**Les vacances scolaires n'attribuent jamais la garde.** Elles sont une donnée
+de référence, affichée en liseré doré sur le calendrier. La garde est déterminée
+uniquement par le rythme, les changements ponctuels et les exceptions décidées
+par les parents. Changer de pays, de subdivision ou importer de nouvelles
+vacances ne supprime aucune décision utilisateur — le test L7 le vérifie sur les
+exceptions, les dépenses, les remboursements et le rythme.
 
 **Icônes.** Le symbole source touche les bords de son fichier ; toute icône
 générée avec une marge insuffisante est rognée par les masques d'iOS et

@@ -170,3 +170,28 @@ begin
   return public.import_school_holidays(p_periodes);
 end $$;
 grant execute on function public.test_importer_vacances(jsonb) to authenticated;
+
+-- ---- Activation d'un pays : opération d'administration, hors du client.
+create or replace function public.test_activer_pays(p_code text) returns void
+language plpgsql security definer set search_path = public as $$
+begin update calendar_countries set active = true where code = p_code; end $$;
+
+create or replace function public.test_desactiver_pays(p_code text) returns void
+language plpgsql security definer set search_path = public as $$
+begin update calendar_countries set active = false where code = p_code; end $$;
+
+create or replace function public.test_importer_correspondances(p_pays text, p_lignes jsonb)
+returns int language plpgsql security definer set search_path = public as $$
+begin return public.import_area_zones(p_pays, p_lignes); end $$;
+
+grant execute on function public.test_activer_pays(text) to authenticated;
+grant execute on function public.test_desactiver_pays(text) to authenticated;
+grant execute on function public.test_importer_correspondances(text, jsonb) to authenticated;
+
+/** Compte les pays déclarés, actifs ou non : la RLS ne montre que les actifs. */
+create or replace function public.test_pays_declares()
+returns table (code text, mode text, actif boolean)
+language sql security definer set search_path = public as $$
+  select c.code, c.zone_mode, c.active from calendar_countries c order by c.sort_order
+$$;
+grant execute on function public.test_pays_declares() to authenticated;

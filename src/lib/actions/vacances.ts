@@ -14,6 +14,7 @@ export type Zone = 'A' | 'B' | 'C';
 export interface VacancesScolaires {
   id: string;
   libelle: string;
+  pays: string | null;
   zone: string | null;
   anneeScolaire: string | null;
   debut: string;
@@ -22,6 +23,7 @@ export interface VacancesScolaires {
 }
 
 export interface EtatCalendrier {
+  pays: string | null;
   zone: Zone | null;
   periodes: number;
   premiereDate: string | null;
@@ -31,12 +33,11 @@ export interface EtatCalendrier {
   couvreUnAn: boolean;
 }
 
-/** Départements par zone, pour aider au choix sans avoir à chercher ailleurs. */
-export const ZONES: { zone: Zone; academies: string }[] = [
-  { zone: 'A', academies: 'Besançon, Bordeaux, Clermont-Ferrand, Dijon, Grenoble, Limoges, Lyon, Poitiers' },
-  { zone: 'B', academies: 'Aix-Marseille, Amiens, Lille, Nancy-Metz, Nantes, Nice, Normandie, Orléans-Tours, Reims, Rennes, Strasbourg' },
-  { zone: 'C', academies: 'Créteil, Montpellier, Paris, Toulouse, Versailles' },
-];
+/**
+ * Les zones et leurs académies sont désormais lues en base
+ * (voir listerZones dans localisation.ts) : rien n'est figé dans le code, ce
+ * qui permet d'accueillir d'autres pays sans y toucher.
+ */
 
 export async function getZone(householdId: string): Promise<ActionResult<Zone | null>> {
   const supabase = supabaseBrowser();
@@ -73,6 +74,7 @@ export async function listerVacances(
   return ok(((data ?? []) as Record<string, unknown>[]).map((v) => ({
     id: v.id as string,
     libelle: v.libelle as string,
+    pays: (v.pays as string) ?? null,
     zone: (v.zone as string) ?? null,
     anneeScolaire: (v.annee_scolaire as string) ?? null,
     debut: v.debut as string,
@@ -91,6 +93,7 @@ export async function getEtatCalendrier(householdId: string): Promise<ActionResu
   if (error) return err(lisible('Impossible de lire l’état du calendrier.', error), detail(error));
   const l = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | undefined;
   return ok({
+    pays: (l?.pays as string) ?? null,
     zone: ((l?.zone as Zone) ?? null),
     periodes: Number(l?.periodes ?? 0),
     premiereDate: (l?.premiere_date as string) ?? null,

@@ -28,6 +28,7 @@ interface EnregistrementOfficiel {
   zones?: string;
   annee_scolaire?: string;
   population?: string;
+  location?: string;      // académie concernée
 }
 
 /** « Zone A » → « A ». */
@@ -77,7 +78,7 @@ export async function GET(requete: Request) {
     const parametres = new URLSearchParams({
       limit: '100',
       where: `annee_scolaire in (${anneesScolaires.map((a) => `"${a}"`).join(',')})`,
-      select: 'description,start_date,end_date,zones,annee_scolaire,population',
+      select: 'description,start_date,end_date,zones,annee_scolaire,population,location',
     });
 
     const reponse = await fetch(`${SOURCE}?${parametres}`, {
@@ -98,6 +99,7 @@ export async function GET(requete: Request) {
         const fin = jour(e.end_date);
         if (!zone || !ZONES.includes(zone as 'A' | 'B' | 'C') || !debut || !fin) return null;
         return {
+          country_code: 'FR',
           label: e.description ?? 'Vacances scolaires',
           zone,
           school_year: e.annee_scolaire ?? null,
@@ -125,14 +127,45 @@ export async function GET(requete: Request) {
     });
     if (error) throw new Error(error.message);
 
+    // Correspondances académie → zone, déduites de la même réponse officielle.
+    // Elles servent à proposer la bonne zone à l'utilisateur sans qu'il cherche.
+    const parAcademie = new Map<string, string>();
+    for (const e of brut) {
+      const zone = zoneCourte(e.zones);
+      const academie = e.location?.trim();
+      if (zone && academie && ZONES.includes(zone as 'A' | 'B' | 'C')) {
+        parAcademie.set(academie, zone);
+      }
+    }
+    let academies = 0;
+    if (parAcademie.size > 0) {
+      const lignes = [...parAcademie.entries()].map(([academie, zone]) => ({
+        area_code: academie.toUpperCase(),
+        area_label: academie,
+        zone_code: zone,
+      }));
+      const { data: n, error: erreurZones } = await service.rpc('import_area_zones', {
+        p_pays: 'FR', p_lignes: lignes,
+      });
+      if (erreurZones) {
+        // Non bloquant : les vacances sont importées, seule l'aide au choix
+        // de zone reste indisponible.
+        console.error('[vacances] correspondances', erreurZones.message);
+      } else {
+        academies = Number(n ?? 0);
+      }
+    }
+
     await service.rpc('log_calendar_sync', {
       p_zone: null, p_annee: anneesScolaires.join(', '),
       p_periodes: Number(importees ?? 0),
-      p_statut: 'succes', p_message: null,
+      p_statut: 'succes',
+      p_message: academies > 0 ? `${academies} académies rattachées` : null,
     });
 
     return NextResponse.json({
       importees: Number(importees ?? 0),
+      academies,
       annees: anneesScolaires,
     });
   } catch (e) {
