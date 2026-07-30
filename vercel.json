@@ -2,7 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
-      "comment": "Calendrier scolaire officiel : une fois par semaine suffit, il ne change qu'à la publication d'une nouvelle année scolaire.",
       "path": "/api/vacances/synchroniser",
       "schedule": "0 4 * * 1"
     }

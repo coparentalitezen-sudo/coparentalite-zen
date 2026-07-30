@@ -244,6 +244,18 @@ détails techniques sont masqués en production et regroupés dans un dépliant
 
 ---
 
+## Tâches planifiées
+
+`vercel.json` déclare une tâche hebdomadaire (lundi 4 h) qui appelle
+`/api/vacances/synchroniser` pour importer le calendrier scolaire officiel.
+Une fois par semaine suffit : il ne change qu'à la publication d'une nouvelle
+année scolaire ou d'une correction. Le fichier ne contient que `path` et
+`schedule` — le schéma de Vercel rejette tout champ supplémentaire.
+
+La route exige `CRON_SECRET` : Vercel l'envoie automatiquement en en-tête
+`Authorization: Bearer …`. Un membre connecté peut aussi déclencher une mise à
+jour depuis les paramètres du foyer, limitée à une fois par heure.
+
 ## Commandes
 
 ```bash
