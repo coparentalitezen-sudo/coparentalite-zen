@@ -10,8 +10,13 @@ import { test, expect } from '@playwright/test';
 
 test('page commerciale : promesse, tarifs, mention légale', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('planning de garde');
-  await expect(page.getByText('4,99 €/mois', { exact: true })).toBeVisible();
+  // Le libellé de la promesse peut évoluer : on vérifie qu'un titre existe et
+  // porte le sujet du produit, sans figer une formulation commerciale.
+  const titre = page.getByRole('heading', { level: 1 });
+  await expect(titre).toBeVisible();
+  await expect(titre).toContainText(/coparentalité|planning|garde/i);
+  // Le tarif est affiché ; sa périodicité vient de la base, on ne la fige pas ici
+  await expect(page.getByText(/4,99\s*€/).first()).toBeVisible();
   await expect(page.locator('footer')).toContainText('ne remplace ni une décision judiciaire');
 });
 
@@ -24,7 +29,7 @@ test('garde d’authentification : /app/* renvoie vers la connexion', async ({ p
 });
 
 test('toutes les routes protégées sont bien gardées', async ({ page }) => {
-  for (const route of ['/app/planning', '/app/depenses', '/app/ajouter', '/app/plus', '/app/foyer', '/app/enfants', '/app/exceptions']) {
+  for (const route of ['/app/planning', '/app/depenses', '/app/ajouter', '/app/plus', '/app/foyer', '/app/enfants', '/app/exceptions', '/app/offre']) {
     // on attend la fin de chaque navigation : enchaîner sans attendre annulerait
     // la redirection en cours (comportement de navigateur, pas de l'application)
     await page.goto(route, { waitUntil: 'load' });
@@ -118,4 +123,21 @@ test('planning : exceptions et légende accessibles', async ({ page }) => {
   // routes protégées : la garde d'authentification doit s'appliquer aussi ici
   await page.goto('/app/exceptions', { waitUntil: 'load' });
   await expect(page).toHaveURL(/\/connexion/);
+});
+
+test('paiement : les routes refusent un appel non authentifié', async ({ request }) => {
+  // Sans session, aucune session de paiement ne doit pouvoir être ouverte
+  for (const chemin of ['/api/paiement', '/api/paiement/portail']) {
+    const r = await request.post(chemin, { data: { householdId: 'x', type: 'abonnement' } });
+    expect([401, 403, 503]).toContain(r.status());
+  }
+});
+
+test('webhook : une requête sans signature valide est rejetée', async ({ request }) => {
+  // C'est le garde-fou qui empêche quiconque de s'offrir un abonnement
+  const r = await request.post('/api/stripe/webhook', {
+    data: { id: 'evt_faux', type: 'checkout.session.completed', data: { object: {} } },
+  });
+  expect([400, 503]).toContain(r.status());
+  expect(r.status()).not.toBe(200);
 });

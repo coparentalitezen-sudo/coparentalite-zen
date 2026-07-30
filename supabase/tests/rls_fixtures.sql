@@ -109,3 +109,38 @@ returns table (rang int, profile_id uuid)
 language sql security definer set search_path = public as $$
   select * from public.comptable_members(p_household) $$;
 grant execute on function public.test_comptables(uuid) to authenticated;
+
+-- ---- Helpers de facturation : simulent le rôle de service (webhook Stripe).
+-- ---- Le client ne peut pas appeler grant_extension ni upsert_subscription ;
+-- ---- les tests ont besoin de les déclencher pour vérifier leurs effets.
+create or replace function public.test_accorder_extension(
+  p_household uuid, p_extension text, p_session text) returns uuid
+language plpgsql security definer set search_path = public as $$
+begin
+  return public.grant_extension(p_household, p_extension, p_session, null, null);
+end $$;
+
+create or replace function public.test_abonner(
+  p_household uuid, p_plan text, p_status text,
+  p_fin timestamptz, p_resiliation boolean) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  perform public.upsert_subscription(p_household, p_plan, p_status,
+    'cus_test', 'sub_test', 'price_test', p_fin, p_resiliation, null);
+end $$;
+
+create or replace function public.test_enregistrer_evenement(
+  p_event text, p_type text, p_household uuid, p_payload jsonb) returns boolean
+language plpgsql security definer set search_path = public as $$
+begin
+  return public.record_billing_event(p_event, p_type, p_household, p_payload);
+end $$;
+
+create or replace function public.test_confirmer_evenement(p_event text) returns void
+language plpgsql security definer set search_path = public as $$
+begin perform public.confirm_billing_event(p_event); end $$;
+
+grant execute on function public.test_confirmer_evenement(text) to authenticated;
+grant execute on function public.test_accorder_extension(uuid, text, text) to authenticated;
+grant execute on function public.test_abonner(uuid, text, text, timestamptz, boolean) to authenticated;
+grant execute on function public.test_enregistrer_evenement(text, text, uuid, jsonb) to authenticated;

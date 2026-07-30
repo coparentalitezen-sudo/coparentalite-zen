@@ -5,10 +5,11 @@ import Link from 'next/link';
 import { BottomNav, ParentBadge } from '@/components/ui';
 import { Chargement, Erreur, SansFoyer, Vide } from '@/components/etats';
 import { Icone } from '@/components/icons';
+import { BandeauHorizon, dansHorizon, LimiteAtteinte } from '@/components/premium';
 import { useContexte } from '@/lib/use-contexte';
 import {
-  listerExceptions, creerException, modifierException, supprimerException,
-  type ExceptionGarde, type TypeException,
+  listerExceptions, creerException, modifierException, supprimerException, getOffre,
+  type ExceptionGarde, type TypeException, type Offre,
 } from '@/lib/actions';
 
 /** Fenêtre couverte par l'écran : large, pour ne rien masquer. */
@@ -43,6 +44,7 @@ export default function Exceptions() {
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [erreurForm, setErreurForm] = useState<string | null>(null);
+  const [offre, setOffre] = useState<Offre | null>(null);
 
   const membres = ctx.etat === 'pret' ? ctx.contexte.membres : [];
   const enfants = ctx.etat === 'pret' ? ctx.contexte.enfants : [];
@@ -54,6 +56,7 @@ export default function Exceptions() {
       if (r.status === 'ok') { setListe(r.data); setErreur(null); }
       else if (r.status === 'error') setErreur(r.message);
     });
+    getOffre(ctx.contexte.foyer.id).then((r) => { if (r.status === 'ok') setOffre(r.data); });
   }, [ctx]);
   useEffect(charger, [charger]);
 
@@ -172,6 +175,8 @@ export default function Exceptions() {
 
       {ctx.etat === 'pret' && (
         <>
+          <BandeauHorizon offre={offre} />
+
           <p className="rounded-xl bg-muted px-3 py-2 text-[13px] text-soft">
             Ces périodes remplacent temporairement le rythme habituel. À leur terme,
             le rythme reprend exactement où il en était, sans décalage.
@@ -276,13 +281,18 @@ export default function Exceptions() {
                            placeholder="Lieu de récupération, précision…" maxLength={200} />
                   </label>
 
+                  {offre && fin && !dansHorizon(offre, fin) && (
+                    <LimiteAtteinte offre={offre} action="Cette période se termine" />
+                  )}
+
                   {erreurForm && (
                     <p role="alert" className="rounded-xl bg-err-bg px-3 py-2 text-sm font-bold text-err">
                       {erreurForm}
                     </p>
                   )}
 
-                  <button className="btn btn-primary w-full" disabled={busy}
+                  <button className="btn btn-primary w-full"
+                          disabled={busy || Boolean(offre && fin && !dansHorizon(offre, fin))}
                           onClick={() => enregistrer(ctx.contexte.foyer.id)}>
                     {busy ? 'Enregistrement…' : editId ? 'Enregistrer les modifications' : 'Enregistrer la période'}
                   </button>

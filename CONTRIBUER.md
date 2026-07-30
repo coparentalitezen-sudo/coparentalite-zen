@@ -110,6 +110,32 @@ Secrets requis dans **Settings → Secrets and variables → Actions** :
 
 ---
 
+## Paiements
+
+Le parcours de paiement n'est actif que si trois variables sont renseignées :
+`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ABONNEMENT`, plus
+`SUPABASE_SERVICE_ROLE_KEY` pour le webhook. Voir `.env.example`.
+
+Sans elles, l'écran d'offre annonce que les paiements ne sont pas encore
+activés : aucun écran ne prétend encaisser sans pouvoir le faire.
+
+Le webhook Stripe doit pointer vers `/api/stripe/webhook` et écouter :
+`checkout.session.completed`, `customer.subscription.created`,
+`customer.subscription.updated`, `customer.subscription.deleted`.
+
+Trois invariants protègent la facturation, chacun couvert par un test :
+
+- **la signature est vérifiée** — sans cela, appeler l'URL du webhook
+  suffirait à s'offrir un abonnement ;
+- **un événement abouti n'est jamais retraité**, mais un événement
+  **échoué reste rejouable** : une erreur passagère ne doit pas faire perdre
+  un paiement ;
+- **le foyer crédité vient des métadonnées Stripe**, jamais du corps de la
+  requête ni d'un paramètre d'URL.
+
+Le client ne peut ni s'accorder une extension ni s'abonner : `grant_extension`
+et `upsert_subscription` sont réservées au rôle de service.
+
 ## Déploiement de l'application
 
 Vercel construit et publie automatiquement chaque commit de `main`.

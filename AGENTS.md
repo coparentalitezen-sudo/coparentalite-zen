@@ -51,6 +51,10 @@ Aucune dépendance d'interface ajoutée : les icônes sont des tracés SVG maiso
 | `/app/enfants` | `app/enfants/page.tsx` | ajout, archivage |
 | `/app/foyer` | `app/foyer/page.tsx` | membres, rythme de garde, invitation, RGPD, suppressions |
 | `/app/plus` | `app/plus/page.tsx` | menu |
+| `/app/offre` | `app/offre/page.tsx` | offre, extensions, abonnement, achats |
+| `/api/paiement` | `api/paiement/route.ts` | ouverture d'un paiement Stripe |
+| `/api/paiement/portail` | `api/paiement/portail/route.ts` | portail de gestion |
+| `/api/stripe/webhook` | `api/stripe/webhook/route.ts` | réception des événements |
 | `/hors-ligne` | `hors-ligne/page.tsx` | repli du service worker |
 | `/sw.js` | `sw.js/route.ts` | service worker, version injectée au build |
 
@@ -60,8 +64,16 @@ version est réellement servie.
 
 ### Cœur métier (`src/lib/`)
 
+`actions/` est un module découpé par domaine — `core` (socle et ActionResult),
+`types`, `context`, `children`, `custody`, `household`, `balance`, `expenses`,
+`reimbursements`, `attachments`, `privacy`, `premium` — réexporté par
+`actions/index.ts`. Les écrans importent toujours `@/lib/actions` : le
+découpage interne peut évoluer sans rien casser.
+
 | Fichier | Responsabilité |
 |---|---|
+| `stripe.ts` | appels Stripe en HTTP et vérification de signature, **serveur seul** |
+| `premium-horizon.ts` | garde d'horizon, fonction pure testable |
 | `custody.ts` | moteur de planning : six rythmes, priorités, périodes continues |
 | `money.ts` | répartition au plus fort reste, solde, formulations neutres |
 | `serenite.ts` | score de complétude administrative du foyer (présentation seule) |
@@ -93,6 +105,7 @@ SQL et leurs jeux d'essai.
 | `00011` | modification et suppression de dépense |
 | `00013` | **intégrité comptable** : écritures directes bloquées, solde autoritaire, verrouillage |
 | `00014` | exceptions de planning : vacances et changements ponctuels |
+| `00015` | **offres** : horizon de planning, extensions, abonnement, facturation |
 
 ---
 
@@ -139,6 +152,13 @@ de modification ni de suppression.
 
 **Isolation.** Un foyer ne voit jamais les données d'un autre, même en
 connaissant un identifiant.
+
+**Offres.** L'offre gratuite couvre trois mois de planning à compter de la
+création du foyer ; les extensions achetées s'y ajoutent et restent acquises ;
+un abonnement actif rend l'horizon illimité. La limite ne porte **que sur la
+planification future** : dépenses, remboursements, justificatifs et export
+restent accessibles en toutes circonstances. Bloquer l'accès à des pièces qui
+peuvent servir devant un médiateur serait indéfendable.
 
 ---
 
@@ -221,4 +241,7 @@ test n'accorde donc jamais de privilège que le rôle applicatif n'aurait pas.
 Journal d'activité et écran Historique · notifications internes et badge ·
 pièces jointes multiples et corbeille · page d'administration bêta · export PDF
 mensuel · sauvegarde automatique · validation juridique des textes
-(`juridique/`, non validés par un professionnel) · Stripe.
+(`juridique/`, non validés par un professionnel).
+
+Les paiements attendent uniquement les clés Stripe (voir `.env.example`) : le
+code est en place et testé, mais aucun encaissement n'est possible sans elles.

@@ -26,6 +26,8 @@ import {
 import { formatCents } from '@/lib/money';
 import { buildSchedule, whereToday } from '@/lib/custody';
 import { calculerSerenite } from '@/lib/serenite';
+import { BandeauHorizon } from '@/components/premium';
+import { getOffre, type Offre } from '@/lib/actions';
 
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
 
@@ -238,6 +240,7 @@ export default function Accueil() {
   );
   const [remboursements, setRemboursements] = useState<Remboursement[]>([]);
   const [erreur, setErreur] = useState<string | null>(null);
+  const [offre, setOffre] = useState<Offre | null>(null);
   const [solde, setSolde] = useState<Solde | null>(null);
 
   useEffect(() => {
@@ -736,6 +739,8 @@ export default function Accueil() {
               </div>
             </div>
           </section>
+
+          <BandeauHorizon offre={offre} />
 
           {/* À faire aujourd’hui */}
           <section

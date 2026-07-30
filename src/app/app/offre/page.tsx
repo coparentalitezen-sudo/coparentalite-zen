@@ -1,0 +1,278 @@
+'use client';
+
+import { Suspense, useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { BottomNav } from '@/components/ui';
+import { Chargement, Erreur, SansFoyer, Vide } from '@/components/etats';
+import { Icone } from '@/components/icons';
+import { PastilleOffre } from '@/components/premium';
+import { useContexte } from '@/lib/use-contexte';
+import {
+  getOffre, listerExtensions, listerAchats, ouvrirPaiement, ouvrirPortail,
+  type Offre, type Extension, type AchatExtension,
+} from '@/lib/actions';
+import { formatCents } from '@/lib/money';
+
+function dateLongue(iso: string) {
+  return new Date(iso.length > 10 ? iso : iso + 'T12:00:00')
+    .toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+/** Fonctions incluses dans Zen Plus, formulées par le bénéfice concret. */
+const AVANTAGES = [
+  'Planning sans limite de durée, autant d’années que nécessaire',
+  'Vacances et changements ponctuels illimités',
+  'Export PDF mensuel du planning et des dépenses',
+  'Historique complet des modifications',
+  'Justificatifs multiples par dépense',
+];
+
+function ContenuOffre() {
+  const { ctx, recharger } = useContexte();
+  const parametres = useSearchParams();
+  const [offre, setOffre] = useState<Offre | null>(null);
+  const [extensions, setExtensions] = useState<Extension[]>([]);
+  const [achats, setAchats] = useState<AchatExtension[]>([]);
+  const [erreur, setErreur] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [enCours, setEnCours] = useState<string | null>(null);
+
+  const retourPaiement = parametres.get('paiement');
+
+  const charger = useCallback(() => {
+    if (ctx.etat !== 'pret') return;
+    const hid = ctx.contexte.foyer.id;
+    getOffre(hid).then((r) => {
+      if (r.status === 'ok') setOffre(r.data);
+      else if (r.status === 'error') setErreur(r.message);
+    });
+    listerExtensions().then((r) => { if (r.status === 'ok') setExtensions(r.data); });
+    listerAchats(hid).then((r) => { if (r.status === 'ok') setAchats(r.data); });
+  }, [ctx]);
+
+  useEffect(charger, [charger]);
+
+  // Retour de Stripe : le webhook peut arriver après la redirection, on le dit.
+  useEffect(() => {
+    if (retourPaiement === 'reussi') {
+      setMsg('Paiement reçu. Vos mois sont crédités dans les secondes qui suivent — actualisez si l’affichage tarde.');
+      const t = setTimeout(charger, 2500);
+      return () => clearTimeout(t);
+    }
+    if (retourPaiement === 'annule') {
+      setMsg('Paiement annulé. Rien ne vous a été facturé.');
+    }
+  }, [retourPaiement, charger]);
+
+  const estProprietaire = ctx.etat === 'pret'
+    && (ctx.contexte.foyer.role === 'owner' || ctx.contexte.foyer.role === 'admin');
+
+  async function acheter(type: 'extension' | 'abonnement', extensionId?: string) {
+    if (ctx.etat !== 'pret') return;
+    setErreur(null); setMsg(null);
+    setEnCours(extensionId ?? type);
+    const r = await ouvrirPaiement({ householdId: ctx.contexte.foyer.id, type, extensionId });
+    setEnCours(null);
+    if (r.status === 'ok') window.location.href = r.data;
+    else if (r.status === 'error') setErreur(r.message);
+    else setErreur('Session non authentifiée. Reconnectez-vous.');
+  }
+
+  async function gerer() {
+    if (ctx.etat !== 'pret') return;
+    setErreur(null); setEnCours('portail');
+    const r = await ouvrirPortail(ctx.contexte.foyer.id);
+    setEnCours(null);
+    if (r.status === 'ok') window.location.href = r.data;
+    else if (r.status === 'error') setErreur(r.message);
+  }
+
+  return (
+    <main className="space-y-4 px-4 pb-4 pt-3">
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="font-display text-[19px] font-semibold tracking-tight">Votre offre</h1>
+        <PastilleOffre offre={offre} />
+      </div>
+
+      {msg && (
+        <p role="status" className="rounded-xl bg-ok-bg px-3 py-2 text-sm font-bold text-ok">{msg}</p>
+      )}
+      {ctx.etat === 'chargement' && <Chargement />}
+      {ctx.etat === 'erreur' && <Erreur message={ctx.message} details={ctx.details} onReessayer={recharger} />}
+      {ctx.etat === 'sans-foyer' && <SansFoyer />}
+      {ctx.etat === 'demo' && <Vide titre="Mode démonstration" texte="Connectez-vous pour gérer votre offre." />}
+      {erreur && <Erreur message={erreur} />}
+
+      {ctx.etat === 'pret' && offre && (
+        <>
+          {/* État actuel */}
+          <section className="card px-4 py-5">
+            {offre.illimite ? (
+              <>
+                <p className="flex items-center gap-2 font-display text-[17px] font-semibold tracking-tight">
+                  <span className="text-[#1F7A45]"><Icone nom="check" taille={18} /></span>
+                  Zen Plus actif
+                </p>
+                <p className="mt-1.5 text-[13px] leading-snug text-soft">
+                  Votre planning n’a aucune limite de durée.
+                  {offre.abonnementFin && (
+                    offre.resiliationProgrammee
+                      ? ` Votre abonnement prend fin le ${dateLongue(offre.abonnementFin)} ; vous en gardez le bénéfice jusque-là.`
+                      : ` Prochain renouvellement le ${dateLongue(offre.abonnementFin)}.`
+                  )}
+                </p>
+                {estProprietaire && (
+                  <button className="btn btn-ghost mt-3 w-full" disabled={enCours === 'portail'}
+                          onClick={gerer}>
+                    {enCours === 'portail' ? 'Ouverture…' : 'Gérer l’abonnement et les factures'}
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="font-display text-[17px] font-semibold tracking-tight">
+                  Offre gratuite
+                </p>
+                <p className="mt-1.5 text-[13px] leading-snug text-soft">
+                  {offre.horizon && (
+                    <>Votre planning couvre jusqu’au <strong>{dateLongue(offre.horizon)}</strong>.</>
+                  )}
+                  {' '}
+                  {offre.moisOfferts} mois offerts
+                  {offre.moisAjoutes > 0 && `, ${offre.moisAjoutes} mois ajoutés`}.
+                </p>
+                {offre.joursRestants !== null && (
+                  <p className={`mt-2 text-[13px] font-bold ${
+                    offre.joursRestants <= 0 ? 'text-err'
+                    : offre.joursRestants <= 30 ? 'text-wait' : 'text-soft'}`}>
+                    {offre.joursRestants <= 0
+                      ? 'Limite atteinte : la planification au-delà demande des mois supplémentaires.'
+                      : `${offre.joursRestants} jour${offre.joursRestants > 1 ? 's' : ''} restants.`}
+                  </p>
+                )}
+                <p className="mt-3 rounded-xl bg-muted px-3 py-2 text-[13px] leading-snug text-soft">
+                  Quoi qu’il arrive, vos dépenses, vos remboursements et vos
+                  justificatifs restent accessibles et exportables. La limite ne
+                  concerne que la planification dans le futur.
+                </p>
+              </>
+            )}
+          </section>
+
+          {/* Abonnement */}
+          {!offre.illimite && (
+            <section className="card px-4 py-5">
+              <div className="flex items-baseline justify-between gap-2">
+                <h2 className="font-display text-[17px] font-semibold tracking-tight">Zen Plus</h2>
+                <span className="text-[15px] font-bold tabular-nums">
+                  {formatCents(offre.prixCents)}{' '}
+                  <span className="text-[12px] font-semibold text-soft">
+                    {offre.periodicite === 'year' ? '/ an' : '/ mois'}
+                  </span>
+                </span>
+              </div>
+              <ul className="mt-3 space-y-2">
+                {AVANTAGES.map((a) => (
+                  <li key={a} className="flex items-start gap-2 text-[13px] leading-snug">
+                    <span aria-hidden className="mt-0.5 shrink-0 text-[#1F7A45]">
+                      <Icone nom="check" taille={14} />
+                    </span>
+                    {a}
+                  </li>
+                ))}
+              </ul>
+              {estProprietaire ? (
+                <button className="btn btn-primary mt-4 w-full" disabled={enCours === 'abonnement'}
+                        onClick={() => acheter('abonnement')}>
+                  {enCours === 'abonnement' ? 'Ouverture du paiement…' : 'Passer à Zen Plus'}
+                </button>
+              ) : (
+                <p className="mt-4 rounded-xl bg-muted px-3 py-2 text-[13px] text-soft">
+                  Seul le parent qui a créé le foyer peut souscrire.
+                </p>
+              )}
+              <p className="mt-2 text-center text-[11px] text-soft/85">
+                Sans engagement, résiliable à tout moment.
+              </p>
+            </section>
+          )}
+
+          {/* Extensions ponctuelles */}
+          {!offre.illimite && extensions.length > 0 && (
+            <section className="card px-4 py-5">
+              <h2 className="font-display text-[17px] font-semibold tracking-tight">
+                Ajouter des mois à la carte
+              </h2>
+              <p className="mt-1 text-[13px] leading-snug text-soft">
+                Paiement unique, sans abonnement. Les mois achetés vous restent acquis.
+              </p>
+              <ul className="mt-2 divide-y divide-line-soft">
+                {extensions.map((e) => (
+                  <li key={e.id} className="flex items-center gap-3 py-3">
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[15px] font-bold leading-snug">{e.libelle}</span>
+                      <span className="text-[12px] text-soft/85">
+                        soit {formatCents(Math.round(e.prixCents / e.mois))} par mois
+                      </span>
+                    </span>
+                    <span className="shrink-0 whitespace-nowrap text-[15px] font-bold tabular-nums">
+                      {formatCents(e.prixCents)}
+                    </span>
+                    {estProprietaire && (
+                      <button className="btn btn-ghost shrink-0 px-3 py-2 text-[13px]"
+                              disabled={enCours === e.id}
+                              onClick={() => acheter('extension', e.id)}>
+                        {enCours === e.id ? '…' : 'Ajouter'}
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {/* Historique des achats */}
+          {achats.length > 0 && (
+            <section className="card px-4 py-5">
+              <h2 className="font-display text-[17px] font-semibold tracking-tight">Vos achats</h2>
+              <ul className="mt-2 divide-y divide-line-soft">
+                {achats.map((a) => (
+                  <li key={a.id} className="flex items-center justify-between gap-3 py-2.5">
+                    <span className="min-w-0">
+                      <span className="block text-[14px] font-bold">+{a.mois} mois</span>
+                      <span className="text-[12px] text-soft/85">{dateLongue(a.date)}</span>
+                    </span>
+                    <span className="shrink-0 text-[14px] font-bold tabular-nums">
+                      {formatCents(a.montantCents)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          <p className="px-1 text-center text-[11px] leading-snug text-soft/85">
+            Paiements traités par Stripe. Nous ne conservons aucune donnée bancaire.
+            <br />
+            <Link href="/app/plus" className="underline">Retour aux réglages</Link>
+          </p>
+        </>
+      )}
+
+      <BottomNav active="/app/plus" />
+    </main>
+  );
+}
+
+/**
+ * useSearchParams impose une frontière Suspense lors de la génération
+ * statique : le retour de paiement est lu dans l'URL, côté navigateur.
+ */
+export default function OffrePage() {
+  return (
+    <Suspense fallback={<main className="px-4 pt-3"><Chargement /></main>}>
+      <ContenuOffre />
+    </Suspense>
+  );
+}

@@ -5,10 +5,11 @@ import Link from 'next/link';
 import { BottomNav, ParentBadge } from '@/components/ui';
 import { Chargement, Erreur, SansFoyer, Vide } from '@/components/etats';
 import { Icone } from '@/components/icons';
+import { BandeauHorizon, dansHorizon } from '@/components/premium';
 import { useContexte } from '@/lib/use-contexte';
 import {
-  getRegleGarde, listerExceptions,
-  type RegleGarde, type ExceptionGarde,
+  getRegleGarde, listerExceptions, getOffre,
+  type RegleGarde, type ExceptionGarde, type Offre,
 } from '@/lib/actions';
 import { buildDayMap, addDays, type Source, type HolidayOverride, type ExceptionOverride } from '@/lib/custody';
 
@@ -32,6 +33,7 @@ export default function Planning() {
   const [erreur, setErreur] = useState<string | null>(null);
   const [decalage, setDecalage] = useState(0);
   const [jourOuvert, setJourOuvert] = useState<string | null>(null);
+  const [offre, setOffre] = useState<Offre | null>(null);
 
   const membres = ctx.etat === 'pret' ? ctx.contexte.membres : [];
   const enfants = ctx.etat === 'pret' ? ctx.contexte.enfants : [];
@@ -58,6 +60,7 @@ export default function Planning() {
       if (r.status === 'ok') setExceptions(r.data);
       else if (r.status === 'error') setErreur(r.message);
     });
+    getOffre(hid).then((r) => { if (r.status === 'ok') setOffre(r.data); });
   }, [ctx, premierJour, dernierJour]);
 
   useEffect(charger, [charger]);
@@ -120,6 +123,8 @@ export default function Planning() {
             <button className="btn btn-ghost px-3" onClick={() => setDecalage(decalage + 1)} aria-label="Mois suivant">›</button>
           </div>
 
+          <BandeauHorizon offre={offre} />
+
           {regle === null && (
             <Vide titre="Aucun rythme de garde défini"
                   texte="Choisissez votre rythme pour générer le planning."
@@ -148,7 +153,8 @@ export default function Planning() {
                 <div className="grid grid-cols-7">
                   {cases.map((d, i) => {
                     if (!d) return <div key={`vide-${i}`} className="aspect-square" />;
-                    const a = parJour.get(d);
+                    const couvert = dansHorizon(offre, d);
+                    const a = couvert ? parJour.get(d) : undefined;
                     const m = a ? membre(a.parentId) : undefined;
                     const estAujourdhui = d === today;
                     const coral = m?.couleur === 'coral';
@@ -161,8 +167,11 @@ export default function Planning() {
                         key={d}
                         type="button"
                         onClick={() => setJourOuvert(jourOuvert === d ? null : d)}
-                        aria-label={m ? `${d}, chez ${m.nom}${vacances ? ', vacances' : ponctuel ? ', changement ponctuel' : ''}` : d}
+                        aria-label={m
+                          ? `${d}, chez ${m.nom}${vacances ? ', vacances' : ponctuel ? ', changement ponctuel' : ''}`
+                          : couvert ? d : `${d}, au-delà de votre offre`}
                         className={`relative aspect-square border-b border-r border-line p-1 text-left ${fond}
+                          ${!couvert ? 'bg-muted/60' : ''}
                           ${estAujourdhui ? 'ring-2 ring-inset ring-navy' : ''}
                           ${ponctuel ? 'border-2 border-dashed border-ink/40' : ''}
                           ${jourOuvert === d ? 'ring-2 ring-inset ring-ink' : ''}`}
@@ -222,6 +231,20 @@ export default function Planning() {
                   </div>
 
                   {(() => {
+                    if (!dansHorizon(offre, jourOuvert)) {
+                      return (
+                        <div className="rounded-xl bg-wait-bg px-3 py-3">
+                          <p className="text-sm font-bold text-wait">Au-delà de votre offre</p>
+                          <p className="mt-1 text-[13px] leading-snug text-soft">
+                            Ce jour dépasse la période couverte. Ajoutez des mois ou
+                            passez à Zen Plus pour planifier plus loin.
+                          </p>
+                          <Link href="/app/offre" className="btn btn-primary mt-2.5 w-full">
+                            Voir les options
+                          </Link>
+                        </div>
+                      );
+                    }
                     const a = parJour.get(jourOuvert);
                     if (!a) return <p className="text-sm text-soft">Aucune information pour ce jour.</p>;
                     const m = membre(a.parentId);
