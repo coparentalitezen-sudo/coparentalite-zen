@@ -472,6 +472,27 @@ export default function Foyer() {
             </button>
           )}
 
+          {/* Diagnostic : évite de chercher à l'aveugle quelle variable manque */}
+          {zoneMsg?.kind === 'err' && (
+            <button type="button" className="text-[12px] font-bold text-navy-text underline"
+              onClick={async () => {
+                try {
+                  const r = await fetch('/api/diagnostic');
+                  const d = await r.json() as { consequences?: string[] };
+                  setZoneMsg({
+                    kind: 'info',
+                    text: d.consequences?.length
+                      ? `Configuration incomplète — ${d.consequences.join(' ')}`
+                      : 'Configuration serveur complète : le problème vient d’ailleurs.',
+                  });
+                } catch {
+                  setZoneMsg({ kind: 'err', text: 'Diagnostic indisponible.' });
+                }
+              }}>
+              Pourquoi cela ne fonctionne-t-il pas ?
+            </button>
+          )}
+
           <p className="text-[11px] leading-snug text-soft/85">
             {loc?.source ? `Source : ${loc.source}.` : ''} Les vacances scolaires
             sont une donnée de référence : elles n’attribuent pas la garde. Ce
