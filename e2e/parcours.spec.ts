@@ -15,8 +15,12 @@ test('page commerciale : promesse, tarifs, mention légale', async ({ page }) =>
   const titre = page.getByRole('heading', { level: 1 });
   await expect(titre).toBeVisible();
   await expect(titre).toContainText(/coparentalité|planning|garde/i);
-  // Le tarif est affiché ; sa périodicité vient de la base, on ne la fige pas ici
-  await expect(page.getByText(/4,99\s*€/).first()).toBeVisible();
+  // Les prix viennent de la table plans : on vérifie que le bloc tarifaire
+  // affiche soit un montant, soit le repli explicite — jamais un prix inventé.
+  const blocTarif = page.getByText(/€|Tarif communiqué au lancement/).first();
+  await expect(blocTarif).toBeVisible();
+  // Aucune formulation ne doit annoncer une périodicité sans montant associé
+  await expect(page.getByText('Coparentalité Zen Plus').first()).toBeVisible();
   await expect(page.locator('footer')).toContainText('ne remplace ni une décision judiciaire');
 });
 

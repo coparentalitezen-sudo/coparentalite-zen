@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { lireGrilleTarifaire, lireGrilleExtensions, formatPrix } from '@/lib/tarifs';
 
 const avantages = [
   {
@@ -85,6 +86,11 @@ const fonctionsZenPlus = [
   'Fonctionnalités Premium à venir',
 ];
 
+/**
+ * Repli d'affichage uniquement, utilisé si la base est injoignable.
+ * Les prix qui font foi sont dans la table plan_extensions — voir
+ * lireGrilleExtensions(). Ces valeurs doivent y rester alignées.
+ */
 const extensions = [
   {
     duree: '+1 mois',
@@ -137,7 +143,21 @@ const faq = [
   },
 ];
 
-export default function Landing() {
+export default async function Landing() {
+  // Prix lus en base : aucun montant n'est écrit dans cette page.
+  const [grille, grilleExtensions] = await Promise.all([
+    lireGrilleTarifaire(), lireGrilleExtensions(),
+  ]);
+  const zenPlus = grille?.find((f) => f.planId === 'premium') ?? null;
+  // Les extensions codées plus haut ne servent que si la base est injoignable
+  const extensionsAffichees = grilleExtensions?.length
+    ? grilleExtensions.map((e) => ({
+        duree: e.libelle,
+        prix: formatPrix(e.prixCents),
+        description: e.description ?? '',
+        recommande: e.recommande,
+      }))
+    : extensions;
   return (
     <main className="min-h-screen bg-bg">
       <header className="border-b border-line bg-white">
@@ -380,23 +400,37 @@ export default function Landing() {
                   Coparentalité Zen Plus
                 </p>
 
-                <div className="mt-2 flex items-end gap-2">
-                  <span className="font-display text-4xl font-semibold">
-                    1,49 €
-                  </span>
+                {zenPlus ? (
+                  <>
+                    <div className="mt-2 flex items-end gap-2">
+                      <span className="font-display text-4xl font-semibold">
+                        {formatPrix(zenPlus.prixMensuelCents)}
+                      </span>
 
-                  <span className="pb-1 text-sm text-soft">
-                    par mois
-                  </span>
-                </div>
+                      <span className="pb-1 text-sm text-soft">
+                        par mois
+                      </span>
+                    </div>
 
-                <p className="mt-1 text-xs text-soft">
-                  ou 14,99 € par an
-                </p>
+                    {zenPlus.prixAnnuelCents > 0 && (
+                      <p className="mt-1 text-xs text-soft">
+                        ou {formatPrix(zenPlus.prixAnnuelCents)} par an
+                        {zenPlus.economieAnnuelleCents > 0
+                          && ` — ${formatPrix(zenPlus.economieAnnuelleCents)} d’économie`}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  /* Grille injoignable : mieux vaut ne rien annoncer qu'un prix
+                     qui pourrait ne pas être celui facturé. */
+                  <p className="mt-2 text-sm text-soft">
+                    Tarif communiqué au lancement.
+                  </p>
+                )}
               </div>
 
               <ul className="mt-6 space-y-3 text-sm">
-                {fonctionsZenPlus.map((fonction) => (
+                {(zenPlus?.fonctions.length ? zenPlus.fonctions : fonctionsZenPlus).map((fonction) => (
                   <li
                     key={fonction}
                     className="flex items-start gap-2"
@@ -443,7 +477,7 @@ export default function Landing() {
           </div>
 
           <div className="mx-auto mt-8 grid max-w-4xl gap-4 md:grid-cols-3">
-            {extensions.map((extension) => (
+            {extensionsAffichees.map((extension) => (
               <article
                 key={extension.duree}
                 className={`card relative flex flex-col p-5 ${

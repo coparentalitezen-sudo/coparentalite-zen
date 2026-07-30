@@ -144,3 +144,21 @@ grant execute on function public.test_confirmer_evenement(text) to authenticated
 grant execute on function public.test_accorder_extension(uuid, text, text) to authenticated;
 grant execute on function public.test_abonner(uuid, text, text, timestamptz, boolean) to authenticated;
 grant execute on function public.test_enregistrer_evenement(text, text, uuid, jsonb) to authenticated;
+
+-- ---- Helpers de tarification : seul le rôle de service modifie les prix.
+create or replace function public.test_fixer_prix(p_mensuel bigint, p_annuel bigint)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  update plans set price_cents_monthly = p_mensuel, price_cents_yearly = p_annuel
+   where id = 'premium';
+end $$;
+
+create or replace function public.test_fixer_tarifs_stripe(p_mois text, p_an text)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  update plans set stripe_price_id_monthly = p_mois, stripe_price_id_yearly = p_an
+   where id = 'premium';
+end $$;
+
+grant execute on function public.test_fixer_prix(bigint, bigint) to authenticated;
+grant execute on function public.test_fixer_tarifs_stripe(text, text) to authenticated;

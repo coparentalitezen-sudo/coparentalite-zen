@@ -40,15 +40,8 @@ insert into plan_extensions (id, label, months, price_cents, sort_order) values
   ('ext_12m', '12 mois supplémentaires', 12, 2490, 30)
 on conflict (id) do nothing;
 
--- Périodicité rendue explicite : la page commerciale et l'écran d'offre lisent
--- la même source, ce qui évite d'annoncer un tarif et d'en facturer un autre.
-alter table plans add column if not exists billing_period text not null default 'month';
-do $$ begin
-  if not exists (select 1 from pg_constraint where conname = 'plans_billing_period_check') then
-    alter table plans add constraint plans_billing_period_check
-      check (billing_period in ('month', 'year'));
-  end if;
-end $$;
+-- Les prix sont définis par la migration 00016, seule source de vérité.
+-- Aucun montant n'est écrit ici.
 
 -- ---------- 2. Extensions acquises par un foyer ----------
 create table if not exists household_extensions (
@@ -130,8 +123,6 @@ create or replace function public.household_entitlement(p_household uuid)
 returns table (
   plan_id          text,
   plan_label       text,
-  prix_cents       bigint,
-  periodicite      text,
   illimite         boolean,
   horizon          date,          -- dernier jour couvert ; null si illimité
   jours_restants   int,           -- null si illimité
@@ -169,8 +160,6 @@ begin
     return query select
       coalesce(sub.plan_id, 'premium'),
       (select p.name from plans p where p.id = coalesce(sub.plan_id, 'premium')),
-      (select p.price_cents_monthly from plans p where p.id = coalesce(sub.plan_id, 'premium')),
-      (select p.billing_period from plans p where p.id = coalesce(sub.plan_id, 'premium')),
       true, null::date, null::int, base_mois, ajoutes,
       true, sub.current_period_end, coalesce(sub.cancel_at_period_end, false);
     return;
@@ -180,8 +169,6 @@ begin
   return query select
     'free',
     (select p.name from plans p where p.id = 'free'),
-    (select p.price_cents_monthly from plans p where p.id = 'premium'),
-    (select p.billing_period from plans p where p.id = 'premium'),
     false, fin, greatest(0, (fin - current_date))::int, base_mois, ajoutes,
     false, null::timestamptz, false;
 end $$;

@@ -3,14 +3,16 @@ import { dansHorizon } from '../src/lib/premium-horizon';
 import type { Offre } from '../src/lib/actions/premium';
 
 const gratuite = (horizon: string, joursRestants = 10): Offre => ({
-  planId: 'free', planLibelle: 'Gratuit', prixCents: 499, periodicite: 'month',
+  planId: 'free', planLibelle: 'Gratuit',
+  prixMensuelCents: 149, prixAnnuelCents: 1499, periodiciteActive: null,
   illimite: false, horizon, joursRestants,
   moisOfferts: 3, moisAjoutes: 0, abonnementActif: false,
   abonnementFin: null, resiliationProgrammee: false,
 });
 
 const illimitee: Offre = {
-  planId: 'premium', planLibelle: 'Zen Plus', prixCents: 499, periodicite: 'month',
+  planId: 'premium', planLibelle: 'Zen Plus',
+  prixMensuelCents: 149, prixAnnuelCents: 1499, periodiciteActive: 'year',
   illimite: true, horizon: null,
   joursRestants: null, moisOfferts: 3, moisAjoutes: 0, abonnementActif: true,
   abonnementFin: '2027-01-01T00:00:00Z', resiliationProgrammee: false,

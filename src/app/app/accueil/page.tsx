@@ -611,7 +611,7 @@ export default function Accueil() {
               </div>
 
               <p className="mt-3 text-center text-[10px] leading-relaxed text-soft">
-                Extensions ponctuelles à partir de 0,99 €, sans abonnement
+                Extensions ponctuelles sans abonnement
                 obligatoire.
               </p>
             </div>

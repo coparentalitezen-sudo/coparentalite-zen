@@ -12,7 +12,6 @@ const API = 'https://api.stripe.com/v1';
 export interface ConfigStripe {
   cleSecrete: string;
   secretWebhook: string;
-  prixAbonnement: string;
   origine: string;
 }
 
@@ -24,12 +23,13 @@ export interface ConfigStripe {
 export function configStripe(): ConfigStripe | null {
   const cleSecrete = process.env.STRIPE_SECRET_KEY;
   const secretWebhook = process.env.STRIPE_WEBHOOK_SECRET;
-  const prixAbonnement = process.env.STRIPE_PRICE_ABONNEMENT;
   const origine = process.env.NEXT_PUBLIC_SITE_URL
     ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
     ?? 'http://localhost:3000';
-  if (!cleSecrete || !secretWebhook || !prixAbonnement) return null;
-  return { cleSecrete, secretWebhook, prixAbonnement, origine };
+  // Les identifiants de tarif ne sont plus des variables d'environnement :
+  // ils vivent dans la table plans, avec les montants qu'ils représentent.
+  if (!cleSecrete || !secretWebhook) return null;
+  return { cleSecrete, secretWebhook, origine };
 }
 
 export function stripeConfigure(): boolean {
@@ -109,6 +109,9 @@ export async function creerSessionExtension(params: {
 export async function creerSessionAbonnement(params: {
   config: ConfigStripe;
   householdId: string;
+  /** Tarif Stripe résolu en base à partir de la formule demandée. */
+  tarifStripe: string;
+  periodicite: 'month' | 'year';
   emailClient?: string;
   clientExistant?: string | null;
   cleIdempotence: string;
@@ -116,13 +119,14 @@ export async function creerSessionAbonnement(params: {
   const { config } = params;
   const champs: Record<string, string> = {
     mode: 'subscription',
-    'line_items[0][price]': config.prixAbonnement,
+    'line_items[0][price]': params.tarifStripe,
     'line_items[0][quantity]': '1',
     success_url: `${config.origine}/app/offre?paiement=reussi`,
     cancel_url: `${config.origine}/app/offre?paiement=annule`,
     locale: 'fr',
     'metadata[household_id]': params.householdId,
     'metadata[type]': 'abonnement',
+    'metadata[periodicite]': params.periodicite,
     'subscription_data[metadata][household_id]': params.householdId,
   };
   if (params.clientExistant) champs.customer = params.clientExistant;

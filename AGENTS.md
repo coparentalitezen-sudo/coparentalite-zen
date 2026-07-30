@@ -74,6 +74,7 @@ découpage interne peut évoluer sans rien casser.
 |---|---|
 | `stripe.ts` | appels Stripe en HTTP et vérification de signature, **serveur seul** |
 | `premium-horizon.ts` | garde d'horizon, fonction pure testable |
+| `tarifs.ts` | lecture de la grille publique ; **aucun montant en dur** |
 | `custody.ts` | moteur de planning : six rythmes, priorités, périodes continues |
 | `money.ts` | répartition au plus fort reste, solde, formulations neutres |
 | `serenite.ts` | score de complétude administrative du foyer (présentation seule) |
@@ -106,6 +107,7 @@ SQL et leurs jeux d'essai.
 | `00013` | **intégrité comptable** : écritures directes bloquées, solde autoritaire, verrouillage |
 | `00014` | exceptions de planning : vacances et changements ponctuels |
 | `00015` | **offres** : horizon de planning, extensions, abonnement, facturation |
+| `00016` | **grille tarifaire unique** : prix, formules, tarifs Stripe, fonctions |
 
 ---
 
@@ -152,6 +154,16 @@ de modification ni de suppression.
 
 **Isolation.** Un foyer ne voit jamais les données d'un autre, même en
 connaissant un identifiant.
+
+**Prix.** La table `plans` est la seule source de vérité : montants mensuel et
+annuel, identifiants de tarif Stripe, libellé public, liste des fonctions. La
+table `plan_extensions` fait de même pour les achats ponctuels. La page
+commerciale, l'écran d'offre et la création de session Stripe lisent tous ces
+tables via `grille_tarifaire()` et `grille_extensions()`, publiques et sans
+authentification. **Aucun montant n'est écrit dans le code** — trois prix
+différents avaient coexisté dans le projet, et annoncer un tarif tout en
+facturant un autre se règle devant un médiateur de la consommation. Ajuster un
+prix se fait par un `update` sur ces tables, et nulle part ailleurs.
 
 **Offres.** L'offre gratuite couvre trois mois de planning à compter de la
 création du foyer ; les extensions achetées s'y ajoutent et restent acquises ;

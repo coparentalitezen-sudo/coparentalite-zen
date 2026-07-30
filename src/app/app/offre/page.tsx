@@ -37,6 +37,7 @@ function ContenuOffre() {
   const [erreur, setErreur] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [enCours, setEnCours] = useState<string | null>(null);
+  const [periodicite, setPeriodicite] = useState<'month' | 'year'>('year');
 
   const retourPaiement = parametres.get('paiement');
 
@@ -72,7 +73,9 @@ function ContenuOffre() {
     if (ctx.etat !== 'pret') return;
     setErreur(null); setMsg(null);
     setEnCours(extensionId ?? type);
-    const r = await ouvrirPaiement({ householdId: ctx.contexte.foyer.id, type, extensionId });
+    const r = await ouvrirPaiement({
+      householdId: ctx.contexte.foyer.id, type, extensionId, periodicite,
+    });
     setEnCours(null);
     if (r.status === 'ok') window.location.href = r.data;
     else if (r.status === 'error') setErreur(r.message);
@@ -116,6 +119,8 @@ function ContenuOffre() {
                 </p>
                 <p className="mt-1.5 text-[13px] leading-snug text-soft">
                   Votre planning n’a aucune limite de durée.
+                  {offre.periodiciteActive === 'year' && ' Formule annuelle.'}
+                  {offre.periodiciteActive === 'month' && ' Formule mensuelle.'}
                   {offre.abonnementFin && (
                     offre.resiliationProgrammee
                       ? ` Votre abonnement prend fin le ${dateLongue(offre.abonnementFin)} ; vous en gardez le bénéfice jusque-là.`
@@ -163,15 +168,38 @@ function ContenuOffre() {
           {/* Abonnement */}
           {!offre.illimite && (
             <section className="card px-4 py-5">
-              <div className="flex items-baseline justify-between gap-2">
-                <h2 className="font-display text-[17px] font-semibold tracking-tight">Zen Plus</h2>
-                <span className="text-[15px] font-bold tabular-nums">
-                  {formatCents(offre.prixCents)}{' '}
-                  <span className="text-[12px] font-semibold text-soft">
-                    {offre.periodicite === 'year' ? '/ an' : '/ mois'}
-                  </span>
-                </span>
-              </div>
+              <h2 className="font-display text-[17px] font-semibold tracking-tight">
+                {offre.planLibelle}
+              </h2>
+
+              {/* Deux formules ; l'annuelle est proposée par défaut car moins chère */}
+              <fieldset className="mt-3">
+                <legend className="sr-only">Formule d’abonnement</legend>
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" aria-pressed={periodicite === 'year'}
+                    onClick={() => setPeriodicite('year')}
+                    className={`btn flex-col py-2.5 ${periodicite === 'year' ? 'btn-primary' : 'btn-ghost'}`}>
+                    <span className="text-[15px] font-bold tabular-nums">
+                      {formatCents(offre.prixAnnuelCents)}
+                    </span>
+                    <span className="text-[11px] font-semibold opacity-85">par an</span>
+                  </button>
+                  <button type="button" aria-pressed={periodicite === 'month'}
+                    onClick={() => setPeriodicite('month')}
+                    className={`btn flex-col py-2.5 ${periodicite === 'month' ? 'btn-primary' : 'btn-ghost'}`}>
+                    <span className="text-[15px] font-bold tabular-nums">
+                      {formatCents(offre.prixMensuelCents)}
+                    </span>
+                    <span className="text-[11px] font-semibold opacity-85">par mois</span>
+                  </button>
+                </div>
+                {offre.prixMensuelCents * 12 > offre.prixAnnuelCents && (
+                  <p className="mt-1.5 text-center text-[11px] font-semibold text-[#1F7A45]">
+                    La formule annuelle vous fait économiser{' '}
+                    {formatCents(offre.prixMensuelCents * 12 - offre.prixAnnuelCents)} par an.
+                  </p>
+                )}
+              </fieldset>
               <ul className="mt-3 space-y-2">
                 {AVANTAGES.map((a) => (
                   <li key={a} className="flex items-start gap-2 text-[13px] leading-snug">

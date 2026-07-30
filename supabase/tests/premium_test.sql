@@ -274,3 +274,171 @@ begin
 end $$;
 
 select 'TESTS DES OFFRES ET DE L''HORIZON PASSÉS' as resultat;
+
+-- ============================================================
+-- T1 à T7 — GRILLE TARIFAIRE : une seule source de vérité
+-- ============================================================
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
+
+-- ============ T1 : la grille est lisible et cohérente ============
+do $$
+declare g record; n int;
+begin
+  select count(*) into n from public.grille_tarifaire();
+  if n <> 2 then raise exception 'ÉCHEC T1 : % formules au lieu de 2', n; end if;
+  select * into g from public.grille_tarifaire() where plan_id = 'premium';
+  if g.prix_mensuel_cents <= 0 then
+    raise exception 'ÉCHEC T1b : prix mensuel nul ou négatif (%)', g.prix_mensuel_cents;
+  end if;
+  if g.prix_annuel_cents <= 0 then
+    raise exception 'ÉCHEC T1c : prix annuel nul ou négatif (%)', g.prix_annuel_cents;
+  end if;
+  if jsonb_array_length(g.fonctions) = 0 then
+    raise exception 'ÉCHEC T1d : aucune fonction décrite pour l''offre payante';
+  end if;
+  raise notice 'T1 OK — grille : % par mois, % par an',
+    g.prix_mensuel_cents, g.prix_annuel_cents;
+end $$;
+
+-- ============ T2 : la formule annuelle est réellement avantageuse ============
+do $$
+declare g record;
+begin
+  select * into g from public.grille_tarifaire() where plan_id = 'premium';
+  if g.prix_annuel_cents > g.prix_mensuel_cents * 12 then
+    raise exception 'ÉCHEC T2 : l''annuel (%) coûte plus que 12 mensualités (%)',
+      g.prix_annuel_cents, g.prix_mensuel_cents * 12;
+  end if;
+  if g.economie_annuelle_cents <> g.prix_mensuel_cents * 12 - g.prix_annuel_cents then
+    raise exception 'ÉCHEC T2b : économie mal calculée (% au lieu de %)',
+      g.economie_annuelle_cents, g.prix_mensuel_cents * 12 - g.prix_annuel_cents;
+  end if;
+  raise notice 'T2 OK — économie annuelle de % centimes, calculée en base', g.economie_annuelle_cents;
+end $$;
+
+-- ============ T3 : l'offre gratuite est bien gratuite ============
+do $$
+declare g record;
+begin
+  select * into g from public.grille_tarifaire() where plan_id = 'free';
+  if g.prix_mensuel_cents <> 0 or g.prix_annuel_cents <> 0 then
+    raise exception 'ÉCHEC T3 : l''offre gratuite affiche un prix';
+  end if;
+  raise notice 'T3 OK — offre gratuite à 0';
+end $$;
+
+-- ============ T4 : l'offre du foyer expose les mêmes prix que la grille ============
+do $$
+declare g record; e record;
+begin
+  select * into g from public.grille_tarifaire() where plan_id = 'premium';
+  select * into e from public.household_entitlement('aaaaaaaa-0000-0000-0000-000000000001');
+  if e.prix_mensuel_cents <> g.prix_mensuel_cents then
+    raise exception 'ÉCHEC T4 : divergence mensuelle entre grille (%) et offre (%)',
+      g.prix_mensuel_cents, e.prix_mensuel_cents;
+  end if;
+  if e.prix_annuel_cents <> g.prix_annuel_cents then
+    raise exception 'ÉCHEC T4b : divergence annuelle entre grille (%) et offre (%)',
+      g.prix_annuel_cents, e.prix_annuel_cents;
+  end if;
+  raise notice 'T4 OK — page commerciale et écran d''offre lisent le même prix';
+end $$;
+
+-- ============ T5 : changer le prix en base se répercute partout ============
+do $$
+declare g record; e record;
+begin
+  perform public.test_fixer_prix(199, 1999);
+  select * into g from public.grille_tarifaire() where plan_id = 'premium';
+  select * into e from public.household_entitlement('aaaaaaaa-0000-0000-0000-000000000001');
+  if g.prix_mensuel_cents <> 199 or e.prix_mensuel_cents <> 199 then
+    raise exception 'ÉCHEC T5 : le nouveau prix ne se propage pas (grille %, offre %)',
+      g.prix_mensuel_cents, e.prix_mensuel_cents;
+  end if;
+  if g.economie_annuelle_cents <> 199 * 12 - 1999 then
+    raise exception 'ÉCHEC T5b : économie non recalculée';
+  end if;
+  perform public.test_fixer_prix(149, 1499);   -- on rétablit la grille
+  raise notice 'T5 OK — un seul UPDATE suffit à changer le prix partout';
+end $$;
+
+-- ============ T6 : le tarif Stripe est résolu par la base ============
+do $$
+declare t text;
+begin
+  perform public.test_fixer_tarifs_stripe('price_mois_test', 'price_an_test');
+  t := public.tarif_stripe('premium', 'month');
+  if t <> 'price_mois_test' then raise exception 'ÉCHEC T6 : tarif mensuel % inattendu', t; end if;
+  t := public.tarif_stripe('premium', 'year');
+  if t <> 'price_an_test' then raise exception 'ÉCHEC T6b : tarif annuel % inattendu', t; end if;
+  begin
+    perform public.tarif_stripe('premium', 'semaine');
+    raise exception 'ÉCHEC T6c : périodicité arbitraire acceptée';
+  exception when others then
+    if sqlerrm like 'ÉCHEC%' then raise; end if;
+  end;
+  raise notice 'T6 OK — tarif Stripe fourni par la base, périodicité contrôlée';
+end $$;
+
+-- ============ T7 : la grille est publique, l'offre du foyer ne l'est pas ============
+do $$
+declare n int;
+begin
+  -- sans session : la grille reste lisible (c'est une grille de prix publique)
+  perform set_config('request.jwt.claim.sub', '', false);
+  select count(*) into n from public.grille_tarifaire();
+  if n <> 2 then raise exception 'ÉCHEC T7 : grille inaccessible sans session'; end if;
+  begin
+    perform public.household_entitlement('aaaaaaaa-0000-0000-0000-000000000001');
+    raise exception 'ÉCHEC T7b : droits d''un foyer lisibles sans authentification';
+  exception when others then
+    if sqlerrm like 'ÉCHEC%' then raise; end if;
+  end;
+  raise notice 'T7 OK — grille publique, droits du foyer protégés';
+end $$;
+
+select 'TESTS DE LA GRILLE TARIFAIRE PASSÉS' as resultat;
+
+-- ============ T8 : les extensions annoncées sont celles facturées ============
+do $$
+declare n int; e record; total bigint;
+begin
+  select count(*) into n from public.grille_extensions();
+  if n <> 3 then raise exception 'ÉCHEC T8 : % extensions au lieu de 3', n; end if;
+
+  -- Chaque extension de la grille publique doit correspondre à une extension
+  -- réellement créditable : sinon on vendrait ce qu'on ne peut pas livrer.
+  for e in select * from public.grille_extensions() loop
+    if not exists (select 1 from plan_extensions p
+                   where p.id = e.extension_id and p.active
+                     and p.price_cents = e.prix_cents and p.months = e.mois) then
+      raise exception 'ÉCHEC T8b : l''extension % annoncée ne correspond pas au catalogue', e.extension_id;
+    end if;
+    if e.prix_cents <= 0 then
+      raise exception 'ÉCHEC T8c : extension % à prix nul', e.extension_id;
+    end if;
+    if e.mois <= 0 then
+      raise exception 'ÉCHEC T8d : extension % sans durée', e.extension_id;
+    end if;
+  end loop;
+
+  -- Le prix au mois doit décroître avec la durée : sinon l'offre longue
+  -- serait plus chère au mois, ce qui n'aurait aucun sens.
+  if (select prix_cents::numeric / mois from public.grille_extensions() where extension_id = 'ext_12m')
+     > (select prix_cents::numeric / mois from public.grille_extensions() where extension_id = 'ext_1m') then
+    raise exception 'ÉCHEC T8e : l''extension 12 mois est plus chère au mois que celle d''un mois';
+  end if;
+  raise notice 'T8 OK — 3 extensions cohérentes, prix dégressif au mois';
+end $$;
+
+-- ============ T9 : la grille des extensions est publique ============
+do $$
+declare n int;
+begin
+  perform set_config('request.jwt.claim.sub', '', false);
+  select count(*) into n from public.grille_extensions();
+  if n <> 3 then raise exception 'ÉCHEC T9 : grille des extensions inaccessible sans session'; end if;
+  raise notice 'T9 OK — grille des extensions publique';
+end $$;
+
+select 'TESTS DES EXTENSIONS PASSÉS' as resultat;

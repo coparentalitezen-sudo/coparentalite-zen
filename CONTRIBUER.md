@@ -112,9 +112,23 @@ Secrets requis dans **Settings → Secrets and variables → Actions** :
 
 ## Paiements
 
-Le parcours de paiement n'est actif que si trois variables sont renseignées :
-`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ABONNEMENT`, plus
+Le parcours de paiement n'est actif que si deux variables sont renseignées :
+`STRIPE_SECRET_KEY` et `STRIPE_WEBHOOK_SECRET`, plus
 `SUPABASE_SERVICE_ROLE_KEY` pour le webhook. Voir `.env.example`.
+
+**Les prix ne sont écrits nulle part dans le code.** La table `plans` est la
+seule source de vérité : montants mensuel et annuel, identifiants de tarif
+Stripe, libellé public et liste des fonctions. La page commerciale, l'écran
+d'offre et la création de session Stripe lisent tous cette table. Trois prix
+différents avaient coexisté dans le projet — annoncer un tarif et en facturer
+un autre se règle devant un médiateur de la consommation.
+
+Ajuster un prix :
+
+```sql
+update plans set price_cents_monthly = 149, price_cents_yearly = 1499
+where id = 'premium';
+```
 
 Sans elles, l'écran d'offre annonce que les paiements ne sont pas encore
 activés : aucun écran ne prétend encaisser sans pouvoir le faire.

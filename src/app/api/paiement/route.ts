@@ -28,7 +28,10 @@ export async function POST(requete: Request) {
     return NextResponse.json({ message: 'Connectez-vous pour souscrire.' }, { status: 401 });
   }
 
-  let corps: { householdId?: string; type?: string; extensionId?: string };
+  let corps: {
+    householdId?: string; type?: string; extensionId?: string;
+    periodicite?: string;
+  };
   try {
     corps = await requete.json();
   } catch {
@@ -89,8 +92,20 @@ export async function POST(requete: Request) {
       return NextResponse.json({ url: session.url });
     }
 
-    // Abonnement : on réutilise le client Stripe existant s'il y en a un,
-    // pour ne pas créer de doublon de facturation.
+    // Formule : le client indique mensuel ou annuel, la base fournit le tarif
+    // Stripe correspondant. Aucun montant ne transite par la requête.
+    const periodicite = corps.periodicite === 'month' ? 'month' : 'year';
+    const { data: tarif, error: erreurTarif } = await supabase
+      .rpc('tarif_stripe', { p_plan: 'premium', p_periode: periodicite });
+    if (erreurTarif || !tarif) {
+      return NextResponse.json(
+        { message: 'L’abonnement n’est pas encore configuré. Réessayez plus tard.' },
+        { status: 503 },
+      );
+    }
+
+    // On réutilise le client Stripe existant s'il y en a un, pour ne pas créer
+    // de doublon de facturation.
     const { data: abo } = await supabase
       .from('subscriptions')
       .select('stripe_customer_id, status')
@@ -107,9 +122,11 @@ export async function POST(requete: Request) {
     const session = await creerSessionAbonnement({
       config,
       householdId,
+      tarifStripe: tarif as string,
+      periodicite,
       emailClient: user.email ?? undefined,
       clientExistant: (abo?.stripe_customer_id as string) ?? null,
-      cleIdempotence: `sub:${householdId}:${Date.now()}`,
+      cleIdempotence: `sub:${householdId}:${periodicite}:${Date.now()}`,
     });
     return NextResponse.json({ url: session.url });
   } catch (e) {

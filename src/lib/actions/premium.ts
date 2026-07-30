@@ -13,9 +13,11 @@ import { supabaseBrowser, ok, err, lisible, detail, type ActionResult } from './
 export interface Offre {
   planId: string;
   planLibelle: string;
-  /** Prix de l'abonnement et sa périodicité, lus en base — jamais codés en dur. */
-  prixCents: number;
-  periodicite: 'month' | 'year';
+  /** Les deux formules, lues en base — aucun montant n'est écrit dans le code. */
+  prixMensuelCents: number;
+  prixAnnuelCents: number;
+  /** Formule souscrite, null sans abonnement. */
+  periodiciteActive: 'month' | 'year' | null;
   illimite: boolean;
   /** Dernier jour couvert (AAAA-MM-JJ) ; null si illimité. */
   horizon: string | null;
@@ -47,8 +49,9 @@ export async function getOffre(householdId: string): Promise<ActionResult<Offre>
   return ok({
     planId: l.plan_id as string,
     planLibelle: (l.plan_label as string) ?? 'Gratuit',
-    prixCents: Number(l.prix_cents ?? 0),
-    periodicite: (l.periodicite as 'month' | 'year') ?? 'month',
+    prixMensuelCents: Number(l.prix_mensuel_cents ?? 0),
+    prixAnnuelCents: Number(l.prix_annuel_cents ?? 0),
+    periodiciteActive: (l.periodicite_active as 'month' | 'year' | null) ?? null,
     illimite: Boolean(l.illimite),
     horizon: (l.horizon as string) ?? null,
     joursRestants: l.jours_restants === null ? null : Number(l.jours_restants),
@@ -85,6 +88,8 @@ export async function ouvrirPaiement(input: {
   householdId: string;
   type: 'extension' | 'abonnement';
   extensionId?: string;
+  /** Formule choisie pour un abonnement ; ignorée pour une extension. */
+  periodicite?: 'month' | 'year';
 }): Promise<ActionResult<string>> {
   try {
     const reponse = await fetch('/api/paiement', {
