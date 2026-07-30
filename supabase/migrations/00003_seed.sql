@@ -28,17 +28,9 @@ on conflict (id) do nothing;
 -- Limoges, Lyon, Poitiers • Zone B : Aix-Marseille, Amiens, Lille, Nancy-Metz,
 -- Nantes, Nice, Normandie, Orléans-Tours, Reims, Rennes, Strasbourg •
 -- Zone C : Créteil, Montpellier, Paris, Toulouse, Versailles.
-do $$ begin
-if not exists (select 1 from school_holidays where school_year = '2026-2027' and household_id is null) then
-insert into school_holidays (label, zone, school_year, starts_on, ends_on) values
-  ('Vacances de la Toussaint', null, '2026-2027', '2026-10-17', '2026-11-02'),
-  ('Vacances de Noël',         null, '2026-2027', '2026-12-19', '2027-01-04'),
-  ('Vacances d''hiver',        'A',  '2026-2027', '2027-02-13', '2027-03-01'),
-  ('Vacances d''hiver',        'B',  '2026-2027', '2027-02-20', '2027-03-08'),
-  ('Vacances d''hiver',        'C',  '2026-2027', '2027-02-06', '2027-02-22'),
-  ('Vacances de printemps',    'A',  '2026-2027', '2027-04-10', '2027-04-26'),
-  ('Vacances de printemps',    'B',  '2026-2027', '2027-04-17', '2027-05-03'),
-  ('Vacances de printemps',    'C',  '2026-2027', '2027-04-03', '2027-04-19'),
-  ('Vacances d''été',          null, '2026-2027', '2027-07-03', '2027-08-31');
-end if;
-end $$;
+-- VIDE À DESSEIN.
+-- Les vacances scolaires proviennent exclusivement du calendrier officiel du
+-- ministère, importé par /api/vacances/synchroniser. Aucune date n'est écrite
+-- ici : ces neuf périodes avaient été saisies de mémoire et n'ont jamais été
+-- vérifiées. Une date approximative dans un planning de garde, ce n'est pas
+-- une imprécision anodine — c'est un enfant qui attend devant une école.

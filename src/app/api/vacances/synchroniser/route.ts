@@ -70,17 +70,17 @@ export async function POST() {
       deja_a_jour: true,
     });
   }
-  return synchroniser();
+  return synchroniser('manuelle');
 }
 
 export async function GET(requete: Request) {
   if (!autorise(requete)) {
     return NextResponse.json({ message: 'Non autorisé.' }, { status: 401 });
   }
-  return synchroniser();
+  return synchroniser('planifiee');
 }
 
-async function synchroniser() {
+async function synchroniser(origine: 'planifiee' | 'manuelle') {
   const service = supabaseService();
   if (!service) {
     return NextResponse.json(
@@ -88,6 +88,14 @@ async function synchroniser() {
       { status: 503 },
     );
   }
+
+  // Trace d'entrée : toute tentative laisse une empreinte, même si la suite
+  // échoue. Sans cela, un appel qui se perd est indiscernable d'un appel
+  // jamais parti — ce qui a coûté plusieurs allers-retours de diagnostic.
+  await service.rpc('log_calendar_sync', {
+    p_zone: null, p_annee: null, p_periodes: 0,
+    p_statut: 'echec', p_message: `tentative ${origine} en cours`,
+  });
 
   // On couvre l'année scolaire en cours et les deux suivantes : le planning
   // doit pouvoir aller au-delà d'un an pour les abonnés.
