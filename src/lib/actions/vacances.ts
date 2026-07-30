@@ -102,3 +102,29 @@ export async function getEtatCalendrier(householdId: string): Promise<ActionResu
     couvreUnAn: Boolean(l?.couvre_un_an),
   });
 }
+
+
+/**
+ * Demande une mise à jour immédiate du calendrier officiel.
+ * Utile juste après avoir choisi sa localisation : sans cela, il faudrait
+ * attendre la synchronisation hebdomadaire.
+ */
+export async function synchroniserCalendrier(): Promise<ActionResult<{
+  importees: number; dejaAJour: boolean;
+}>> {
+  try {
+    const reponse = await fetch('/api/vacances/synchroniser', { method: 'POST' });
+    const corps = (await reponse.json()) as {
+      importees?: number; deja_a_jour?: boolean; message?: string;
+    };
+    if (!reponse.ok) {
+      return err(corps.message ?? 'La mise à jour n’a pas abouti. Réessayez plus tard.');
+    }
+    return ok({
+      importees: Number(corps.importees ?? 0),
+      dejaAJour: Boolean(corps.deja_a_jour),
+    });
+  } catch (e) {
+    return err('La mise à jour n’a pas abouti. Vérifiez votre connexion.', detail(e));
+  }
+}

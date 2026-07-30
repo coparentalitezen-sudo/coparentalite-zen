@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseService } from '@/lib/supabase/server';
+import { supabaseService, supabaseServer } from '@/lib/supabase/server';
 
 /**
  * Import du calendrier scolaire officiel.
@@ -53,11 +53,57 @@ function autorise(requete: Request): boolean {
   return entete === `Bearer ${attendu}`;
 }
 
+/**
+ * Déclenchement manuel par un membre connecté.
+ *
+ * La tâche planifiée hebdomadaire ne suffit pas : après avoir choisi sa zone,
+ * un parent doit voir ses vacances tout de suite, pas le lundi suivant.
+ * L'appel est réservé aux membres d'un foyer et limité en fréquence — la
+ * source officielle n'a pas à être sollicitée en boucle.
+ */
+async function autoriseMembre(): Promise<boolean> {
+  const supabase = await supabaseServer();
+  if (!supabase) return false;
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return false;
+  const { data } = await supabase
+    .from('household_members').select('household_id')
+    .eq('profile_id', user.id).is('deleted_at', null).limit(1);
+  return Boolean(data && data.length > 0);
+}
+
+/** Un import récent rend le suivant inutile : on l'annonce sans le refaire. */
+async function importRecent(): Promise<boolean> {
+  const supabase = await supabaseServer();
+  if (!supabase) return false;
+  const ilYaUneHeure = new Date(Date.now() - 3600_000).toISOString();
+  const { data } = await supabase
+    .from('school_calendar_syncs').select('id')
+    .eq('statut', 'succes').gte('finished_at', ilYaUneHeure).limit(1);
+  return Boolean(data && data.length > 0);
+}
+
+export async function POST() {
+  if (!(await autoriseMembre())) {
+    return NextResponse.json({ message: 'Connectez-vous pour synchroniser.' }, { status: 401 });
+  }
+  if (await importRecent()) {
+    return NextResponse.json({
+      message: 'Le calendrier a déjà été mis à jour il y a moins d’une heure.',
+      deja_a_jour: true,
+    });
+  }
+  return synchroniser();
+}
+
 export async function GET(requete: Request) {
   if (!autorise(requete)) {
     return NextResponse.json({ message: 'Non autorisé.' }, { status: 401 });
   }
+  return synchroniser();
+}
 
+async function synchroniser() {
   const service = supabaseService();
   if (!service) {
     return NextResponse.json(

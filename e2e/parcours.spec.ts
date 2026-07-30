@@ -145,3 +145,14 @@ test('webhook : une requête sans signature valide est rejetée', async ({ reque
   expect([400, 503]).toContain(r.status());
   expect(r.status()).not.toBe(200);
 });
+
+test('vacances : la synchronisation refuse un appel non authentifié', async ({ request }) => {
+  // Le déclenchement manuel est réservé aux membres d'un foyer
+  const manuel = await request.post('/api/vacances/synchroniser');
+  expect([401, 503]).toContain(manuel.status());
+
+  // La tâche planifiée exige le secret : sans lui, aucun import
+  const planifie = await request.get('/api/vacances/synchroniser');
+  expect([401, 503]).toContain(planifie.status());
+  expect(planifie.status()).not.toBe(200);
+});

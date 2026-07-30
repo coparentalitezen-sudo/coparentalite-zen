@@ -10,6 +10,7 @@ import {
   createHousehold, inviteParent, exportMyData, deleteMyAccount, deleteHousehold,
   getRegleGarde, setRegleGarde, renommerMonProfil, type RegleGarde,
   getEtatCalendrier, listerPays, listerZones, getLocalisation, setLocalisation,
+  synchroniserCalendrier,
   type EtatCalendrier, type Pays, type ZoneDisponible, type Localisation,
 } from '@/lib/actions';
 import type { CustodyPattern } from '@/lib/custody';
@@ -106,8 +107,16 @@ export default function Foyer() {
     });
     if (r.status === 'ok') {
       setZoneMsg({ kind: 'ok',
-        text: 'Enregistré. Les vacances scolaires apparaissent dans le planning ; vos périodes de garde sont inchangées.' });
+        text: 'Enregistré. Récupération du calendrier officiel…' });
+      // On récupère le calendrier dans la foulée : attendre la synchronisation
+      // hebdomadaire donnerait l'impression que rien ne s'est passé.
+      const sync = await synchroniserCalendrier();
       await rafraichirLocalisation(ctx.contexte.foyer.id);
+      setZoneMsg(sync.status === 'ok'
+        ? { kind: 'ok',
+            text: 'Vacances scolaires à jour. Vos périodes de garde sont inchangées.' }
+        : { kind: 'info',
+            text: 'Localisation enregistrée. Le calendrier officiel sera récupéré sous peu.' });
     } else if (r.status === 'error') {
       setZoneMsg({ kind: 'err', text: r.message });
     }
@@ -442,6 +451,25 @@ export default function Foyer() {
                 {!etatCal.couvreUnAn && ' La prochaine année scolaire sera ajoutée dès sa publication officielle.'}
               </p>
             )
+          )}
+
+          {loc?.zone && (
+            <button type="button" className="btn btn-ghost w-full" disabled={zoneBusy}
+              onClick={async () => {
+                setZoneBusy(true); setZoneMsg(null);
+                const r = await synchroniserCalendrier();
+                if (r.status === 'ok') {
+                  setZoneMsg(r.data.dejaAJour
+                    ? { kind: 'info', text: 'Le calendrier est déjà à jour.' }
+                    : { kind: 'ok', text: `Calendrier mis à jour : ${r.data.importees} périodes.` });
+                  await rafraichirLocalisation(ctx.contexte.foyer.id);
+                } else if (r.status === 'error') {
+                  setZoneMsg({ kind: 'err', text: r.message });
+                }
+                setZoneBusy(false);
+              }}>
+              {zoneBusy ? 'Mise à jour…' : 'Mettre à jour le calendrier maintenant'}
+            </button>
           )}
 
           <p className="text-[11px] leading-snug text-soft/85">
