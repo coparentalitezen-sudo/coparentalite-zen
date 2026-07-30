@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
 import { supabaseService, supabaseServer } from '@/lib/supabase/server';
+import {
+  versPeriodesImportables, versCorrespondancesAcademies,
+  type EnregistrementOfficiel,
+} from '@/lib/calendrier-officiel';
 
 /**
  * Import du calendrier scolaire officiel.
@@ -17,33 +21,6 @@ export const maxDuration = 60;
 
 const SOURCE = 'https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets'
   + '/fr-en-calendrier-scolaire/records';
-
-/** Seules les zones métropolitaines nous concernent. */
-const ZONES = ['A', 'B', 'C'] as const;
-
-interface EnregistrementOfficiel {
-  description?: string;
-  start_date?: string;
-  end_date?: string;
-  zones?: string;
-  annee_scolaire?: string;
-  population?: string;
-  location?: string;      // académie concernée
-}
-
-/** « Zone A » → « A ». */
-function zoneCourte(zones: string | undefined): string | null {
-  if (!zones) return null;
-  const m = /Zone\s+([ABC])/i.exec(zones);
-  return m ? m[1].toUpperCase() : null;
-}
-
-/** Les dates officielles sont des horodatages ; le planning raisonne en jours. */
-function jour(iso: string | undefined): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
-}
 
 function autorise(requete: Request): boolean {
   const attendu = process.env.CRON_SECRET;
@@ -121,41 +98,36 @@ async function synchroniser() {
   ];
 
   try {
-    const parametres = new URLSearchParams({
-      limit: '100',
-      where: `annee_scolaire in (${anneesScolaires.map((a) => `"${a}"`).join(',')})`,
-      select: 'description,start_date,end_date,zones,annee_scolaire,population,location',
-    });
+    // L'API plafonne à 100 enregistrements par appel. Quatre années scolaires
+    // en comptent davantage : sans pagination, les dernières périodes étaient
+    // silencieusement perdues.
+    const brut: EnregistrementOfficiel[] = [];
+    const PAGE = 100;
+    const PAGES_MAX = 10;          // garde-fou : 1 000 enregistrements suffisent
+    for (let page = 0; page < PAGES_MAX; page += 1) {
+      const parametres = new URLSearchParams({
+        limit: String(PAGE),
+        offset: String(page * PAGE),
+        where: `annee_scolaire in (${anneesScolaires.map((a) => `"${a}"`).join(',')})`,
+        select: 'description,start_date,end_date,zones,annee_scolaire,population,location',
+        order_by: 'start_date',
+      });
 
-    const reponse = await fetch(`${SOURCE}?${parametres}`, {
-      headers: { Accept: 'application/json' },
-      cache: 'no-store',
-    });
-    if (!reponse.ok) {
-      throw new Error(`la source officielle a répondu ${reponse.status}`);
+      const reponse = await fetch(`${SOURCE}?${parametres}`, {
+        headers: { Accept: 'application/json' },
+        cache: 'no-store',
+      });
+      if (!reponse.ok) {
+        throw new Error(`la source officielle a répondu ${reponse.status}`);
+      }
+
+      const corps = (await reponse.json()) as { results?: EnregistrementOfficiel[] };
+      const lot = corps.results ?? [];
+      brut.push(...lot);
+      if (lot.length < PAGE) break;   // dernière page atteinte
     }
 
-    const corps = (await reponse.json()) as { results?: EnregistrementOfficiel[] };
-    const brut = corps.results ?? [];
-
-    const periodes = brut
-      .map((e) => {
-        const zone = zoneCourte(e.zones);
-        const debut = jour(e.start_date);
-        const fin = jour(e.end_date);
-        if (!zone || !ZONES.includes(zone as 'A' | 'B' | 'C') || !debut || !fin) return null;
-        return {
-          country_code: 'FR',
-          label: e.description ?? 'Vacances scolaires',
-          zone,
-          school_year: e.annee_scolaire ?? null,
-          starts_on: debut,
-          ends_on: fin,
-          population: e.population ?? null,
-          external_id: `${e.annee_scolaire ?? ''}|${zone}|${e.description ?? ''}|${debut}`,
-        };
-      })
-      .filter((p): p is NonNullable<typeof p> => p !== null);
+    const periodes = versPeriodesImportables(brut);
 
     if (periodes.length === 0) {
       await service.rpc('log_calendar_sync', {
@@ -173,23 +145,11 @@ async function synchroniser() {
     });
     if (error) throw new Error(error.message);
 
-    // Correspondances académie → zone, déduites de la même réponse officielle.
-    // Elles servent à proposer la bonne zone à l'utilisateur sans qu'il cherche.
-    const parAcademie = new Map<string, string>();
-    for (const e of brut) {
-      const zone = zoneCourte(e.zones);
-      const academie = e.location?.trim();
-      if (zone && academie && ZONES.includes(zone as 'A' | 'B' | 'C')) {
-        parAcademie.set(academie, zone);
-      }
-    }
+    // Correspondances académie → zone, déduites de la même réponse officielle :
+    // elles permettront de proposer la bonne zone depuis un code postal.
+    const lignes = versCorrespondancesAcademies(brut);
     let academies = 0;
-    if (parAcademie.size > 0) {
-      const lignes = [...parAcademie.entries()].map(([academie, zone]) => ({
-        area_code: academie.toUpperCase(),
-        area_label: academie,
-        zone_code: zone,
-      }));
+    if (lignes.length > 0) {
       const { data: n, error: erreurZones } = await service.rpc('import_area_zones', {
         p_pays: 'FR', p_lignes: lignes,
       });
