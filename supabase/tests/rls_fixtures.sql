@@ -232,3 +232,30 @@ language sql stable as $$
     end
 $$;
 grant execute on function public.test_annee_scolaire() to authenticated;
+
+/** Émission directe d'une notification : réservée au serveur en production. */
+create or replace function public.test_notifier(
+  p_household uuid, p_type text, p_titre text, p_corps text,
+  p_quand timestamptz, p_destinataire uuid) returns int
+language plpgsql security definer set search_path = public as $$
+begin
+  return public.notifier(p_household, p_type, p_titre, p_corps, '/app/planning',
+                         null, null, null, p_quand, p_destinataire);
+end $$;
+grant execute on function public.test_notifier(uuid, text, text, text, timestamptz, uuid) to authenticated;
+
+/** Comptage sans RLS : les notifications d'un parent sont invisibles à l'autre. */
+create or replace function public.test_compter_notifs(p_profil uuid, p_type text default null)
+returns int language sql security definer set search_path = public as $$
+  select count(*)::int from notifications
+   where profile_id = p_profil and (p_type is null or kind = p_type)
+$$;
+grant execute on function public.test_compter_notifs(uuid, text) to authenticated;
+
+create or replace function public.test_compter_non_lues_dues(p_profil uuid, p_household uuid)
+returns int language sql security definer set search_path = public as $$
+  select count(*)::int from notifications
+   where profile_id = p_profil and household_id = p_household
+     and read_at is null and scheduled_at <= now()
+$$;
+grant execute on function public.test_compter_non_lues_dues(uuid, uuid) to authenticated;

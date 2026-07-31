@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { Icone } from '@/components/icons';
+import { Cloche } from '@/components/cloche';
 
 /** Version affichée = commit réellement déployé (fourni par Vercel au build). */
 const VERSION = process.env.NEXT_PUBLIC_VERSION
@@ -19,10 +20,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </span>
           <span className="ml-auto flex items-center gap-2">
             <span className="font-mono text-[10px] text-soft">{VERSION}</span>
-            <Link href="/app/accueil#a-faire" aria-label="Aller aux actions à faire"
-              className="grid h-11 w-11 place-items-center rounded-full text-ink">
-              <Icone nom="cloche" taille={23} />
-            </Link>
+            <Cloche />
           </span>
         </div>
         <p className="px-4 pb-2 text-center text-[10px] font-medium text-soft/80">

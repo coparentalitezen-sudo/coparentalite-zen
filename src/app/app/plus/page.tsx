@@ -10,6 +10,7 @@ const rubriques: [string, string, string | null][] = [
   ['Paramètres du foyer', 'Membres, rythme de garde, invitation', '/app/foyer'],
   ['Vacances scolaires', 'Répartir les cinq périodes de l’année', '/app/vacances'],
   ['Changements et exceptions', 'Échanges, voyages, absences ponctuelles', '/app/exceptions'],
+  ['Notifications', 'Choisir ce dont vous voulez être prévenu', '/app/notifications/reglages'],
   ['Votre offre', 'Durée du planning, Zen Plus, factures', '/app/offre'],
   ['Confidentialité', 'Export de vos données, droits RGPD', '/app/foyer'],
   ['Documents', 'Justificatifs et attestations', null],

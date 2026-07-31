@@ -78,6 +78,7 @@ découpage interne peut évoluer sans rien casser.
 | `premium-horizon.ts` | garde d'horizon, fonction pure testable |
 | `rythmes.ts` | catalogue des six rythmes, explications et schémas |
 | `configuration.ts` | étapes du parcours guidé, fonctions pures |
+| `actions/notifications.ts` | centre, préférences et délais de rappel |
 | `tarifs.ts` | lecture de la grille publique ; **aucun montant en dur** |
 | `actions/vacances.ts` | calendrier scolaire officiel du foyer |
 | `actions/localisation.ts` | pays, subdivision, déduction depuis le code postal |
@@ -122,6 +123,7 @@ SQL et leurs jeux d'essai.
 | `00022` | rythme 3-4-4-3 et cycle personnalisé configurable |
 | `00023` | **second parent provisoire** : nommé avant son inscription |
 | `00024` | correction de `propositions_vacances` (min(uuid) impossible) |
+| `00025` | **moteur de notifications** : types, canaux, préférences, rappels |
 
 ---
 
@@ -157,6 +159,22 @@ calculs.
 modifiée ni supprimée. Il faut annuler le remboursement d'abord. Le critère est
 chronologique : seul un remboursement postérieur à l'entrée de la dépense dans
 le solde la verrouille.
+
+**Notifications.** Une notification est un fait ; le canal par lequel elle
+atteint le parent est une question distincte. Cette séparation permettra
+d'activer le Push puis le courriel **sans rien reprendre** : les tables
+`notification_channels`, `notification_deliveries` et `push_subscriptions`
+existent déjà, et les préférences acceptent les trois canaux. Seul
+« application » est actif.
+
+Onze types répartis en trois catégories, chacun réglable par parent. Un parent
+n'est **jamais notifié de sa propre action** — `notifier()` écarte l'auteur.
+Les notifications sont **privées** : la politique de sécurité les réserve à
+leur destinataire, car elles révèlent ce qu'il consulte et quand.
+
+Les rappels portent une date de pertinence (`scheduled_at`) et n'apparaissent
+qu'à leur heure, ni dans la liste ni dans le décompte. Le délai est réglable
+par parent : 5, 15, 30 minutes, 1 heure ou la veille.
 
 **Parcours de configuration.** Six étapes, dans un ordre qui n'est pas
 arbitraire : foyer, enfants, **second parent nommé**, rythme, vacances,
