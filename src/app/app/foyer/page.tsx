@@ -7,12 +7,14 @@ import { BottomNav, ParentBadge } from '@/components/ui';
 import { Chargement, Erreur } from '@/components/etats';
 import { Icone } from '@/components/icons';
 import { SchemaRythme, GrilleCycle } from '@/components/rythme';
+import { ProgressionDetaillee } from '@/components/progression';
+import { invitationPrematuree, type EtatConfiguration } from '@/lib/configuration';
 import {
   MODELES, modele, cycleParDefaut, repartition, validerCyclePersonnalise,
 } from '@/lib/rythmes';
 import { useContexte } from '@/lib/use-contexte';
 import {
-  createHousehold, inviteParent, exportMyData, deleteMyAccount, deleteHousehold,
+  createHousehold, inviteParent, nommerSecondParent, exportMyData, deleteMyAccount, deleteHousehold,
   getRegleGarde, setRegleGarde, renommerMonProfil, type RegleGarde,
   getEtatCalendrier, listerPays, listerZones, getLocalisation, setLocalisation,
   synchroniserCalendrier,
@@ -48,11 +50,28 @@ export default function Foyer() {
 
   const [rythme, setRythme] = useState<CustodyPattern>('alternating_weeks');
   const [cyclePerso, setCyclePerso] = useState<('P1' | 'P2')[]>([]);
+  const [prenomSecond, setPrenomSecond] = useState('');
   const [heurePassage, setHeurePassage] = useState('');
   const [lieuPassage, setLieuPassage] = useState('');
   const [debut, setDebut] = useState(() => new Date().toISOString().slice(0, 10));
   const [regleActuelle, setRegleActuelle] = useState<RegleGarde | null>(null);
   const [monNom, setMonNom] = useState('');
+
+  // ---- État de la configuration, dérivé du contexte ----
+  const membresCtx = ctx.etat === 'pret' ? ctx.contexte.membres : [];
+  const parentProvisoire = membresCtx.find((m) => m.provisoire) ?? null;
+  const secondParentInscrit = membresCtx.filter((m) => !m.provisoire).length >= 2;
+  const etatConfig: EtatConfiguration = {
+    foyerCree: ctx.etat === 'pret',
+    nbEnfants: ctx.etat === 'pret' ? ctx.contexte.enfants.length : 0,
+    secondParentNomme: membresCtx.length >= 2,
+    secondParentInscrit,
+    rythmeDefini: Boolean(regleActuelle),
+    zoneScolaireDefinie: Boolean(loc?.zone),
+    invitationEnvoyee: Boolean(lien),
+  };
+  const avertissementInvitation = secondParentInscrit
+    ? null : invitationPrematuree(etatConfig);
 
   useEffect(() => {
     if (ctx.etat !== 'pret') return;
@@ -164,6 +183,27 @@ export default function Foyer() {
     if (r.status === 'ok') { setMsg({ kind: 'ok', text: 'Foyer créé.' }); recharger(); }
     else if (r.status === 'demo') setMsg({ kind: 'ok', text: 'Mode démo : le foyer serait créé.' });
     else setMsg({ kind: 'err', text: r.message });
+  }
+
+  /**
+   * Nomme le second parent avant son inscription : c'est ce qui permet de
+   * configurer entièrement le foyer avant de l'inviter.
+   */
+  async function enregistrerSecondParent(householdId: string) {
+    if (!prenomSecond.trim()) {
+      setMsg({ kind: 'err', text: 'Indiquez le prénom du second parent.' });
+      return;
+    }
+    setBusy(true); setMsg(null);
+    const r = await nommerSecondParent(householdId, prenomSecond);
+    setBusy(false);
+    if (r.status === 'ok') {
+      setMsg({ kind: 'ok', text: `${prenomSecond.trim()} apparaît maintenant dans votre planning.` });
+      setPrenomSecond('');
+      recharger();
+    } else if (r.status === 'error') {
+      setMsg({ kind: 'err', text: r.message });
+    }
   }
 
   async function inviter(householdId: string) {
@@ -291,11 +331,66 @@ export default function Foyer() {
             </button>
           </section>
 
+          {/* ÉTAPE 3 — Nommer le second parent. Son prénom suffit : il
+              pourra créer son compte plus tard et retrouvera tout. */}
           <section className="card space-y-3 p-4">
-            <h2 className="font-bold">Rythme de garde</h2>
+            <div className="flex items-baseline justify-between gap-2">
+              <h2 className="font-bold">Le second parent</h2>
+              <span className="text-[11px] font-bold text-soft/85">Étape 3</span>
+            </div>
+
+            {membres.length >= 2 ? (
+              <>
+                <p className="text-[13px] leading-snug text-soft">
+                  {parentProvisoire
+                    ? `${parentProvisoire.nom} est enregistré. Il n’a pas encore de compte : vous pouvez tout configurer, il retrouvera l’ensemble en rejoignant le foyer.`
+                    : 'Les deux parents sont enregistrés.'}
+                </p>
+                {parentProvisoire && (
+                  <label className="block">
+                    <span className="mb-1 block text-sm font-bold">Corriger le prénom</span>
+                    <div className="flex gap-2">
+                      <input type="text" maxLength={40} value={prenomSecond}
+                             placeholder={parentProvisoire.nom}
+                             onChange={(e) => setPrenomSecond(e.target.value)} />
+                      <button className="btn btn-ghost shrink-0 px-4" disabled={busy || !prenomSecond.trim()}
+                              onClick={() => enregistrerSecondParent(ctx.contexte.foyer.id)}>
+                        Modifier
+                      </button>
+                    </div>
+                  </label>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="text-[13px] leading-snug text-soft">
+                  Indiquez simplement son prénom. Vous pourrez ainsi définir le
+                  rythme de garde et répartir les vacances dès maintenant — son
+                  compte viendra plus tard, à la dernière étape.
+                </p>
+                <label className="block">
+                  <span className="mb-1 block text-sm font-bold">Son prénom</span>
+                  <input type="text" maxLength={40} value={prenomSecond}
+                         placeholder="Camille"
+                         onChange={(e) => setPrenomSecond(e.target.value)} />
+                </label>
+                <button className="btn btn-primary w-full" disabled={busy || !prenomSecond.trim()}
+                        onClick={() => enregistrerSecondParent(ctx.contexte.foyer.id)}>
+                  {busy ? 'Enregistrement…' : 'Enregistrer'}
+                </button>
+              </>
+            )}
+          </section>
+
+          <section className="card space-y-3 p-4">
+            <div className="flex items-baseline justify-between gap-2">
+              <h2 className="font-bold">Rythme de garde</h2>
+              <span className="text-[11px] font-bold text-soft/85">Étape 4</span>
+            </div>
             {!p2 ? (
               <p className="text-sm text-soft">
-                Le rythme se définit à deux : invitez d’abord le second parent ci-dessous.
+                Indiquez d’abord le prénom du second parent, à l’étape
+                précédente : le rythme se définit à deux.
               </p>
             ) : (
               <>
@@ -610,6 +705,76 @@ export default function Foyer() {
             changements » qui décident chez quel parent sont les enfants.
             Changer de pays ou de subdivision ne supprime aucune de vos décisions.
           </p>
+        </section>
+      )}
+
+      {/* ÉTAPE FINALE — L'invitation vient en dernier : elle vaut validation
+          de la configuration. On ne dérange l'autre parent que pour lui
+          montrer un foyer prêt. */}
+      {ctx.etat === 'pret' && (
+        <section className="card space-y-3 p-4">
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 className="font-bold">Inviter le second parent</h2>
+            <span className="text-[11px] font-bold text-soft/85">Étape 6</span>
+          </div>
+
+          {secondParentInscrit ? (
+            <p className="rounded-xl bg-ok-bg px-3 py-2 text-[13px] font-bold text-ok">
+              {membres.find((m) => m.profileId !== ctx.contexte.moi)?.nom ?? 'Le second parent'} a
+              rejoint le foyer. Vous partagez le même planning.
+            </p>
+          ) : (
+            <>
+              <p className="text-[13px] leading-snug text-soft">
+                {parentProvisoire
+                  ? `${parentProvisoire.nom} apparaît déjà dans votre planning. L’invitation lui permettra de créer son compte et de retrouver tout ce que vous avez préparé.`
+                  : 'Une fois votre foyer configuré, invitez l’autre parent : il découvrira un espace prêt à l’emploi.'}
+              </p>
+
+              {/* Avertissement, jamais un blocage : un parent pressé doit
+                  pouvoir inviter tout de suite. */}
+              {avertissementInvitation && (
+                <p className="rounded-xl bg-wait-bg px-3 py-2 text-[13px] leading-snug text-wait">
+                  {avertissementInvitation}
+                </p>
+              )}
+
+              <label className="block">
+                <span className="mb-1 block text-sm font-bold">Son adresse e-mail</span>
+                <input type="email" inputMode="email" autoComplete="off"
+                       value={email} placeholder="prenom@exemple.fr"
+                       onChange={(e) => setEmail(e.target.value)} />
+                <span className="mt-1 block text-xs text-soft">
+                  L’invitation n’est valable que pour cette adresse, et expire au bout de sept jours.
+                </span>
+              </label>
+
+              <button className="btn btn-primary w-full" disabled={busy || !email.trim()}
+                      onClick={() => inviter(ctx.contexte.foyer.id)}>
+                {busy ? 'Création…' : 'Créer le lien d’invitation'}
+              </button>
+
+              {lien && (
+                <div className="rounded-xl bg-muted p-3">
+                  <p className="text-[13px] font-bold">Lien créé — transmettez-le à {email}</p>
+                  <p className="mt-1 break-all rounded-lg bg-card px-2.5 py-2 text-[12px] leading-snug">
+                    {lien}
+                  </p>
+                  <button type="button" className="btn btn-ghost mt-2 w-full"
+                          onClick={() => {
+                            navigator.clipboard?.writeText(lien);
+                            setMsg({ kind: 'ok', text: 'Lien copié.' });
+                          }}>
+                    Copier le lien
+                  </button>
+                  <p className="mt-2 text-[11px] leading-snug text-soft/85">
+                    Envoyez-le par le moyen de votre choix. Nous n’envoyons pas
+                    d’e-mail à sa place : c’est à vous de le transmettre.
+                  </p>
+                </div>
+              )}
+            </>
+          )}
         </section>
       )}
 

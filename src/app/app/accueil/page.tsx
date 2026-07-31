@@ -27,6 +27,8 @@ import { formatCents } from '@/lib/money';
 import { buildSchedule, whereToday } from '@/lib/custody';
 import { calculerSerenite } from '@/lib/serenite';
 import { BandeauHorizon } from '@/components/premium';
+import { ProgressionCompacte } from '@/components/progression';
+import { invitationPrematuree, type EtatConfiguration } from '@/lib/configuration';
 import { getOffre, type Offre } from '@/lib/actions';
 
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
@@ -739,6 +741,18 @@ export default function Accueil() {
               </div>
             </div>
           </section>
+
+          {/* Tant que la configuration n'est pas terminée, l'étape suivante
+              reste à portée depuis l'accueil. */}
+          <ProgressionCompacte etat={{
+            foyerCree: true,
+            nbEnfants: ctx.contexte.enfants.length,
+            secondParentNomme: ctx.contexte.membres.length >= 2,
+            secondParentInscrit: ctx.contexte.membres.filter((m) => !m.provisoire).length >= 2,
+            rythmeDefini: Boolean(regle) && regle !== 'inconnu',
+            zoneScolaireDefinie: true,
+            invitationEnvoyee: false,
+          }} />
 
           <BandeauHorizon offre={offre} />
 

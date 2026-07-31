@@ -7,6 +7,8 @@ import type { CustodyPattern } from '../custody';
 export interface Membre {
   profileId: string; nom: string; role: string;
   couleur: 'navy' | 'coral' | 'sage'; initiale: string;
+  /** true si le parent est nommé mais n'a pas encore rejoint le foyer. */
+  provisoire?: boolean;
 }
 export interface Enfant { id: string; prenom: string; couleur: string; naissance: string | null; }
 export interface Categorie { id: string; nom: string; }

@@ -77,6 +77,7 @@ découpage interne peut évoluer sans rien casser.
 | `stripe.ts` | appels Stripe en HTTP et vérification de signature, **serveur seul** |
 | `premium-horizon.ts` | garde d'horizon, fonction pure testable |
 | `rythmes.ts` | catalogue des six rythmes, explications et schémas |
+| `configuration.ts` | étapes du parcours guidé, fonctions pures |
 | `tarifs.ts` | lecture de la grille publique ; **aucun montant en dur** |
 | `actions/vacances.ts` | calendrier scolaire officiel du foyer |
 | `actions/localisation.ts` | pays, subdivision, déduction depuis le code postal |
@@ -119,6 +120,8 @@ SQL et leurs jeux d'essai.
 | `00020` | **droits du rôle de service** : import et facturation |
 | `00021` | **moteur générique d'exceptions** : types, priorités, propositions |
 | `00022` | rythme 3-4-4-3 et cycle personnalisé configurable |
+| `00023` | **second parent provisoire** : nommé avant son inscription |
+| `00024` | correction de `propositions_vacances` (min(uuid) impossible) |
 
 ---
 
@@ -154,6 +157,22 @@ calculs.
 modifiée ni supprimée. Il faut annuler le remboursement d'abord. Le critère est
 chronologique : seul un remboursement postérieur à l'entrée de la dépense dans
 le solde la verrouille.
+
+**Parcours de configuration.** Six étapes, dans un ordre qui n'est pas
+arbitraire : foyer, enfants, **second parent nommé**, rythme, vacances,
+**invitation**. L'invitation vient en dernier parce qu'elle vaut validation —
+on ne dérange pas l'autre parent pour lui montrer un espace vide.
+
+Le rythme exigeant deux parents, le premier **nomme** simplement le second :
+un profil provisoire est créé, sans compte ni connexion possible, qui sert de
+repère dans le planning et les dépenses. À l'acceptation de l'invitation, le
+compte réel prend sa place et **hérite de tout** — périodes, dépenses, parts,
+remboursements, rythme. Neuf assertions couvrent ce transfert, dont la
+justesse du solde après fusion.
+
+Un avertissement signale une invitation prématurée (aucun enfant, pas de
+rythme) mais ne bloque jamais : un parent pressé doit pouvoir inviter tout de
+suite.
 
 **Planning.** Une exception est une période pendant laquelle un parent
 déterminé a les enfants, en dérogation au rythme. Ce qui distingue une vacance

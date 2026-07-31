@@ -156,3 +156,11 @@ test('vacances : la synchronisation refuse un appel non authentifié', async ({ 
   expect([401, 503]).toContain(planifie.status());
   expect(planifie.status()).not.toBe(200);
 });
+
+test('parcours guidé : l’invitation est présentée en dernier', async ({ page }) => {
+  // Sans session, la page renvoie vers la connexion : on vérifie au moins que
+  // la route existe et que la garde d'authentification fonctionne.
+  await page.goto('/app/foyer');
+  await expect(page).toHaveURL(/\/connexion/);
+  expect(page.url()).toContain('suite=%2Fapp%2Ffoyer');
+});

@@ -49,7 +49,7 @@ export async function getContexte(): Promise<ActionResult<Contexte | null>> {
     return ok({
       foyer: { id: h.id, nom: h.name, role: membre.role as string },
       membres: (membres.data ?? []).map((m) => {
-        const p = m.profiles as unknown as { display_name: string };
+        const p = m.profiles as unknown as { display_name: string; is_placeholder?: boolean };
         const nom = p?.display_name ?? 'Parent';
         return {
           profileId: m.profile_id as string,
@@ -57,6 +57,9 @@ export async function getContexte(): Promise<ActionResult<Contexte | null>> {
           role: m.role as string,
           couleur: (m.color_key as 'navy' | 'coral' | 'sage') ?? 'navy',
           initiale: nom.charAt(0).toUpperCase(),
+          // Un parent nommé mais pas encore inscrit : le planning fonctionne,
+          // mais il ne peut ni se connecter ni valider de dépense.
+          provisoire: Boolean(p?.is_placeholder),
         };
       }),
       enfants: (enfants.data ?? []).map((c) => ({
