@@ -18,6 +18,38 @@ function presente(nom: string): boolean {
   return typeof v === 'string' && v.trim().length > 0;
 }
 
+/**
+ * Rôle porté par une clé Supabase, sans jamais révéler la clé elle-même.
+ *
+ * Les clés « anon » et « service_role » sont deux JWT visuellement identiques
+ * — tous deux commencent par « eyJhbGci ». Les confondre donne une
+ * configuration en apparence correcte mais des appels refusés, sans que rien
+ * ne l'indique. Lire le rôle inscrit dans la clé lève l'ambiguïté.
+ */
+function roleDeLaCle(cle: string | undefined): string {
+  if (!cle) return 'absente';
+  const valeur = cle.trim();
+
+  // Clés de nouvelle génération : le préfixe suffit
+  if (valeur.startsWith('sb_secret_')) return 'service_role (clé secrète)';
+  if (valeur.startsWith('sb_publishable_')) return 'anon (clé publiable) — INCORRECTE ICI';
+
+  // Clés historiques : JWT dont on lit la charge utile, sans vérifier la
+  // signature (on ne cherche qu'à identifier le rôle déclaré).
+  const parties = valeur.split('.');
+  if (parties.length !== 3) return 'format non reconnu';
+  try {
+    const brut = parties[1].replace(/-/g, '+').replace(/_/g, '/');
+    const charge = JSON.parse(
+      Buffer.from(brut, 'base64').toString('utf8'),
+    ) as { role?: string };
+    const role = charge.role ?? 'non précisé';
+    return role === 'service_role' ? role : `${role} — INCORRECTE ICI`;
+  } catch {
+    return 'illisible';
+  }
+}
+
 export async function GET() {
   const supabase = await supabaseServer();
   if (!supabase) {
@@ -43,10 +75,13 @@ export async function GET() {
     stripe_webhook: presente('STRIPE_WEBHOOK_SECRET'),
   };
 
+  const roleService = roleDeLaCle(process.env.SUPABASE_SERVICE_ROLE_KEY);
+
   return NextResponse.json({
     version: process.env.NEXT_PUBLIC_VERSION
       ?? process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? 'local',
     variables,
+    role_de_la_cle_service: roleService,
     // Ce que chaque manque empêche concrètement
     consequences: [
       !variables.supabase_cle_service
@@ -55,6 +90,9 @@ export async function GET() {
         && 'Synchronisation hebdomadaire automatique inactive (CRON_SECRET manquante).',
       (!variables.stripe_cle || !variables.stripe_webhook)
         && 'Paiements indisponibles (clés Stripe manquantes).',
+      roleService.includes('INCORRECTE')
+        && `SUPABASE_SERVICE_ROLE_KEY contient une clé de rôle « ${roleService.split(' ')[0]} » : `
+           + 'les traitements sans utilisateur seront refusés. Utilisez la clé service_role.',
     ].filter(Boolean),
   });
 }
