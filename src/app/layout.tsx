@@ -1,4 +1,4 @@
-mport type { Metadata, Viewport } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { ServiceWorker } from '@/components/service-worker';
 
