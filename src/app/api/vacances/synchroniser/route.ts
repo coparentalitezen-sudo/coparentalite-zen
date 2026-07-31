@@ -74,10 +74,24 @@ export async function POST() {
 }
 
 export async function GET(requete: Request) {
-  if (!autorise(requete)) {
-    return NextResponse.json({ message: 'Non autorisé.' }, { status: 401 });
+  // Tâche planifiée Vercel, authentifiée par le secret
+  if (autorise(requete)) return synchroniser('planifiee');
+
+  // Membre connecté : la même synchronisation, mais consultable directement
+  // dans le navigateur. La réponse brute affiche la cause exacte d'un échec,
+  // là où l'interface ne montre qu'un message résumé — indispensable pour
+  // diagnostiquer sans deviner.
+  if (await autoriseMembre()) {
+    if (await importRecent()) {
+      return NextResponse.json({
+        message: 'Le calendrier a déjà été mis à jour il y a moins d’une heure.',
+        deja_a_jour: true,
+      });
+    }
+    return synchroniser('manuelle');
   }
-  return synchroniser('planifiee');
+
+  return NextResponse.json({ message: 'Non autorisé.' }, { status: 401 });
 }
 
 async function synchroniser(origine: 'planifiee' | 'manuelle') {
