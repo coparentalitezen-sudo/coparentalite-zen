@@ -113,6 +113,8 @@ SQL et leurs jeux d'essai.
 | `00016` | **grille tarifaire unique** : prix, formules, tarifs Stripe, fonctions |
 | `00017` | **vacances scolaires** : calendrier officiel, import, suivi |
 | `00018` | **localisation multi-pays** : pays, subdivisions, déduction de zone |
+| `00019` | retrait des vacances non vérifiées du jeu de départ |
+| `00020` | **droits du rôle de service** : import et facturation |
 
 ---
 
@@ -292,6 +294,15 @@ cours.** Retiré volontairement : le worker prend la main au chargement suivant.
 
 **Un service worker casse les redirections du middleware** s'il ne relaie pas
 la réponse en mode `manual` — la garde d'authentification tombe alors en erreur.
+
+**`revoke from public` prive aussi `service_role`.** Les traitements sans
+utilisateur — import du calendrier, webhook Stripe — s'exécutent avec ce rôle.
+Révoquer une fonction « pour tous » lui retire son droit implicite, et l'appel
+échoue sur `permission denied for function` sans rien écrire : un import
+silencieusement impossible, un paiement encaissé sans contrepartie. Toute
+fonction destinée au rôle de service doit recevoir un `grant execute … to
+service_role` explicite. Le banc de test reproduit ce rôle et six assertions le
+vérifient.
 
 **Les fonctions `SECURITY DEFINER` masquent les droits manquants.** Des tests
 peuvent passer alors que la lecture directe échoue en production. Le banc de

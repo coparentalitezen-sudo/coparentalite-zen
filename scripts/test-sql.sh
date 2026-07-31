@@ -57,6 +57,20 @@ do \$\$ begin
   if not exists (select 1 from pg_roles where rolname = 'anon') then
     create role anon;
   end if;
+  -- Rôle des traitements sans utilisateur : import du calendrier, webhook
+  -- Stripe. Le reproduire ici est indispensable — c'est son absence qui avait
+  -- laissé passer un « permission denied » jusqu'en production.
+  if not exists (select 1 from pg_roles where rolname = 'service_role') then
+    create role service_role login password 'service';
+  end if;
+  -- Sur Supabase, PostgREST endosse service_role directement. Ici, la suite de
+  -- tests se connecte en applicatif : on l'autorise à basculer vers ce rôle
+  -- pour vérifier ses droits. Cela ne lui donne aucun privilège tant qu'il n'a
+  -- pas basculé — le test S6 vérifie précisément qu'il reste exclu.
+  -- WITH INHERIT FALSE : le rôle applicatif peut BASCULER vers service_role
+  -- pour les tests, sans jamais en HÉRITER les privilèges. Sans cette
+  -- précaution, tous les contrôles d'isolation deviendraient faux.
+  execute format('grant service_role to %I with inherit false', '$APP_ROLE');
 end \$\$;" > /dev/null
 
 # ---------- Gabarit : schéma auth simulé + migrations + jeux d'essai ----------
