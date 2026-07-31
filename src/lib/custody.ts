@@ -11,6 +11,7 @@ export type ParentId = string;
 
 export type CustodyPattern =
   | 'alternating_weeks'
+  | 'p3443'
   | 'even_weeks'
   | 'odd_weeks'
   | 'alternating_weekends'
@@ -89,11 +90,16 @@ export function isoWeek(d: string): number {
   return 1 + Math.round((t.getTime() - firstThursday.getTime()) / (7 * DAY));
 }
 
-const CYCLES: Record<string, ('P1' | 'P2')[]> = {
+export const CYCLES: Record<string, ('P1' | 'P2')[]> = {
   // 2-2-3 : cycle de 14 jours — P1 2j, P2 2j, P1 3j, puis inversé
   p2233: ['P1','P1','P2','P2','P1','P1','P1','P2','P2','P1','P1','P2','P2','P2'],
   // 2-2-5-5 : cycle de 14 jours — P1 2j, P2 2j, P1 5j, P2 5j
   p2255: ['P1','P1','P2','P2','P1','P1','P1','P1','P1','P2','P2','P2','P2','P2'],
+  // 3-4-4-3 : cycle de 14 jours — P1 3j, P2 4j, puis P2 3j, P1 4j.
+  // Les week-ends alternent : une première version plaçait le vendredi au
+  // dimanche toujours chez le même parent, ce qui donnait à l'un tous les
+  // week-ends de l'année.
+  p3443: ['P1','P1','P1','P2','P2','P2','P2','P2','P2','P2','P1','P1','P1','P1'],
 };
 
 /** Attribution jour par jour selon la règle régulière. */
@@ -132,6 +138,7 @@ export function assignDays(rule: CustodyRule, from: string, to: string): DayAssi
         }
         break;
       }
+      case 'p3443':
       case 'p2233':
       case 'p2255': {
         const cycle = CYCLES[rule.pattern];

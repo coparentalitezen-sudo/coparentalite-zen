@@ -395,3 +395,96 @@ begin
 end $$;
 
 select 'TESTS DU MOTEUR D''EXCEPTIONS PASSÉS' as resultat;
+
+-- ============================================================
+-- R1 à R4 — RYTHMES DE GARDE
+-- ============================================================
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
+
+-- ============ R1 : le rythme 3-4-4-3 est disponible ============
+do $$
+declare rid uuid;
+begin
+  rid := public.set_custody_rule('aaaaaaaa-0000-0000-0000-000000000001',
+    'p3443'::custody_pattern, current_date - 7,
+    '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000b');
+  if rid is null then raise exception 'ÉCHEC R1 : rythme 3-4-4-3 refusé'; end if;
+  raise notice 'R1 OK — rythme 3-4-4-3 enregistré';
+end $$;
+
+-- ============ R2 : un cycle personnalisé est conservé ============
+do $$
+declare cfg jsonb;
+begin
+  perform public.set_custody_rule('aaaaaaaa-0000-0000-0000-000000000001',
+    'custom'::custody_pattern, current_date - 7,
+    '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000b',
+    null, null,
+    '["P2","P2","P1","P1","P1","P1","P1","P2","P2","P1","P1","P1","P1","P1"]'::jsonb);
+
+  select config into cfg from custody_rules
+   where household_id = 'aaaaaaaa-0000-0000-0000-000000000001' and deleted_at is null;
+  if cfg->'custom_cycle' is null then
+    raise exception 'ÉCHEC R2 : le cycle personnalisé n''a pas été conservé';
+  end if;
+  if jsonb_array_length(cfg->'custom_cycle') <> 14 then
+    raise exception 'ÉCHEC R2b : cycle de % jours au lieu de 14',
+      jsonb_array_length(cfg->'custom_cycle');
+  end if;
+  raise notice 'R2 OK — cycle personnalisé de 14 jours conservé';
+end $$;
+
+-- ============ R3 : un cycle invalide est refusé ============
+do $$
+declare bloques int := 0;
+begin
+  -- cycle vide
+  begin
+    perform public.set_custody_rule('aaaaaaaa-0000-0000-0000-000000000001',
+      'custom'::custody_pattern, current_date, '00000000-0000-0000-0000-00000000000a',
+      '00000000-0000-0000-0000-00000000000b', null, null, null);
+  exception when others then bloques := bloques + 1;
+  end;
+  -- semaines incomplètes
+  begin
+    perform public.set_custody_rule('aaaaaaaa-0000-0000-0000-000000000001',
+      'custom'::custody_pattern, current_date, '00000000-0000-0000-0000-00000000000a',
+      '00000000-0000-0000-0000-00000000000b', null, null,
+      '["P1","P1","P2"]'::jsonb);
+  exception when others then bloques := bloques + 1;
+  end;
+  -- un parent privé de toute garde
+  begin
+    perform public.set_custody_rule('aaaaaaaa-0000-0000-0000-000000000001',
+      'custom'::custody_pattern, current_date, '00000000-0000-0000-0000-00000000000a',
+      '00000000-0000-0000-0000-00000000000b', null, null,
+      '["P1","P1","P1","P1","P1","P1","P1"]'::jsonb);
+  exception when others then bloques := bloques + 1;
+  end;
+  -- plus de quatre semaines
+  begin
+    perform public.set_custody_rule('aaaaaaaa-0000-0000-0000-000000000001',
+      'custom'::custody_pattern, current_date, '00000000-0000-0000-0000-00000000000a',
+      '00000000-0000-0000-0000-00000000000b', null, null,
+      (select jsonb_agg('P1') from generate_series(1, 35)));
+  exception when others then bloques := bloques + 1;
+  end;
+
+  if bloques <> 4 then
+    raise exception 'ÉCHEC R3 : %/4 cycles invalides refusés', bloques;
+  end if;
+  raise notice 'R3 OK — cycle vide, incomplet, exclusif ou trop long : tous refusés';
+end $$;
+
+-- ============ R4 : les rythmes classiques n'exigent aucun cycle ============
+do $$
+declare rid uuid;
+begin
+  rid := public.set_custody_rule('aaaaaaaa-0000-0000-0000-000000000001',
+    'alternating_weeks'::custody_pattern, current_date - 7,
+    '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000b');
+  if rid is null then raise exception 'ÉCHEC R4 : rythme classique refusé'; end if;
+  raise notice 'R4 OK — les rythmes prédéfinis restent utilisables sans cycle';
+end $$;
+
+select 'TESTS DES RYTHMES PASSÉS' as resultat;

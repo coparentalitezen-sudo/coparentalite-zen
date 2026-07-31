@@ -16,9 +16,10 @@ export async function getRegleGarde(householdId: string): Promise<ActionResult<R
     .order('created_at', { ascending: false }).limit(1).maybeSingle();
   if (error) return err(lisible('Impossible de charger le rythme de garde.', error));
   if (!data) return ok(null);
-  const cfg = (data.config ?? {}) as { parent2?: string };
+  const cfg = (data.config ?? {}) as { parent2?: string; custom_cycle?: ('P1' | 'P2')[] };
   return ok({
     pattern: data.pattern as CustodyPattern,
+    customCycle: cfg.custom_cycle ?? null,
     startDate: data.start_date as string,
     parent1: data.starting_parent as string,
     parent2: cfg.parent2 ?? '',
@@ -26,13 +27,17 @@ export async function getRegleGarde(householdId: string): Promise<ActionResult<R
 }
 
 export async function setRegleGarde(
-  householdId: string, pattern: CustodyPattern, startDate: string, parent1: string, parent2: string
+  householdId: string, pattern: CustodyPattern, startDate: string,
+  parent1: string, parent2: string,
+  /** Répartition jour par jour, requise pour le rythme personnalisé. */
+  customCycle?: ('P1' | 'P2')[] | null
 ): Promise<ActionResult<string>> {
   const supabase = supabaseBrowser();
   if (!supabase) return { status: 'demo' };
   const { data, error } = await supabase.rpc('set_custody_rule', {
     p_household: householdId, p_pattern: pattern, p_start_date: startDate,
     p_parent1: parent1, p_parent2: parent2,
+    p_custom_cycle: customCycle && customCycle.length > 0 ? customCycle : null,
   });
   if (error) return err(lisible('L’enregistrement du rythme n’a pas abouti.', error));
   return ok(data as string);

@@ -76,6 +76,7 @@ découpage interne peut évoluer sans rien casser.
 |---|---|
 | `stripe.ts` | appels Stripe en HTTP et vérification de signature, **serveur seul** |
 | `premium-horizon.ts` | garde d'horizon, fonction pure testable |
+| `rythmes.ts` | catalogue des six rythmes, explications et schémas |
 | `tarifs.ts` | lecture de la grille publique ; **aucun montant en dur** |
 | `actions/vacances.ts` | calendrier scolaire officiel du foyer |
 | `actions/localisation.ts` | pays, subdivision, déduction depuis le code postal |
@@ -117,6 +118,7 @@ SQL et leurs jeux d'essai.
 | `00019` | retrait des vacances non vérifiées du jeu de départ |
 | `00020` | **droits du rôle de service** : import et facturation |
 | `00021` | **moteur générique d'exceptions** : types, priorités, propositions |
+| `00022` | rythme 3-4-4-3 et cycle personnalisé configurable |
 
 ---
 

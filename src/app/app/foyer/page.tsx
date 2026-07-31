@@ -5,6 +5,11 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { BottomNav, ParentBadge } from '@/components/ui';
 import { Chargement, Erreur } from '@/components/etats';
+import { Icone } from '@/components/icons';
+import { SchemaRythme, GrilleCycle } from '@/components/rythme';
+import {
+  MODELES, modele, cycleParDefaut, repartition, validerCyclePersonnalise,
+} from '@/lib/rythmes';
 import { useContexte } from '@/lib/use-contexte';
 import {
   createHousehold, inviteParent, exportMyData, deleteMyAccount, deleteHousehold,
@@ -42,6 +47,7 @@ export default function Foyer() {
   const [confirmer, setConfirmer] = useState<'aucun' | 'foyer' | 'compte'>('aucun');
 
   const [rythme, setRythme] = useState<CustodyPattern>('alternating_weeks');
+  const [cyclePerso, setCyclePerso] = useState<('P1' | 'P2')[]>([]);
   const [debut, setDebut] = useState(() => new Date().toISOString().slice(0, 10));
   const [regleActuelle, setRegleActuelle] = useState<RegleGarde | null>(null);
   const [monNom, setMonNom] = useState('');
@@ -55,6 +61,7 @@ export default function Foyer() {
         setRegleActuelle(r.data);
         setRythme(r.data.pattern);
         setDebut(r.data.startDate);
+        if (r.data.customCycle?.length) setCyclePerso(r.data.customCycle);
       }
     });
     listerPays().then((r) => { if (r.status === 'ok') setPays(r.data); });
@@ -170,10 +177,12 @@ export default function Foyer() {
 
   async function enregistrerRythme(householdId: string, p1: string, p2: string) {
     setMsg(null); setBusy(true);
-    const r = await setRegleGarde(householdId, rythme, debut, p1, p2);
+    const r = await setRegleGarde(householdId, rythme, debut, p1, p2,
+      rythme === 'custom' ? cyclePerso : null);
     setBusy(false);
     if (r.status === 'ok') {
-      setRegleActuelle({ pattern: rythme, startDate: debut, parent1: p1, parent2: p2 });
+      setRegleActuelle({ pattern: rythme, startDate: debut, parent1: p1, parent2: p2,
+        customCycle: rythme === 'custom' ? cyclePerso : null });
       setMsg({ kind: 'ok', text: 'Rythme de garde enregistré. Le planning est à jour.' });
     } else if (r.status === 'error') setMsg({ kind: 'err', text: r.message });
   }
@@ -286,17 +295,122 @@ export default function Foyer() {
             ) : (
               <>
                 {regleActuelle && (
-                  <p className="rounded-xl bg-muted px-3 py-2 text-sm">
-                    Actuel : <strong>{RYTHMES.find((r) => r.valeur === regleActuelle.pattern)?.libelle}</strong>,
+                  <p className="rounded-xl bg-muted px-3 py-2 text-[13px] leading-snug">
+                    Rythme actuel : <strong>{modele(regleActuelle.pattern)?.nom ?? regleActuelle.pattern}</strong>,
                     depuis le {new Date(regleActuelle.startDate + 'T12:00:00').toLocaleDateString('fr-FR')}.
                   </p>
                 )}
-                <label className="block">
-                  <span className="mb-1 block text-sm font-bold">Rythme</span>
-                  <select value={rythme} onChange={(e) => setRythme(e.target.value as CustodyPattern)}>
-                    {RYTHMES.map((r) => <option key={r.valeur} value={r.valeur}>{r.libelle}</option>)}
-                  </select>
-                </label>
+
+                <p className="text-[13px] leading-snug text-soft">
+                  Choisissez le rythme qui correspond à votre organisation.
+                  Le schéma montre deux semaines types.
+                </p>
+
+                {/* Chaque modèle s’explique et se montre : un parent ne devrait
+                    pas avoir à deviner ce que « 2-2-5-5 » signifie. */}
+                <ul className="space-y-2">
+                  {MODELES.map((m) => {
+                    const choisi = rythme === m.pattern;
+                    return (
+                      <li key={m.pattern}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRythme(m.pattern);
+                            if (m.personnalisable && cyclePerso.length === 0) {
+                              setCyclePerso(cycleParDefaut(2));
+                            }
+                          }}
+                          aria-pressed={choisi}
+                          className={`w-full rounded-2xl border-2 p-3 text-left transition-colors ${
+                            choisi ? 'border-navy bg-p1-bg/40' : 'border-line bg-card'}`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="min-w-0">
+                              <span className="block font-bold leading-snug">{m.nom}</span>
+                              <span className="mt-0.5 block text-[13px] leading-snug text-soft">
+                                {m.explication}
+                              </span>
+                            </span>
+                            {choisi && (
+                              <span aria-hidden className="shrink-0 text-[#1F7A45]">
+                                <Icone nom="check" taille={18} />
+                              </span>
+                            )}
+                          </div>
+
+                          {!m.personnalisable && (
+                            <div className="mt-2.5">
+                              <SchemaRythme
+                                schema={m.schema}
+                                parent1={{ nom: p1.nom, initiale: p1.initiale, couleur: p1.couleur }}
+                                parent2={{ nom: p2.nom, initiale: p2.initiale, couleur: p2.couleur }}
+                              />
+                            </div>
+                          )}
+
+                          {choisi && (
+                            <p className="mt-2 text-[12px] leading-snug text-soft/85">
+                              {m.convientA}
+                            </p>
+                          )}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+
+                {rythme === 'custom' && (
+                  <div className="space-y-3 rounded-2xl bg-muted p-3">
+                    <fieldset>
+                      <legend className="mb-1.5 text-sm font-bold">Longueur du cycle</legend>
+                      <div className="grid grid-cols-4 gap-2">
+                        {([1, 2, 3, 4] as const).map((n) => (
+                          <button key={n} type="button"
+                            aria-pressed={cyclePerso.length === n * 7}
+                            onClick={() => setCyclePerso(cycleParDefaut(n))}
+                            className={`btn px-0 text-sm ${
+                              cyclePerso.length === n * 7 ? 'btn-primary' : 'btn-ghost'}`}>
+                            {n} sem.
+                          </button>
+                        ))}
+                      </div>
+                    </fieldset>
+
+                    <div>
+                      <p className="mb-1.5 text-sm font-bold">Jours de garde</p>
+                      <GrilleCycle
+                        cycle={cyclePerso}
+                        onChange={setCyclePerso}
+                        parent1={{ nom: p1.nom, initiale: p1.initiale, couleur: p1.couleur }}
+                        parent2={{ nom: p2.nom, initiale: p2.initiale, couleur: p2.couleur }}
+                      />
+                      <p className="mt-1 text-[12px] text-soft">
+                        Touchez un jour pour changer de parent. Le cycle se répète indéfiniment.
+                      </p>
+                    </div>
+
+                    {cyclePerso.length > 0 && (() => {
+                      const r = repartition(cyclePerso);
+                      const probleme = validerCyclePersonnalise(cyclePerso);
+                      return (
+                        <div>
+                          <p className="text-[13px] font-semibold">
+                            {p1.nom} : {r.joursP1} jour{r.joursP1 > 1 ? 's' : ''} ·{' '}
+                            {p2.nom} : {r.joursP2} jour{r.joursP2 > 1 ? 's' : ''}
+                            {r.equilibre && ' — réparti à parts égales'}
+                          </p>
+                          {probleme && (
+                            <p role="alert" className="mt-1 text-[13px] font-bold text-err">
+                              {probleme}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
                 <label className="block">
                   <span className="mb-1 block text-sm font-bold">Date de début du cycle</span>
                   <input type="date" value={debut} onChange={(e) => setDebut(e.target.value)} />
@@ -304,48 +418,13 @@ export default function Foyer() {
                     Le cycle démarre chez {p1.nom} à cette date.
                   </span>
                 </label>
-                <button className="btn btn-primary w-full" disabled={busy}
+
+                <button className="btn btn-primary w-full"
+                  disabled={busy || (rythme === 'custom' && Boolean(validerCyclePersonnalise(cyclePerso)))}
                   onClick={() => enregistrerRythme(ctx.contexte.foyer.id, p1.profileId, p2.profileId)}>
                   {busy ? 'Enregistrement…' : 'Enregistrer le rythme'}
                 </button>
               </>
-            )}
-          </section>
-
-          <section className="card space-y-3 p-4">
-            <h2 className="font-bold">Inviter le second parent</h2>
-            <p className="text-sm text-soft">
-              L’invitation est valable 7 jours. Aucun e-mail automatique n’est envoyé pour le moment :
-              copiez le lien et transmettez-le vous-même.
-            </p>
-            <label className="block">
-              <span className="mb-1 block text-sm font-bold">Son adresse e-mail</span>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="parent@exemple.fr" />
-            </label>
-            <button className="btn btn-ghost w-full" onClick={() => inviter(ctx.contexte.foyer.id)} disabled={busy}>
-              {busy ? 'Création…' : 'Créer l’invitation'}
-            </button>
-            {lien && (
-              <div className="space-y-2">
-                <label className="block">
-                  <span className="mb-1 block text-sm font-bold">Lien d’invitation</span>
-                  <input id="lien-invitation" readOnly value={lien}
-                    onFocus={(e) => e.currentTarget.select()} className="font-mono text-xs" />
-                </label>
-                <button type="button" className="btn btn-primary w-full"
-                  onClick={async () => {
-                    const champ = document.getElementById('lien-invitation') as HTMLInputElement | null;
-                    champ?.select(); champ?.setSelectionRange(0, lien.length);
-                    try {
-                      await navigator.clipboard.writeText(lien);
-                      setMsg({ kind: 'ok', text: 'Lien copié. Le second parent doit se connecter à son compte avant de l’ouvrir.' });
-                    } catch {
-                      setMsg({ kind: 'err', text: 'Copie automatique refusée : le lien est sélectionné ci-dessus, touchez « Copier ».' });
-                    }
-                  }}>
-                  Copier le lien d’invitation
-                </button>
-              </div>
             )}
           </section>
         </>
