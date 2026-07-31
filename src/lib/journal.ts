@@ -83,10 +83,8 @@ export function detailAction(e: EntreeJournal): string | null {
   }
 
   if (e.entite === 'reimbursement') {
-    const m = e.before_amount ?? null;
     const montant = e.avant ? CENTS(e.avant['amount_cents']) : null;
     if (montant) bits.push(montant);
-    void m;
   }
 
   if (e.entite === 'child') {
