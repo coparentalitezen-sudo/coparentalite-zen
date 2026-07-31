@@ -254,3 +254,84 @@ describe('exceptions de garde — priorité et retour au rythme', () => {
     expect(v.ok).toBe(true);
   });
 });
+
+describe('moteur générique d’exceptions — priorité pilotée par la base', () => {
+  const P1 = 'p1', P2 = 'p2';
+  const rythme = {
+    pattern: 'alternating_weeks' as const,
+    startDate: '2026-07-06',
+    parent1: P1,
+    parent2: P2,
+  };
+
+  it('une exception prioritaire l’emporte, quel que soit son type', () => {
+    const m = buildDayMap(rythme, '2026-07-06', '2026-07-26', [], [
+      { startsOn: '2026-07-08', endsOn: '2026-07-10', parentId: P2, source: 'holiday', priorite: 30 },
+      { startsOn: '2026-07-08', endsOn: '2026-07-10', parentId: P1, source: 'absence', priorite: 50 },
+    ]);
+    // l'absence exceptionnelle (50) prime sur les vacances (30)
+    expect(m.get('2026-07-09')!.parentId).toBe(P1);
+    expect(m.get('2026-07-09')!.source).toBe('absence');
+  });
+
+  it('l’ordre de transmission n’a aucune influence : seule la priorité compte', () => {
+    const a = buildDayMap(rythme, '2026-07-06', '2026-07-26', [], [
+      { startsOn: '2026-07-08', endsOn: '2026-07-10', parentId: P1, source: 'absence', priorite: 50 },
+      { startsOn: '2026-07-08', endsOn: '2026-07-10', parentId: P2, source: 'holiday', priorite: 30 },
+    ]);
+    const b = buildDayMap(rythme, '2026-07-06', '2026-07-26', [], [
+      { startsOn: '2026-07-08', endsOn: '2026-07-10', parentId: P2, source: 'holiday', priorite: 30 },
+      { startsOn: '2026-07-08', endsOn: '2026-07-10', parentId: P1, source: 'absence', priorite: 50 },
+    ]);
+    expect(a.get('2026-07-09')).toEqual(b.get('2026-07-09'));
+  });
+
+  it('accueille un type inédit sans que le moteur le connaisse', () => {
+    // C'est l'intérêt du modèle : « stage sportif » n'existe nulle part dans
+    // le code, et fonctionne pourtant.
+    const m = buildDayMap(rythme, '2026-07-06', '2026-07-26', [], [
+      { startsOn: '2026-07-08', endsOn: '2026-07-09', parentId: P2, source: 'stage_sportif', priorite: 25 },
+    ]);
+    expect(m.get('2026-07-08')!.source).toBe('stage_sportif');
+    expect(m.get('2026-07-08')!.parentId).toBe(P2);
+  });
+
+  it('sans priorité déclarée, l’exception reste au rang le plus bas', () => {
+    const m = buildDayMap(rythme, '2026-07-06', '2026-07-26', [], [
+      { startsOn: '2026-07-08', endsOn: '2026-07-09', parentId: P1, source: 'swap' },
+      { startsOn: '2026-07-08', endsOn: '2026-07-09', parentId: P2, source: 'travel', priorite: 40 },
+    ]);
+    expect(m.get('2026-07-08')!.source).toBe('travel');
+  });
+
+  it('toute exception prime sur le rythme, même la moins prioritaire', () => {
+    const sans = buildDayMap(rythme, '2026-07-06', '2026-07-26');
+    const avec = buildDayMap(rythme, '2026-07-06', '2026-07-26', [], [
+      { startsOn: '2026-07-08', endsOn: '2026-07-08', parentId: 'p2', source: 'swap', priorite: 1 },
+    ]);
+    expect(sans.get('2026-07-08')!.parentId).toBe(P1);
+    expect(avec.get('2026-07-08')!.parentId).toBe(P2);
+  });
+
+  it('le rythme reprend intact après toute exception, quel que soit son type', () => {
+    const sans = buildDayMap(rythme, '2026-07-06', '2026-08-02');
+    const avec = buildDayMap(rythme, '2026-07-06', '2026-08-02', [], [
+      { startsOn: '2026-07-08', endsOn: '2026-07-12', parentId: P2, source: 'travel', priorite: 40 },
+      { startsOn: '2026-07-14', endsOn: '2026-07-16', parentId: P1, source: 'absence', priorite: 50 },
+    ]);
+    for (const date of ['2026-07-20', '2026-07-27', '2026-08-01']) {
+      expect(avec.get(date)!.parentId).toBe(sans.get(date)!.parentId);
+      expect(avec.get(date)!.source).toBe('rule');
+    }
+  });
+
+  it('deux exceptions de même priorité : la dernière transmise tranche', () => {
+    // Cas de bord : la base interdit ce recouvrement pour un même type et un
+    // même enfant, mais le moteur doit rester déterministe.
+    const m = buildDayMap(rythme, '2026-07-06', '2026-07-26', [], [
+      { startsOn: '2026-07-08', endsOn: '2026-07-08', parentId: P1, source: 'swap', priorite: 10 },
+      { startsOn: '2026-07-08', endsOn: '2026-07-08', parentId: P2, source: 'swap', priorite: 10 },
+    ]);
+    expect(m.get('2026-07-08')!.parentId).toBe(P2);
+  });
+});

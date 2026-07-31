@@ -3,7 +3,8 @@
 /** Planning : rythme de garde récurrent et exceptions (vacances, ponctuels). */
 import { supabaseBrowser, ok, err, lisible, detail, type ActionResult } from './core';
 import type { CustodyPattern } from '../custody';
-import type { RegleGarde, ExceptionGarde, TypeException } from './types';
+import type { RegleGarde, ExceptionGarde, TypeException, TypeExceptionInfo,
+  PropositionVacances } from './types';
 
 // ---------------- Rythme de garde ----------------
 export async function getRegleGarde(householdId: string): Promise<ActionResult<RegleGarde | null>> {
@@ -50,6 +51,11 @@ export async function listerExceptions(
   return ok(((data ?? []) as Record<string, unknown>[]).map((e) => ({
     id: e.id as string,
     type: e.kind as TypeException,
+    typeLibelle: (e.kind_label as string) ?? 'Période',
+    priorite: Number(e.priorite ?? 10),
+    icone: (e.icone as string) ?? 'calendrier',
+    couleur: (e.couleur as string) ?? '#4E6381',
+    anneeScolaire: (e.school_year as string) ?? null,
     enfantId: e.child_id as string,
     enfantPrenom: e.child_name as string,
     parentId: e.parent_id as string,
@@ -66,6 +72,9 @@ export async function listerExceptions(
 export async function creerException(input: {
   householdId: string; type: TypeException; enfantIds: string[]; parentId: string;
   debut: string; fin: string; titre?: string; note?: string;
+  /** Rattachement facultatif à une période officielle du calendrier. */
+  anneeScolaire?: string | null;
+  periodeOfficielleId?: string | null;
 }): Promise<ActionResult<string[]>> {
   const supabase = supabaseBrowser();
   if (!supabase) return { status: 'demo' };
@@ -77,6 +86,8 @@ export async function creerException(input: {
     p_household: input.householdId, p_kind: input.type, p_child_ids: input.enfantIds,
     p_parent_id: input.parentId, p_starts_at: input.debut, p_ends_at: input.fin,
     p_title: input.titre ?? null, p_note: input.note ?? null,
+    p_school_year: input.anneeScolaire ?? null,
+    p_source_holiday: input.periodeOfficielleId ?? null,
   });
   if (error) return err(lisible('L’enregistrement n’a pas abouti.', error), detail(error));
   return ok((data ?? []) as string[]);
@@ -105,4 +116,52 @@ export async function supprimerException(id: string): Promise<ActionResult> {
   const { error } = await supabase.rpc('delete_custody_exception', { p_id: id });
   if (error) return err(lisible('La suppression n’a pas abouti.', error), detail(error));
   return ok(undefined);
+}
+
+
+/** Catalogue des types de période, défini en base et extensible sans code. */
+export async function listerTypesException(): Promise<ActionResult<TypeExceptionInfo[]>> {
+  const supabase = supabaseBrowser();
+  if (!supabase) return { status: 'demo' };
+  const { data, error } = await supabase.rpc('types_exception');
+  if (error) return err(lisible('Impossible de charger les types de période.', error), detail(error));
+  return ok(((data ?? []) as Record<string, unknown>[]).map((t) => ({
+    code: t.code as string,
+    libelle: t.libelle as string,
+    librellePluriel: (t.libelle_pluriel as string) ?? (t.libelle as string),
+    priorite: Number(t.priorite ?? 10),
+    icone: (t.icone as string) ?? 'calendrier',
+    couleur: (t.couleur as string) ?? '#4E6381',
+    description: (t.description as string) ?? null,
+    depuisCalendrier: Boolean(t.depuis_calendrier),
+  })));
+}
+
+/**
+ * Périodes de vacances de l'année scolaire, avec ce que les parents en ont
+ * déjà décidé. Les dates officielles ne sont qu'une proposition : elles
+ * restent librement modifiables, comme le parent gardien.
+ */
+export async function listerPropositionsVacances(
+  householdId: string, anneeScolaire?: string,
+): Promise<ActionResult<PropositionVacances[]>> {
+  const supabase = supabaseBrowser();
+  if (!supabase) return { status: 'demo' };
+  const { data, error } = await supabase.rpc('propositions_vacances', {
+    p_household: householdId, p_annee: anneeScolaire ?? null,
+  });
+  if (error) return err(lisible('Impossible de charger les vacances.', error), detail(error));
+  return ok(((data ?? []) as Record<string, unknown>[]).map((v) => ({
+    holidayId: v.holiday_id as string,
+    libelle: v.libelle as string,
+    anneeScolaire: (v.annee_scolaire as string) ?? null,
+    debutOfficiel: v.debut_officiel as string,
+    finOfficielle: v.fin_officielle as string,
+    exceptionId: (v.exception_id as string) ?? null,
+    parentId: (v.parent_id as string) ?? null,
+    debutRetenu: (v.debut_retenu as string) ?? null,
+    finRetenue: (v.fin_retenue as string) ?? null,
+    enfantsCouverts: Number(v.enfants_couverts ?? 0),
+    enfantsTotal: Number(v.enfants_total ?? 0),
+  })));
 }

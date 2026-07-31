@@ -29,7 +29,12 @@ export interface CustodyRule {
 }
 
 export interface DayAssignment { date: string; parentId: ParentId; source: Source; }
-export type Source = 'rule' | 'holiday' | 'exception' | 'exchange';
+/**
+ * Origine d'une journée : le rythme récurrent, ou le code d'un type
+ * d'exception défini en base. On ne fige aucun type ici — « voyage » ou
+ * « hospitalisation » s'ajouteront sans toucher au moteur.
+ */
+export type Source = 'rule' | (string & {});
 
 export interface Period { start: string; end: string; parentId: ParentId; source: Source; }
 
@@ -43,11 +48,22 @@ export interface HolidayOverride {
   alternateByYear?: boolean;
 }
 
+/**
+ * Une exception de planning : une période pendant laquelle un parent
+ * déterminé a les enfants, en dérogation au rythme.
+ *
+ * La PRIORITÉ vient de la base (table exception_types) : le moteur n'a pas à
+ * connaître les types. Ajouter « voyage » ou « hospitalisation » ne demande
+ * donc aucune modification ici.
+ */
 export interface ExceptionOverride {
+  /** Rang de priorité ; le plus élevé l'emporte. Défaut : 10. */
+  priorite?: number;
   startsOn: string;
   endsOn: string;
   parentId: ParentId;
-  source?: Extract<Source, 'exception' | 'exchange'>;
+  /** Code du type, tel que défini en base. Défaut : 'exception'. */
+  source?: string;
 }
 
 // ---------- utilitaires de dates (UTC pour éviter les pièges DST) ----------
@@ -170,14 +186,18 @@ export function buildSchedule(
 ): Period[] {
   const byDate = new Map<string, DayAssignment>();
 
-  // ORDRE DE PRIORITÉ (du plus faible au plus fort) :
-  //   1. rythme récurrent  2. changement ponctuel  3. vacances
-  // Chaque couche écrase la précédente sur les jours qu'elle couvre. Le rythme
-  // récurrent reste calculé sur son calendrier d'origine : une exception ne le
-  // décale pas, elle le masque le temps de sa durée.
+  // 1. Le rythme récurrent pose le socle. Il est calculé sur son calendrier
+  //    d'origine et ne sera jamais décalé : une exception le masque, un point.
   for (const a of assignDays(rule, from, to)) byDate.set(a.date, a);
 
-  for (const e of exceptions) {
+  // 2. Les exceptions s'appliquent ensuite, de la moins prioritaire à la plus
+  //    prioritaire. La dernière écrite l'emporte, ce qui donne exactement
+  //    l'ordre voulu sans qu'aucun type ne soit connu du moteur.
+  const parPriorite = [...exceptions].sort(
+    (a, b) => (a.priorite ?? 10) - (b.priorite ?? 10),
+  );
+
+  for (const e of parPriorite) {
     for (let t = toUTC(e.startsOn); t <= toUTC(e.endsOn); t += DAY) {
       const date = fromUTC(t);
       if (byDate.has(date)) {
@@ -186,9 +206,12 @@ export function buildSchedule(
     }
   }
 
+  // 3. Les périodes de vacances transmises séparément restent prises en
+  //    charge, pour ne pas rompre les appels existants. Elles se comportent
+  //    comme une exception de priorité élevée.
   for (const h of holidays) {
     for (const a of holidayAssignments(h)) {
-      if (byDate.has(a.date)) byDate.set(a.date, a); // les vacances priment sur tout
+      if (byDate.has(a.date)) byDate.set(a.date, a);
     }
   }
 

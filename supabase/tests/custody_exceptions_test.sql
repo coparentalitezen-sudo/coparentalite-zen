@@ -260,3 +260,138 @@ begin
 end $$;
 
 select 'TESTS DES EXCEPTIONS DE GARDE PASSÉS' as resultat;
+
+-- ============================================================
+-- M1 à M7 — MOTEUR GÉNÉRIQUE D'EXCEPTIONS
+-- ============================================================
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
+
+-- ============ M1 : le catalogue est lisible et ordonné ============
+do $$
+declare n int; p_min smallint; p_max smallint;
+begin
+  select count(*) into n from public.types_exception();
+  if n < 5 then raise exception 'ÉCHEC M1 : % types au lieu de 5 attendus', n; end if;
+  select min(priorite), max(priorite) into p_min, p_max from public.types_exception();
+  if p_min >= p_max then raise exception 'ÉCHEC M1b : les priorités ne départagent rien'; end if;
+  raise notice 'M1 OK — % types, priorités de % à %', n, p_min, p_max;
+end $$;
+
+-- ============ M2 : ajouter un type ne demande aucune migration ============
+do $$
+declare avant int; apres int; eid uuid;
+begin
+  select count(*) into avant from public.types_exception();
+  perform public.test_ajouter_type_exception('stage', 'Stage sportif', 25::smallint);
+  select count(*) into apres from public.types_exception();
+  if apres <> avant + 1 then
+    raise exception 'ÉCHEC M2 : le type n''a pas été pris en compte (% -> %)', avant, apres;
+  end if;
+
+  -- et il est immédiatement utilisable
+  select x into eid from public.create_custody_exception(
+    'aaaaaaaa-0000-0000-0000-000000000001', 'stage',
+    array['cccccccc-0000-0000-0000-000000000001']::uuid[],
+    '00000000-0000-0000-0000-00000000000b',
+    (current_date + 40)::timestamptz, (current_date + 45)::timestamptz,
+    'Stage de judo', null, null, null) x;
+  if eid is null then raise exception 'ÉCHEC M2b : type inutilisable après création'; end if;
+  raise notice 'M2 OK — un type inédit s''ajoute et s''utilise sans migration';
+end $$;
+
+-- ============ M3 : un type inconnu est refusé ============
+do $$
+begin
+  begin
+    perform public.create_custody_exception(
+      'aaaaaaaa-0000-0000-0000-000000000001', 'inexistant',
+      array['cccccccc-0000-0000-0000-000000000001']::uuid[],
+      '00000000-0000-0000-0000-00000000000b',
+      (current_date + 60)::timestamptz, (current_date + 61)::timestamptz, null, null, null, null);
+    raise exception 'ÉCHEC M3 : type inconnu accepté';
+  exception when others then
+    if sqlerrm like 'ÉCHEC%' then raise; end if;
+    if sqlerrm not like '%inconnu%' then raise exception 'ÉCHEC M3b : motif (%)', sqlerrm; end if;
+  end;
+  raise notice 'M3 OK — seul un type du catalogue est accepté';
+end $$;
+
+-- ============ M4 : deux types différents peuvent se recouvrir ============
+do $$
+declare a uuid; b uuid;
+begin
+  select x into a from public.create_custody_exception(
+    'aaaaaaaa-0000-0000-0000-000000000001', 'travel',
+    array['cccccccc-0000-0000-0000-000000000001']::uuid[],
+    '00000000-0000-0000-0000-00000000000a',
+    (current_date + 70)::timestamptz, (current_date + 75)::timestamptz, 'Voyage', null, null, null) x;
+  select x into b from public.create_custody_exception(
+    'aaaaaaaa-0000-0000-0000-000000000001', 'absence',
+    array['cccccccc-0000-0000-0000-000000000001']::uuid[],
+    '00000000-0000-0000-0000-00000000000b',
+    (current_date + 72)::timestamptz, (current_date + 74)::timestamptz, 'Imprévu', null, null, null) x;
+  if a is null or b is null then
+    raise exception 'ÉCHEC M4 : deux types différents devraient pouvoir coexister';
+  end if;
+  raise notice 'M4 OK — types différents superposables, la priorité tranchera';
+end $$;
+
+-- ============ M5 : le même type ne peut pas se recouvrir ============
+do $$
+begin
+  begin
+    perform public.create_custody_exception(
+      'aaaaaaaa-0000-0000-0000-000000000001', 'travel',
+      array['cccccccc-0000-0000-0000-000000000001']::uuid[],
+      '00000000-0000-0000-0000-00000000000b',
+      (current_date + 71)::timestamptz, (current_date + 73)::timestamptz, 'Second voyage', null, null, null);
+    raise exception 'ÉCHEC M5 : deux voyages simultanés acceptés';
+  exception when others then
+    if sqlerrm like 'ÉCHEC%' then raise; end if;
+    if sqlerrm not like '%existe déjà%' then raise exception 'ÉCHEC M5b : motif (%)', sqlerrm; end if;
+  end;
+  raise notice 'M5 OK — recouvrement du même type refusé, avec un message clair';
+end $$;
+
+-- ============ M6 : la lecture rapporte priorité et habillage ============
+do $$
+declare e record; sans_priorite int;
+begin
+  select count(*) into sans_priorite from public.list_custody_exceptions(
+    'aaaaaaaa-0000-0000-0000-000000000001', current_date - 30, current_date + 200)
+   where priorite is null or kind_label is null;
+  if sans_priorite > 0 then
+    raise exception 'ÉCHEC M6 : % exception(s) sans priorité ni libellé', sans_priorite;
+  end if;
+  -- les exceptions arrivent triées par priorité croissante : le client peut
+  -- les appliquer dans l'ordre reçu
+  select * into e from public.list_custody_exceptions(
+    'aaaaaaaa-0000-0000-0000-000000000001', current_date - 30, current_date + 200) limit 1;
+  raise notice 'M6 OK — priorité et libellé fournis (première : % priorité %)', e.kind_label, e.priorite;
+end $$;
+
+-- ============ M7 : les vacances se rattachent à leur période officielle ============
+do $$
+declare hid uuid; eid uuid; n int;
+begin
+  perform public.test_importer_vacances(format('[
+    {"country_code":"FR","label":"Vacances de test M7","zone":"B","school_year":"2026-2027",
+     "starts_on":"%s","ends_on":"%s"}]',
+     (current_date + 55)::text, (current_date + 65)::text)::jsonb);
+  select id into hid from school_holidays
+   where label = 'Vacances de test M7' and source = 'officiel' limit 1;
+
+  select x into eid from public.create_custody_exception(
+    'aaaaaaaa-0000-0000-0000-000000000001', 'holiday',
+    array['cccccccc-0000-0000-0000-000000000001']::uuid[],
+    '00000000-0000-0000-0000-00000000000a',
+    (current_date + 56)::timestamptz, (current_date + 63)::timestamptz,
+    'Vacances de test M7', null, '2026-2027', hid) x;
+
+  select count(*) into n from custody_exceptions
+   where id = eid and source_holiday_id = hid and school_year = '2026-2027';
+  if n <> 1 then raise exception 'ÉCHEC M7 : rattachement à la période officielle perdu'; end if;
+  raise notice 'M7 OK — décision rattachée à sa période officielle, dates librement ajustées';
+end $$;
+
+select 'TESTS DU MOTEUR D''EXCEPTIONS PASSÉS' as resultat;

@@ -11,7 +11,7 @@ import {
   getRegleGarde, listerExceptions, getOffre, listerVacances,
   type RegleGarde, type ExceptionGarde, type Offre, type VacancesScolaires,
 } from '@/lib/actions';
-import { buildDayMap, addDays, type Source, type HolidayOverride, type ExceptionOverride } from '@/lib/custody';
+import { buildDayMap, addDays, type Source, type ExceptionOverride } from '@/lib/custody';
 
 const MOIS = ['janvier','février','mars','avril','mai','juin',
               'juillet','août','septembre','octobre','novembre','décembre'];
@@ -74,21 +74,21 @@ export default function Planning() {
     if (!regle || regle === 'inconnu' || !regle.parent2) {
       return new Map<string, { parentId: string; source: Source }>();
     }
-    const vacances: HolidayOverride[] = [];
-    const ponctuels: ExceptionOverride[] = [];
-    for (const e of exceptions) {
-      const cible = { startsOn: jourDe(e.debut), endsOn: jourDe(e.fin), parentId: e.parentId };
-      if (e.type === 'holiday') {
-        vacances.push({ ...cible, firstHalf: e.parentId, secondHalf: e.parentId });
-      } else {
-        ponctuels.push({ ...cible, source: 'exception' });
-      }
-    }
+    // Toutes les exceptions empruntent le même canal : leur priorité, définie
+    // en base, décide seule de l'ordre d'application. Le planning n'a plus à
+    // distinguer les vacances des autres types.
+    const ponctuels: ExceptionOverride[] = exceptions.map((e) => ({
+      startsOn: jourDe(e.debut),
+      endsOn: jourDe(e.fin),
+      parentId: e.parentId,
+      source: e.type,
+      priorite: e.priorite,
+    }));
     try {
       const m = buildDayMap(
         { pattern: regle.pattern, startDate: regle.startDate, parent1: regle.parent1, parent2: regle.parent2 },
         regle.startDate < premierJour ? regle.startDate : premierJour,
-        dernierJour, vacances, ponctuels,
+        dernierJour, [], ponctuels,
       );
       const out = new Map<string, { parentId: string; source: Source }>();
       for (const [d, a] of m) out.set(d, { parentId: a.parentId, source: a.source });
@@ -181,7 +181,9 @@ export default function Planning() {
                     const fond = m ? (coral ? 'bg-p2-bg' : 'bg-p1-bg') : '';
                     const texte = m ? (coral ? 'text-coral-text' : 'text-navy-text') : '';
                     const vacancesExc = a?.source === 'holiday';
-                    const ponctuel = a?.source === 'exception' || a?.source === 'exchange';
+                    // Toute source différente de 'rule' est une exception :
+                    // le calendrier ne connaît aucun type en particulier.
+                    const ponctuel = Boolean(a && a.source !== 'rule' && a.source !== 'holiday');
                     return (
                       <button
                         key={d}
@@ -282,9 +284,13 @@ export default function Planning() {
                     const a = parJour.get(jourOuvert);
                     if (!a) return <p className="text-sm text-soft">Aucune information pour ce jour.</p>;
                     const m = membre(a.parentId);
-                    const libelle = a.source === 'holiday' ? 'Vacances'
-                      : a.source === 'exception' || a.source === 'exchange' ? 'Changement ponctuel'
-                      : 'Garde habituelle';
+                    // Le libellé vient de l'exception elle-même : aucun type
+                    // n'est écrit en dur.
+                    const exc = exceptionsDuJour(jourOuvert)
+                      .sort((x, y) => y.priorite - x.priorite)[0];
+                    const libelle = a.source === 'rule'
+                      ? 'Garde habituelle'
+                      : exc?.typeLibelle ?? 'Période particulière';
                     return (
                       <>
                         <p className="flex flex-wrap items-center gap-2">
@@ -294,7 +300,8 @@ export default function Planning() {
                         </p>
                         <p className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[12px] font-bold text-soft">
                           {a.source === 'holiday' && <span aria-hidden>🌴</span>}
-                          {(a.source === 'exception' || a.source === 'exchange') && <Icone nom="echange" taille={12} />}
+                          {a.source !== 'rule' && a.source !== 'holiday'
+                            && <Icone nom="echange" taille={12} />}
                           {libelle}
                         </p>
                       </>
@@ -320,7 +327,7 @@ export default function Planning() {
                       {exceptionsDuJour(jourOuvert).map((e) => (
                         <li key={e.id} className="py-2.5">
                           <p className="text-sm font-bold">
-                            {e.type === 'holiday' ? '🌴 Vacances' : '↔ Changement ponctuel'} — {e.enfantPrenom}
+                            {e.type === 'holiday' ? '🌴 ' : '↔ '}{e.typeLibelle} — {e.enfantPrenom}
                           </p>
                           {e.titre && <p className="text-[13px]">{e.titre}</p>}
                           <p className="text-[13px] text-soft/85">

@@ -195,3 +195,14 @@ language sql security definer set search_path = public as $$
   select c.code, c.zone_mode, c.active from calendar_countries c order by c.sort_order
 $$;
 grant execute on function public.test_pays_declares() to authenticated;
+
+/** Ajout d'un type de période : opération d'administration. */
+create or replace function public.test_ajouter_type_exception(
+  p_code text, p_label text, p_priorite smallint)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  insert into exception_types (code, label, priority, sort_order)
+  values (p_code, p_label, p_priorite, 90)
+  on conflict (code) do update set label = excluded.label, priority = excluded.priority;
+end $$;
+grant execute on function public.test_ajouter_type_exception(text, text, smallint) to authenticated;

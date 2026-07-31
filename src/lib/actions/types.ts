@@ -30,11 +30,49 @@ export interface RegleGarde {
   pattern: CustodyPattern; startDate: string; parent1: string; parent2: string;
 }
 
-export type TypeException = 'holiday' | 'swap';
+/**
+ * Code d'un type de période. Les cinq valeurs livrées sont indicatives : le
+ * catalogue vit en base et peut en accueillir d'autres sans modification du
+ * code.
+ */
+export type TypeException = 'holiday' | 'swap' | 'weekend' | 'travel' | 'absence' | (string & {});
+
+export interface TypeExceptionInfo {
+  code: string;
+  libelle: string;
+  librellePluriel: string;
+  /** Rang de priorité ; le plus élevé l'emporte en cas de recouvrement. */
+  priorite: number;
+  icone: string;
+  couleur: string;
+  description: string | null;
+  /** true si les dates se pré-remplissent depuis le calendrier officiel. */
+  depuisCalendrier: boolean;
+}
+
+/** Une période de vacances officielle, et la décision des parents si elle existe. */
+export interface PropositionVacances {
+  holidayId: string;
+  libelle: string;
+  anneeScolaire: string | null;
+  debutOfficiel: string;
+  finOfficielle: string;
+  exceptionId: string | null;
+  parentId: string | null;
+  debutRetenu: string | null;
+  finRetenue: string | null;
+  enfantsCouverts: number;
+  enfantsTotal: number;
+}
 
 export interface ExceptionGarde {
   id: string;
   type: TypeException;
+  typeLibelle: string;
+  priorite: number;
+  icone: string;
+  couleur: string;
+  anneeScolaire: string | null;
   enfantId: string;
   enfantPrenom: string;
   parentId: string;

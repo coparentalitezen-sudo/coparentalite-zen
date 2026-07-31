@@ -45,7 +45,8 @@ Aucune dépendance d'interface ajoutée : les icônes sont des tracés SVG maiso
 | `/invitation/[token]` | dossier homonyme | acceptation nominative |
 | `/app/accueil` | `app/accueil/page.tsx` | tableau de bord : solde, actions, dernières dépenses |
 | `/app/planning` | `app/planning/page.tsx` | calendrier mensuel, légende, détail du jour |
-| `/app/exceptions` | `app/exceptions/page.tsx` | vacances et changements ponctuels |
+| `/app/vacances` | `app/vacances/page.tsx` | répartition des cinq périodes de l'année |
+| `/app/exceptions` | `app/exceptions/page.tsx` | échanges, voyages, absences |
 | `/app/depenses` | `app/depenses/page.tsx` | dépenses et remboursements, solde, validation |
 | `/app/ajouter` | `app/ajouter/page.tsx` | saisie d'une dépense |
 | `/app/enfants` | `app/enfants/page.tsx` | ajout, archivage |
@@ -115,6 +116,7 @@ SQL et leurs jeux d'essai.
 | `00018` | **localisation multi-pays** : pays, subdivisions, déduction de zone |
 | `00019` | retrait des vacances non vérifiées du jeu de départ |
 | `00020` | **droits du rôle de service** : import et facturation |
+| `00021` | **moteur générique d'exceptions** : types, priorités, propositions |
 
 ---
 
@@ -151,9 +153,24 @@ modifiée ni supprimée. Il faut annuler le remboursement d'abord. Le critère e
 chronologique : seul un remboursement postérieur à l'entrée de la dépense dans
 le solde la verrouille.
 
-**Planning.** Priorité stricte : vacances > changement ponctuel > rythme
-récurrent. Une exception **masque** le rythme sans jamais le décaler ; à son
-terme, le rythme reprend sur son calendrier d'origine.
+**Planning.** Une exception est une période pendant laquelle un parent
+déterminé a les enfants, en dérogation au rythme. Ce qui distingue une vacance
+d'un voyage n'est pas sa nature technique mais son **rang de priorité**, défini
+dans la table `exception_types` — extensible par une simple ligne, sans
+migration ni code. Le moteur ne connaît aucun type : il applique les exceptions
+de la moins prioritaire à la plus prioritaire.
+
+Rangs livrés : absence exceptionnelle (50) > voyage (40) > vacances scolaires
+(30) > échange de week-end (20) > changement ponctuel (10). Une hospitalisation
+prime sur des vacances planifiées ; des billets pris priment sur un échange
+convenu de longue date.
+
+Toute exception **masque** le rythme sans jamais le décaler ; à son terme, le
+rythme reprend sur son calendrier d'origine.
+
+Les dates officielles de vacances sont des **propositions** : l'écran
+`/app/vacances` les pré-remplit période par période, les parents choisissent le
+parent gardien et ajustent librement les dates.
 
 **Traçabilité.** Suppressions logiques (`deleted_at`) sur toute donnée à valeur
 probatoire. `audit_logs` et `expense_comments` sont immuables : aucune policy

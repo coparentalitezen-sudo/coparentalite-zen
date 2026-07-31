@@ -8,7 +8,8 @@ import { seDeconnecter } from '@/lib/actions';
 const rubriques: [string, string, string | null][] = [
   ['Enfants', 'Ajouter, modifier, archiver', '/app/enfants'],
   ['Paramètres du foyer', 'Membres, rythme de garde, invitation', '/app/foyer'],
-  ['Vacances et changements', 'Périodes qui remplacent le rythme habituel', '/app/exceptions'],
+  ['Vacances scolaires', 'Répartir les cinq périodes de l’année', '/app/vacances'],
+  ['Changements et exceptions', 'Échanges, voyages, absences ponctuelles', '/app/exceptions'],
   ['Votre offre', 'Durée du planning, Zen Plus, factures', '/app/offre'],
   ['Confidentialité', 'Export de vos données, droits RGPD', '/app/foyer'],
   ['Documents', 'Justificatifs et attestations', null],
