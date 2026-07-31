@@ -488,3 +488,124 @@ begin
 end $$;
 
 select 'TESTS DES RYTHMES PASSÉS' as resultat;
+
+-- ============================================================
+-- V1 à V6 — PROPOSITIONS DE VACANCES
+--
+-- Ces tests existent parce que la fonction a été livrée sans jamais avoir été
+-- exécutée : elle employait min() sur un uuid, ce que PostgreSQL ne définit
+-- pas, et l'écran Vacances échouait entièrement.
+-- ============================================================
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
+
+-- ============ V1 : la fonction s'exécute et renvoie les périodes ============
+do $$
+declare n int;
+begin
+  perform public.set_household_location('aaaaaaaa-0000-0000-0000-000000000001', 'FR', 'B');
+  perform public.test_importer_vacances(format('[
+    {"country_code":"FR","label":"Toussaint","zone":"B","school_year":"%s",
+     "starts_on":"%s","ends_on":"%s"},
+    {"country_code":"FR","label":"Noël","zone":"B","school_year":"%s",
+     "starts_on":"%s","ends_on":"%s"}]',
+     public.test_annee_scolaire(), (current_date + 20)::text, (current_date + 30)::text,
+     public.test_annee_scolaire(), (current_date + 50)::text, (current_date + 60)::text)::jsonb);
+
+  select count(*) into n from public.propositions_vacances('aaaaaaaa-0000-0000-0000-000000000001');
+  if n < 2 then raise exception 'ÉCHEC V1 : % proposition(s) au lieu de 2 au moins', n; end if;
+  raise notice 'V1 OK — % propositions renvoyées', n;
+end $$;
+
+-- ============ V2 : sans décision, les champs de décision sont vides ============
+do $$
+declare p record;
+begin
+  select * into p from public.propositions_vacances('aaaaaaaa-0000-0000-0000-000000000001')
+   where libelle = 'Toussaint';
+  if p.exception_id is not null then
+    raise exception 'ÉCHEC V2 : une décision est signalée alors qu''aucune n''existe';
+  end if;
+  if p.debut_officiel is null or p.fin_officielle is null then
+    raise exception 'ÉCHEC V2b : dates officielles absentes';
+  end if;
+  if p.enfants_couverts <> 0 then
+    raise exception 'ÉCHEC V2c : % enfant(s) couvert(s) sans décision', p.enfants_couverts;
+  end if;
+  raise notice 'V2 OK — période non décidée : dates officielles seules';
+end $$;
+
+-- ============ V3 : une décision est rapportée avec ses dates ajustées ============
+do $$
+declare hid uuid; p record; eid uuid;
+begin
+  select holiday_id into hid from public.propositions_vacances('aaaaaaaa-0000-0000-0000-000000000001')
+   where libelle = 'Toussaint';
+
+  -- Les parents retiennent des dates différentes des officielles
+  select x into eid from public.create_custody_exception(
+    'aaaaaaaa-0000-0000-0000-000000000001', 'holiday',
+    array['cccccccc-0000-0000-0000-000000000001']::uuid[],
+    '00000000-0000-0000-0000-00000000000b',
+    (current_date + 22)::timestamptz, (current_date + 28)::timestamptz,
+    'Toussaint', null, public.test_annee_scolaire(), hid) x;
+
+  select * into p from public.propositions_vacances('aaaaaaaa-0000-0000-0000-000000000001')
+   where libelle = 'Toussaint';
+  if p.exception_id <> eid then
+    raise exception 'ÉCHEC V3 : décision non rattachée à sa période';
+  end if;
+  if p.parent_id <> '00000000-0000-0000-0000-00000000000b' then
+    raise exception 'ÉCHEC V3b : parent gardien incorrect';
+  end if;
+  if p.debut_retenu::date <> (current_date + 22) then
+    raise exception 'ÉCHEC V3c : date retenue % au lieu de %', p.debut_retenu::date, current_date + 22;
+  end if;
+  if p.enfants_couverts <> 1 then
+    raise exception 'ÉCHEC V3d : % enfant(s) couvert(s) au lieu de 1', p.enfants_couverts;
+  end if;
+  raise notice 'V3 OK — décision rapportée, dates ajustées conservées';
+end $$;
+
+-- ============ V4 : le total d'enfants du foyer est exact ============
+do $$
+declare p record; n int;
+begin
+  select count(*) into n from children
+   where household_id = 'aaaaaaaa-0000-0000-0000-000000000001' and deleted_at is null;
+  select * into p from public.propositions_vacances('aaaaaaaa-0000-0000-0000-000000000001') limit 1;
+  if p.enfants_total <> n then
+    raise exception 'ÉCHEC V4 : % enfants annoncés au lieu de %', p.enfants_total, n;
+  end if;
+  raise notice 'V4 OK — % enfants du foyer', p.enfants_total;
+end $$;
+
+-- ============ V5 : seules les vacances de la zone du foyer remontent ============
+do $$
+declare n int;
+begin
+  perform public.test_importer_vacances(format('[
+    {"country_code":"FR","label":"Hiver zone A","zone":"A","school_year":"%s",
+     "starts_on":"%s","ends_on":"%s"}]',
+     public.test_annee_scolaire(), (current_date + 70)::text, (current_date + 80)::text)::jsonb);
+  select count(*) into n from public.propositions_vacances('aaaaaaaa-0000-0000-0000-000000000001')
+   where libelle = 'Hiver zone A';
+  if n <> 0 then
+    raise exception 'ÉCHEC V5 : une période d''une autre zone est proposée';
+  end if;
+  raise notice 'V5 OK — seules les périodes de la zone du foyer sont proposées';
+end $$;
+
+-- ============ V6 : un foyer étranger n'accède à rien ============
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000c', false);
+do $$
+begin
+  begin
+    perform public.propositions_vacances('aaaaaaaa-0000-0000-0000-000000000001');
+    raise exception 'ÉCHEC V6 : propositions accessibles depuis un autre foyer';
+  exception when others then
+    if sqlerrm like 'ÉCHEC%' then raise; end if;
+  end;
+  raise notice 'V6 OK — propositions isolées par foyer';
+end $$;
+
+select 'TESTS DES PROPOSITIONS DE VACANCES PASSÉS' as resultat;

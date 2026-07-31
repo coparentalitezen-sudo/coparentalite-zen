@@ -222,3 +222,13 @@ create or replace function public.test_fusionner(p_household uuid, p_reel uuid)
 returns boolean language plpgsql security definer set search_path = public as $$
 begin return public.fusionner_parent_provisoire(p_household, p_reel); end $$;
 grant execute on function public.test_fusionner(uuid, uuid) to authenticated;
+
+/** Année scolaire courante, telle que la calcule propositions_vacances. */
+create or replace function public.test_annee_scolaire() returns text
+language sql stable as $$
+  select case when extract(month from current_date) >= 8
+         then extract(year from current_date)::text || '-' || (extract(year from current_date) + 1)::text
+         else (extract(year from current_date) - 1)::text || '-' || extract(year from current_date)::text
+    end
+$$;
+grant execute on function public.test_annee_scolaire() to authenticated;
