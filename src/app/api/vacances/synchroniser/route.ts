@@ -95,6 +95,10 @@ export async function GET(requete: Request) {
 }
 
 async function synchroniser(origine: 'planifiee' | 'manuelle') {
+  // Un appel manuel vient d'un membre du foyer qui cherche à comprendre :
+  // lui renvoyer « impossible pour le moment » sans la cause l'oblige à
+  // deviner. La cause exacte n'est exposée que par cette voie.
+  const exposerCause = origine === 'manuelle';
   const service = supabaseService();
   if (!service) {
     return NextResponse.json(
@@ -124,23 +128,38 @@ async function synchroniser(origine: 'planifiee' | 'manuelle') {
     // en comptent davantage : sans pagination, les dernières périodes étaient
     // silencieusement perdues.
     const brut: EnregistrementOfficiel[] = [];
+    let filtreRejete = false;
     const PAGE = 100;
     const PAGES_MAX = 10;          // garde-fou : 1 000 enregistrements suffisent
     for (let page = 0; page < PAGES_MAX; page += 1) {
-      const parametres = new URLSearchParams({
+      // Deux tentatives : filtrée sur les années utiles, puis sans filtre.
+      // La syntaxe de filtrage de la source peut évoluer ; le calendrier
+      // complet reste exploitable, seulement plus volumineux.
+      const base = {
         limit: String(PAGE),
         offset: String(page * PAGE),
-        where: `annee_scolaire in (${anneesScolaires.map((a) => `"${a}"`).join(',')})`,
         select: 'description,start_date,end_date,zones,annee_scolaire,population,location',
         order_by: 'start_date',
-      });
+      };
+      const filtre = `annee_scolaire in (${anneesScolaires.map((a) => `"${a}"`).join(',')})`;
 
-      const reponse = await fetch(`${SOURCE}?${parametres}`, {
-        headers: { Accept: 'application/json' },
-        cache: 'no-store',
-      });
+      let reponse = await fetch(
+        `${SOURCE}?${new URLSearchParams({ ...base, where: filtre })}`,
+        { headers: { Accept: 'application/json' }, cache: 'no-store' },
+      );
+      if (reponse.status === 400) {
+        filtreRejete = true;
+        reponse = await fetch(
+          `${SOURCE}?${new URLSearchParams(base)}`,
+          { headers: { Accept: 'application/json' }, cache: 'no-store' },
+        );
+      }
       if (!reponse.ok) {
-        throw new Error(`la source officielle a répondu ${reponse.status}`);
+        const detail = await reponse.text().catch(() => '');
+        throw new Error(
+          `la source officielle a répondu ${reponse.status}`
+          + (detail ? ` : ${detail.slice(0, 200)}` : ''),
+        );
       }
 
       const corps = (await reponse.json()) as { results?: EnregistrementOfficiel[] };
@@ -188,13 +207,18 @@ async function synchroniser(origine: 'planifiee' | 'manuelle') {
       p_zone: null, p_annee: anneesScolaires.join(', '),
       p_periodes: Number(importees ?? 0),
       p_statut: 'succes',
-      p_message: academies > 0 ? `${academies} académies rattachées` : null,
+      p_message: [
+        academies > 0 ? `${academies} académies rattachées` : null,
+        filtreRejete ? 'filtre par année refusé, calendrier complet récupéré' : null,
+      ].filter(Boolean).join(' · ') || null,
     });
 
     return NextResponse.json({
       importees: Number(importees ?? 0),
       academies,
+      enregistrements_lus: brut.length,
       annees: anneesScolaires,
+      ...(filtreRejete ? { note: 'filtre par année refusé par la source' } : {}),
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
@@ -206,7 +230,10 @@ async function synchroniser(origine: 'planifiee' | 'manuelle') {
     // Aucune donnée approximative n'est écrite : mieux vaut un calendrier vide
     // qu'un calendrier faux.
     return NextResponse.json(
-      { message: 'Import impossible pour le moment.' },
+      {
+        message: 'Import impossible pour le moment.',
+        ...(exposerCause ? { cause: message } : {}),
+      },
       { status: 502 },
     );
   }
