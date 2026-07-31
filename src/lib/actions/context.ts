@@ -36,7 +36,7 @@ export async function getContexte(): Promise<ActionResult<Contexte | null>> {
 
     const [membres, enfants, categories] = await Promise.all([
       supabase.from('household_members')
-        .select('profile_id, role, color_key, profiles!inner(display_name)')
+        .select('profile_id, role, color_key, profiles!inner(display_name, is_placeholder)')
         .eq('household_id', h.id).is('deleted_at', null),
       supabase.from('children')
         .select('id, first_name, color, birth_date')

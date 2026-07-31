@@ -32,3 +32,25 @@ export async function acceptInvitation(token: string): Promise<ActionResult<stri
   }
   return ok(data as string);
 }
+
+
+/**
+ * Nomme le second parent avant son inscription.
+ *
+ * Le premier parent peut ainsi configurer entièrement son foyer — rythme,
+ * vacances, dépenses — puis inviter l'autre une fois tout prêt. À
+ * l'acceptation de l'invitation, le compte réel prend la place du profil
+ * provisoire et hérite de tout ce qui lui était rattaché.
+ */
+export async function nommerSecondParent(
+  householdId: string, prenom: string,
+): Promise<ActionResult<string>> {
+  const supabase = supabaseBrowser();
+  if (!supabase) return { status: 'demo' };
+  if (!prenom.trim()) return err('Indiquez le prénom du second parent.');
+  const { data, error } = await supabase.rpc('nommer_second_parent', {
+    p_household: householdId, p_prenom: prenom.trim(),
+  });
+  if (error) return err(lisible('Le second parent n’a pas pu être enregistré.', error));
+  return ok(data as string);
+}

@@ -30,6 +30,10 @@ export interface RegleGarde {
   pattern: CustodyPattern; startDate: string; parent1: string; parent2: string;
   /** Répartition jour par jour du rythme personnalisé, null pour les autres. */
   customCycle: ('P1' | 'P2')[] | null;
+  /** Heure du passage d'un parent à l'autre, format HH:MM ; null si au lever. */
+  handoverTime: string | null;
+  /** Lieu convenu du passage, affiché aux deux parents. */
+  handoverPlace: string | null;
 }
 
 /**

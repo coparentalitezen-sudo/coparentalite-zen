@@ -48,6 +48,8 @@ export default function Foyer() {
 
   const [rythme, setRythme] = useState<CustodyPattern>('alternating_weeks');
   const [cyclePerso, setCyclePerso] = useState<('P1' | 'P2')[]>([]);
+  const [heurePassage, setHeurePassage] = useState('');
+  const [lieuPassage, setLieuPassage] = useState('');
   const [debut, setDebut] = useState(() => new Date().toISOString().slice(0, 10));
   const [regleActuelle, setRegleActuelle] = useState<RegleGarde | null>(null);
   const [monNom, setMonNom] = useState('');
@@ -62,6 +64,8 @@ export default function Foyer() {
         setRythme(r.data.pattern);
         setDebut(r.data.startDate);
         if (r.data.customCycle?.length) setCyclePerso(r.data.customCycle);
+        setHeurePassage(r.data.handoverTime ?? '');
+        setLieuPassage(r.data.handoverPlace ?? '');
       }
     });
     listerPays().then((r) => { if (r.status === 'ok') setPays(r.data); });
@@ -178,11 +182,12 @@ export default function Foyer() {
   async function enregistrerRythme(householdId: string, p1: string, p2: string) {
     setMsg(null); setBusy(true);
     const r = await setRegleGarde(householdId, rythme, debut, p1, p2,
-      rythme === 'custom' ? cyclePerso : null);
+      rythme === 'custom' ? cyclePerso : null, heurePassage || null, lieuPassage || null);
     setBusy(false);
     if (r.status === 'ok') {
       setRegleActuelle({ pattern: rythme, startDate: debut, parent1: p1, parent2: p2,
-        customCycle: rythme === 'custom' ? cyclePerso : null });
+        customCycle: rythme === 'custom' ? cyclePerso : null,
+        handoverTime: heurePassage || null, handoverPlace: lieuPassage || null });
       setMsg({ kind: 'ok', text: 'Rythme de garde enregistré. Le planning est à jour.' });
     } else if (r.status === 'error') setMsg({ kind: 'err', text: r.message });
   }
@@ -410,6 +415,32 @@ export default function Foyer() {
                     })()}
                   </div>
                 )}
+
+                {/* L'heure du passage change la lecture du calendrier : le
+                    jour du changement se coupe en deux, matin chez l'un,
+                    après-midi chez l'autre. */}
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="block">
+                    <span className="mb-1 block text-sm font-bold">
+                      Heure du passage
+                    </span>
+                    <input type="time" value={heurePassage}
+                           onChange={(e) => setHeurePassage(e.target.value)} />
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block text-sm font-bold">
+                      Lieu <span className="font-normal text-soft">(facultatif)</span>
+                    </span>
+                    <input type="text" maxLength={60} value={lieuPassage}
+                           placeholder="École, domicile…"
+                           onChange={(e) => setLieuPassage(e.target.value)} />
+                  </label>
+                </div>
+                <p className="-mt-1 text-[12px] leading-snug text-soft">
+                  {heurePassage
+                    ? `Les jours de changement apparaîtront coupés en deux dans le planning : le matin chez un parent, l’après-midi chez l’autre à partir de ${heurePassage}.`
+                    : 'Sans heure précisée, le changement est réputé avoir lieu au lever et la journée entière revient au parent qui accueille.'}
+                </p>
 
                 <label className="block">
                   <span className="mb-1 block text-sm font-bold">Date de début du cycle</span>

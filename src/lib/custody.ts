@@ -20,6 +20,12 @@ export type CustodyPattern =
   | 'custom';
 
 export interface CustodyRule {
+  /**
+   * Heure du passage d'un parent à l'autre, au format HH:MM.
+   * Sans elle, le changement est réputé avoir lieu au lever : la journée
+   * entière appartient au parent qui accueille.
+   */
+  handoverTime?: string | null;
   pattern: CustodyPattern;
   startDate: string;          // 'YYYY-MM-DD' — ancre du cycle
   endDate?: string;
@@ -241,6 +247,47 @@ export function buildSchedule(
  * Utile à l'affichage : la grille a besoin du type d'exception, pas seulement
  * du parent gardien.
  */
+/**
+ * Journées de transition : celles où les enfants changent de parent en cours
+ * de journée. Utile pour couper la case du calendrier en deux.
+ *
+ * Une journée est partagée si le parent de la veille diffère de celui du jour
+ * ET qu'une heure de passage est définie. Sans heure, le changement est réputé
+ * avoir lieu au lever et la journée n'est pas coupée.
+ */
+export interface JourneePartagee {
+  date: string;
+  /** Parent qui a les enfants jusqu'à l'heure de passage. */
+  matin: ParentId;
+  /** Parent qui les accueille à partir de l'heure de passage. */
+  apresMidi: ParentId;
+  /** Heure du passage, au format HH:MM. */
+  heure: string;
+}
+
+export function journeesPartagees(
+  carte: Map<string, DayAssignment>,
+  heurePassage: string | null | undefined,
+): Map<string, JourneePartagee> {
+  const partagees = new Map<string, JourneePartagee>();
+  if (!heurePassage) return partagees;
+
+  const dates = [...carte.keys()].sort();
+  for (let i = 1; i < dates.length; i += 1) {
+    const veille = carte.get(dates[i - 1])!;
+    const jour = carte.get(dates[i])!;
+    if (veille.parentId !== jour.parentId) {
+      partagees.set(dates[i], {
+        date: dates[i],
+        matin: veille.parentId,
+        apresMidi: jour.parentId,
+        heure: heurePassage,
+      });
+    }
+  }
+  return partagees;
+}
+
 export function buildDayMap(
   rule: CustodyRule,
   from: string,

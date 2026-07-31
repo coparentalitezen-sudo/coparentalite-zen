@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { assignDays, buildSchedule, validateSchedule, whereToday, holidayAssignments, isoWeek, addDays, type CustodyRule, buildDayMap } from '../src/lib/custody';
+import { assignDays, buildSchedule, validateSchedule, whereToday, holidayAssignments, isoWeek, addDays, type CustodyRule, buildDayMap , journeesPartagees } from '../src/lib/custody';
 
 const P1 = 'alice', P2 = 'bob';
 // Lundi 5 janvier 2026 comme ancre (2026-01-05 est bien un lundi)
@@ -333,5 +333,56 @@ describe('moteur générique d’exceptions — priorité pilotée par la base',
       { startsOn: '2026-07-08', endsOn: '2026-07-08', parentId: P2, source: 'swap', priorite: 10 },
     ]);
     expect(m.get('2026-07-08')!.parentId).toBe(P2);
+  });
+});
+
+describe('journées de transition — case coupée en deux', () => {
+  const rythme = {
+    pattern: 'alternating_weeks' as const,
+    startDate: '2026-07-06', parent1: 'p1', parent2: 'p2',
+  };
+
+  it('sans heure de passage, aucune journée n’est coupée', () => {
+    // Le changement est alors réputé avoir lieu au lever
+    const carte = buildDayMap(rythme, '2026-07-06', '2026-07-26');
+    expect(journeesPartagees(carte, null).size).toBe(0);
+    expect(journeesPartagees(carte, undefined).size).toBe(0);
+  });
+
+  it('avec une heure, le jour du changement est coupé', () => {
+    const carte = buildDayMap(rythme, '2026-07-06', '2026-07-26');
+    const p = journeesPartagees(carte, '18:00');
+    // le rythme change tous les lundis
+    const lundi = p.get('2026-07-13');
+    expect(lundi).toBeDefined();
+    expect(lundi!.matin).toBe('p1');
+    expect(lundi!.apresMidi).toBe('p2');
+    expect(lundi!.heure).toBe('18:00');
+  });
+
+  it('les jours sans changement ne sont jamais coupés', () => {
+    const carte = buildDayMap(rythme, '2026-07-06', '2026-07-26');
+    const p = journeesPartagees(carte, '18:00');
+    expect(p.has('2026-07-08')).toBe(false);
+    expect(p.has('2026-07-15')).toBe(false);
+  });
+
+  it('une exception crée aussi des journées de transition', () => {
+    const carte = buildDayMap(rythme, '2026-07-06', '2026-07-26', [], [
+      { startsOn: '2026-07-08', endsOn: '2026-07-09', parentId: 'p2', source: 'swap', priorite: 10 },
+    ]);
+    const p = journeesPartagees(carte, '09:00');
+    // entrée dans l'exception
+    expect(p.get('2026-07-08')?.matin).toBe('p1');
+    expect(p.get('2026-07-08')?.apresMidi).toBe('p2');
+    // sortie de l'exception
+    expect(p.get('2026-07-10')?.matin).toBe('p2');
+    expect(p.get('2026-07-10')?.apresMidi).toBe('p1');
+  });
+
+  it('le premier jour de la période n’est jamais coupé', () => {
+    // Rien ne permet de savoir chez qui les enfants étaient la veille
+    const carte = buildDayMap(rythme, '2026-07-06', '2026-07-26');
+    expect(journeesPartagees(carte, '18:00').has('2026-07-06')).toBe(false);
   });
 });

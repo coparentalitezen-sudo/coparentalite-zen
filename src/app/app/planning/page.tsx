@@ -11,7 +11,8 @@ import {
   getRegleGarde, listerExceptions, getOffre, listerVacances,
   type RegleGarde, type ExceptionGarde, type Offre, type VacancesScolaires,
 } from '@/lib/actions';
-import { buildDayMap, addDays, type Source, type ExceptionOverride } from '@/lib/custody';
+import { buildDayMap, journeesPartagees, addDays,
+  type Source, type ExceptionOverride, type JourneePartagee } from '@/lib/custody';
 
 const MOIS = ['janvier','février','mars','avril','mai','juin',
               'juillet','août','septembre','octobre','novembre','décembre'];
@@ -35,6 +36,8 @@ export default function Planning() {
   const [jourOuvert, setJourOuvert] = useState<string | null>(null);
   const [offre, setOffre] = useState<Offre | null>(null);
   const [vacances, setVacances] = useState<VacancesScolaires[]>([]);
+  const [erreurExceptions, setErreurExceptions] = useState<string | null>(null);
+  const [partagees, setPartagees] = useState<Map<string, JourneePartagee>>(new Map());
 
   const membres = ctx.etat === 'pret' ? ctx.contexte.membres : [];
   const enfants = ctx.etat === 'pret' ? ctx.contexte.enfants : [];
@@ -58,8 +61,13 @@ export default function Planning() {
       else if (r.status === 'error') setErreur(r.message);
     });
     listerExceptions(hid, premierJour, dernierJour).then((r) => {
-      if (r.status === 'ok') setExceptions(r.data);
-      else if (r.status === 'error') setErreur(r.message);
+      if (r.status === 'ok') { setExceptions(r.data); setErreurExceptions(null); }
+      // Une erreur ici ne doit pas vider le planning : le rythme de garde
+      // reste calculable, et c'est l'information la plus utile à l'écran.
+      else if (r.status === 'error') {
+        setExceptions([]);
+        setErreurExceptions(r.details ? `${r.message} (${r.details})` : r.message);
+      }
     });
     getOffre(hid).then((r) => { if (r.status === 'ok') setOffre(r.data); });
     listerVacances(hid, premierJour, dernierJour).then((r) => {
@@ -86,10 +94,15 @@ export default function Planning() {
     }));
     try {
       const m = buildDayMap(
-        { pattern: regle.pattern, startDate: regle.startDate, parent1: regle.parent1, parent2: regle.parent2 },
+        {
+          pattern: regle.pattern, startDate: regle.startDate,
+          parent1: regle.parent1, parent2: regle.parent2,
+          customCycle: regle.customCycle ?? undefined,
+        },
         regle.startDate < premierJour ? regle.startDate : premierJour,
         dernierJour, [], ponctuels,
       );
+      setPartagees(journeesPartagees(m, regle.handoverTime));
       const out = new Map<string, { parentId: string; source: Source }>();
       for (const [d, a] of m) out.set(d, { parentId: a.parentId, source: a.source });
       return out;
@@ -134,6 +147,12 @@ export default function Planning() {
       {ctx.etat === 'sans-foyer' && <SansFoyer />}
       {ctx.etat === 'demo' && <Vide titre="Mode démonstration" texte="Connectez-vous pour voir votre planning réel." />}
       {erreur && <Erreur message={erreur} />}
+      {erreurExceptions && (
+        <p role="status" className="rounded-xl bg-wait-bg px-3 py-2 text-[13px] leading-snug text-wait">
+          Le rythme s’affiche, mais les périodes particulières n’ont pas pu être
+          chargées. <span className="opacity-80">{erreurExceptions}</span>
+        </p>
+      )}
 
       {ctx.etat === 'pret' && (
         <>
@@ -184,32 +203,66 @@ export default function Planning() {
                     // Toute source différente de 'rule' est une exception :
                     // le calendrier ne connaît aucun type en particulier.
                     const ponctuel = Boolean(a && a.source !== 'rule' && a.source !== 'holiday');
+                    // Journée de transition : les enfants changent de parent
+                    // en cours de journée. La case se coupe en deux, matin en
+                    // haut, après-midi en bas.
+                    const transition = couvert ? partagees.get(d) : undefined;
+                    const mMatin = transition ? membre(transition.matin) : undefined;
+                    const teinte = (mem?: { couleur: string }) =>
+                      mem?.couleur === 'coral' ? 'bg-p2-bg' : 'bg-p1-bg';
                     return (
                       <button
                         key={d}
                         type="button"
                         onClick={() => setJourOuvert(jourOuvert === d ? null : d)}
                         aria-label={[
-                          m ? `${d}, chez ${m.nom}` : couvert ? d : `${d}, au-delà de votre offre`,
+                          transition && mMatin && m
+                            ? `${d}, chez ${mMatin.nom} le matin puis chez ${m.nom} à partir de ${transition.heure}`
+                            : m ? `${d}, chez ${m.nom}` : couvert ? d : `${d}, au-delà de votre offre`,
                           vacancesExc ? 'vacances définies par les parents' : null,
                           ponctuel ? 'changement ponctuel' : null,
                           joursVacances.has(d) ? 'vacances scolaires' : null,
                         ].filter(Boolean).join(', ')}
-                        className={`relative aspect-square border-b border-r border-line p-1 text-left ${fond}
+                        className={`relative aspect-square overflow-hidden border-b border-r border-line p-1 text-left ${
+                          transition ? '' : fond}
                           ${!couvert ? 'bg-muted/60' : ''}
                           ${estAujourdhui ? 'ring-2 ring-inset ring-navy' : ''}
                           ${ponctuel ? 'border-2 border-dashed border-ink/40' : ''}
                           ${jourOuvert === d ? 'ring-2 ring-inset ring-ink' : ''}`}
                       >
+                        {/* Journée partagée : deux moitiés, séparées par un
+                            trait net. La couleur seule ne suffirait pas — les
+                            initiales restent affichées. */}
+                        {transition && (
+                          <>
+                            <span aria-hidden
+                              className={`absolute inset-x-0 top-0 h-1/2 ${teinte(mMatin)}`} />
+                            <span aria-hidden
+                              className={`absolute inset-x-0 bottom-0 h-1/2 ${teinte(m)}`} />
+                            <span aria-hidden
+                              className="absolute inset-x-0 top-1/2 h-px bg-ink/25" />
+                          </>
+                        )}
                         {joursVacances.has(d) && (
                           <span aria-hidden
-                            className="absolute inset-x-0 top-0 h-[3px] bg-[#C9A227]"
+                            className="absolute inset-x-0 top-0 z-10 h-[3px] bg-[#C9A227]"
                             title="Vacances scolaires" />
                         )}
-                        <span className="text-xs font-bold">{Number(d.slice(8))}</span>
-                        {m && (
-                          <span className={`mt-0.5 block text-[10px] font-black ${texte}`}>{m.initiale}</span>
-                        )}
+                        <span className="relative z-10 text-xs font-bold">{Number(d.slice(8))}</span>
+                        {transition && mMatin && m ? (
+                          <span className="relative z-10 mt-0.5 flex flex-col text-[9px] font-black leading-[1.15]">
+                            <span className={mMatin.couleur === 'coral' ? 'text-coral-text' : 'text-navy-text'}>
+                              {mMatin.initiale}
+                            </span>
+                            <span className={m.couleur === 'coral' ? 'text-coral-text' : 'text-navy-text'}>
+                              {m.initiale}
+                            </span>
+                          </span>
+                        ) : m ? (
+                          <span className={`relative z-10 mt-0.5 block text-[10px] font-black ${texte}`}>
+                            {m.initiale}
+                          </span>
+                        ) : null}
                         {vacancesExc && (
                           <span aria-hidden className="absolute bottom-0.5 right-0.5 text-[9px] leading-none">🌴</span>
                         )}
@@ -249,6 +302,14 @@ export default function Planning() {
                       <span className="absolute inset-x-0 top-0 h-[3px] bg-[#C9A227]" />
                     </span>
                     Vacances scolaires — liseré doré, ajoutées automatiquement
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span aria-hidden className="relative h-5 w-5 shrink-0 overflow-hidden rounded-md">
+                      <span className="absolute inset-x-0 top-0 h-1/2 bg-p1-bg" />
+                      <span className="absolute inset-x-0 bottom-0 h-1/2 bg-p2-bg" />
+                      <span className="absolute inset-x-0 top-1/2 h-px bg-ink/25" />
+                    </span>
+                    Jour de changement — case coupée, matin en haut
                   </li>
                 </ul>
               </section>

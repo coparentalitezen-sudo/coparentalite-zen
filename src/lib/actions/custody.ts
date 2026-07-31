@@ -11,7 +11,7 @@ export async function getRegleGarde(householdId: string): Promise<ActionResult<R
   const supabase = supabaseBrowser();
   if (!supabase) return { status: 'demo' };
   const { data, error } = await supabase.from('custody_rules')
-    .select('pattern, start_date, starting_parent, config')
+    .select('pattern, start_date, starting_parent, config, handover_time, handover_place')
     .eq('household_id', householdId).is('deleted_at', null)
     .order('created_at', { ascending: false }).limit(1).maybeSingle();
   if (error) return err(lisible('Impossible de charger le rythme de garde.', error));
@@ -20,6 +20,8 @@ export async function getRegleGarde(householdId: string): Promise<ActionResult<R
   return ok({
     pattern: data.pattern as CustodyPattern,
     customCycle: cfg.custom_cycle ?? null,
+    handoverTime: (data.handover_time as string)?.slice(0, 5) ?? null,
+    handoverPlace: (data.handover_place as string) ?? null,
     startDate: data.start_date as string,
     parent1: data.starting_parent as string,
     parent2: cfg.parent2 ?? '',
@@ -30,7 +32,10 @@ export async function setRegleGarde(
   householdId: string, pattern: CustodyPattern, startDate: string,
   parent1: string, parent2: string,
   /** Répartition jour par jour, requise pour le rythme personnalisé. */
-  customCycle?: ('P1' | 'P2')[] | null
+  customCycle?: ('P1' | 'P2')[] | null,
+  /** Heure du passage, format HH:MM ; null pour un changement au lever. */
+  handoverTime?: string | null,
+  handoverPlace?: string | null
 ): Promise<ActionResult<string>> {
   const supabase = supabaseBrowser();
   if (!supabase) return { status: 'demo' };
@@ -38,6 +43,8 @@ export async function setRegleGarde(
     p_household: householdId, p_pattern: pattern, p_start_date: startDate,
     p_parent1: parent1, p_parent2: parent2,
     p_custom_cycle: customCycle && customCycle.length > 0 ? customCycle : null,
+    p_handover_time: handoverTime || null,
+    p_handover_place: handoverPlace || null,
   });
   if (error) return err(lisible('L’enregistrement du rythme n’a pas abouti.', error));
   return ok(data as string);

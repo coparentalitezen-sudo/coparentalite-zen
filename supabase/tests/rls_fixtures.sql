@@ -206,3 +206,19 @@ begin
   on conflict (code) do update set label = excluded.label, priority = excluded.priority;
 end $$;
 grant execute on function public.test_ajouter_type_exception(text, text, smallint) to authenticated;
+
+-- Comptes servant aux tests du parent provisoire
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000000e1', 'premier@test.fr'),
+  ('00000000-0000-0000-0000-0000000000e2', 'second@test.fr')
+on conflict (id) do nothing;
+insert into profiles (id, email, display_name) values
+  ('00000000-0000-0000-0000-0000000000e1', 'premier@test.fr', 'Premier'),
+  ('00000000-0000-0000-0000-0000000000e2', 'second@test.fr', 'Second')
+on conflict (id) do nothing;
+
+/** La fusion est réservée au serveur ; les tests ont besoin de la déclencher. */
+create or replace function public.test_fusionner(p_household uuid, p_reel uuid)
+returns boolean language plpgsql security definer set search_path = public as $$
+begin return public.fusionner_parent_provisoire(p_household, p_reel); end $$;
+grant execute on function public.test_fusionner(uuid, uuid) to authenticated;

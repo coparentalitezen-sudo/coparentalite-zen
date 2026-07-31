@@ -46,7 +46,12 @@ export default function Vacances() {
     if (ctx.etat !== 'pret') return;
     listerPropositionsVacances(ctx.contexte.foyer.id).then((r) => {
       if (r.status === 'ok') { setListe(r.data); setErreur(null); }
-      else if (r.status === 'error') setErreur(r.message);
+      // Le détail technique est affiché : un message générique oblige à
+      // chercher la cause en base, ce qui coûte plusieurs allers-retours.
+      else if (r.status === 'error') {
+        setListe([]);
+        setErreur(r.details ? `${r.message} — ${r.details}` : r.message);
+      }
     });
   }, [ctx]);
   useEffect(charger, [charger]);
