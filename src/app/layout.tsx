@@ -1,4 +1,4 @@
-import type { Metadata, Viewport } from 'next';
+mport type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { ServiceWorker } from '@/components/service-worker';
 
@@ -16,19 +16,19 @@ export const metadata: Metadata = {
   formatDetection: { telephone: false },
   icons: {
     icon: [
-      { url: '/favicon.ico', sizes: 'any' },
-      { url: '/icons/icon-32.png', sizes: '32x32', type: 'image/png' },
-      { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+      { url: '/favicon.ico?v=3', sizes: 'any' },
+      { url: '/icons/icon-32.png?v=3', sizes: '32x32', type: 'image/png' },
+      { url: '/icons/maskable-192.png?v=3', sizes: '192x192', type: 'image/png' },
+      { url: '/icons/maskable-512.png?v=3', sizes: '512x512', type: 'image/png' },
     ],
     apple: [
-      { url: '/icons/apple-touch-icon-180.png', sizes: '180x180' },
-      { url: '/icons/apple-touch-icon-167.png', sizes: '167x167' },
-      { url: '/icons/apple-touch-icon-152.png', sizes: '152x152' },
-      { url: '/icons/apple-touch-icon-120.png', sizes: '120x120' },
+      { url: '/icons/maskable-192.png?v=3', sizes: '180x180', type: 'image/png' },
+      { url: '/icons/maskable-192.png?v=3', sizes: '167x167', type: 'image/png' },
+      { url: '/icons/maskable-192.png?v=3', sizes: '152x152', type: 'image/png' },
+      { url: '/icons/maskable-192.png?v=3', sizes: '120x120', type: 'image/png' },
     ],
   },
-  manifest: '/manifest.webmanifest',
+  manifest: '/manifest.webmanifest?v=3',
   openGraph: {
     title: 'Coparentalité Zen',
     description: 'S’organiser • Coopérer • Avancer — pour le bien de nos enfants.',
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  viewportFit: 'cover',        // encoches et barre système : fond continu
+  viewportFit: 'cover',
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#FCF9F6' },
     { media: '(prefers-color-scheme: dark)', color: '#FCF9F6' },
@@ -52,7 +52,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fr">
       <head>
-        {/* Safari s'appuie encore sur cette balise pour le mode plein écran */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <link rel="apple-touch-startup-image" href="/splash/1290x2796.png" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
         <link rel="apple-touch-startup-image" href="/splash/1179x2556.png" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
