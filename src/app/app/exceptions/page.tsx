@@ -307,6 +307,10 @@ export default function Exceptions() {
         </>
       )}
 
+      <Link href="/app/foyer" className="btn btn-ghost w-full">
+        Revenir aux paramètres
+      </Link>
+
       <BottomNav active="/app/planning" />
     </main>
   );

@@ -291,9 +291,15 @@ function ContenuVacances() {
             </section>
           )}
 
+          {/* Le parcours de configuration passe par ici : il doit pouvoir
+              reprendre où il en était. */}
+          <Link href="/app/foyer" className="btn btn-ghost w-full">
+            Terminer et revenir aux paramètres
+          </Link>
+
           <p className="px-1 text-center text-[11px] leading-snug text-soft/85">
             Pour un échange ponctuel, un voyage ou une absence, utilisez{' '}
-            <Link href="/app/exceptions" className="underline">Vacances et changements</Link>.
+            <Link href="/app/exceptions" className="underline">Changements et exceptions</Link>.
           </p>
         </>
       )}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { BottomNav } from '@/components/ui';
 import { Chargement, Erreur, SansFoyer, Vide } from '@/components/etats';
 import { useContexte } from '@/lib/use-contexte';
@@ -45,9 +46,16 @@ export default function Enfants() {
     else if (r.status === 'error') setMsg({ kind: 'err', text: r.message });
   }
 
+  const nbEnfants = ctx.etat === 'pret' ? ctx.contexte.enfants.length : 0;
+
   return (
     <main className="space-y-4 px-4 py-4">
-      <h1 className="font-display text-xl font-semibold">Enfants</h1>
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="font-display text-xl font-semibold">Enfants</h1>
+        <Link href="/app/foyer" className="text-[13px] font-semibold text-soft/85">
+          Paramètres
+        </Link>
+      </div>
 
       {msg && (
         <p role={msg.kind === 'err' ? 'alert' : 'status'}
@@ -116,6 +124,15 @@ export default function Enfants() {
             {busy ? 'Ajout…' : 'Ajouter l’enfant'}
           </button>
         </section>
+      )}
+
+      {/* Une fois les enfants enregistrés, le parcours doit reprendre où il
+          en était : sans ce retour, il faut ressortir par le menu et
+          retrouver soi-même l'étape suivante. */}
+      {nbEnfants > 0 && (
+        <Link href="/app/foyer" className="btn btn-primary w-full">
+          Terminer et revenir aux paramètres
+        </Link>
       )}
 
       <BottomNav active="/app/plus" />
