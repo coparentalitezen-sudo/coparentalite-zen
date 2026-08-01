@@ -1,6 +1,21 @@
 import { NextResponse } from 'next/server';
-import { supabaseService } from '@/lib/supabase/server';
+import { supabaseService, supabaseServer } from '@/lib/supabase/server';
 import { buildDayMap, journeesPartagees } from '@/lib/custody';
+
+/**
+ * Réponse JSON avec encodage déclaré.
+ *
+ * Sans « charset=utf-8 », un navigateur interprète les accents comme du
+ * latin-1 : « clés » devient « clÃ©s ». Ces routes étant consultées à la main
+ * pour diagnostiquer, leurs messages doivent rester lisibles.
+ */
+function reponseJSON(corps: unknown, statut = 200) {
+  return new NextResponse(JSON.stringify(corps), {
+    status: statut,
+    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+  });
+}
+
 
 /**
  * Programmation quotidienne des rappels.
@@ -36,9 +51,31 @@ interface Foyer {
   handover_time: string | null;
 }
 
+/**
+ * Déclenchement manuel par un membre connecté.
+ *
+ * La tâche nocturne suffit en régime établi, mais un parent qui vient de créer
+ * un rendez-vous doit pouvoir vérifier son rappel sans attendre 3 h du matin.
+ * L'opération étant idempotente, la rejouer ne coûte rien.
+ */
+async function autoriseMembre(): Promise<boolean> {
+  const supabase = await supabaseServer();
+  if (!supabase) return false;
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return false;
+  const { data } = await supabase
+    .from('household_members').select('household_id')
+    .eq('profile_id', user.id).is('deleted_at', null).limit(1);
+  return Boolean(data && data.length > 0);
+}
+
 export async function GET(requete: Request) {
-  if (!autorise(requete)) {
-    return NextResponse.json({ message: 'Non autorisé.' }, { status: 401 });
+  // Tâche planifiée Vercel, ou membre connecté depuis son navigateur
+  if (!autorise(requete) && !(await autoriseMembre())) {
+    return NextResponse.json(
+      { message: 'Connectez-vous pour déclencher la programmation des rappels.' },
+      { status: 401 },
+    );
   }
   const service = supabaseService();
   if (!service) {
@@ -140,7 +177,7 @@ export async function GET(requete: Request) {
       }
     }
 
-    return NextResponse.json({
+    return reponseJSON({
       ...bilan,
       ...(soucis.length > 0 ? { soucis: soucis.slice(0, 10) } : {}),
     });

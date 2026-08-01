@@ -2,6 +2,21 @@ import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
 
 /**
+ * Réponse JSON avec encodage déclaré.
+ *
+ * Sans « charset=utf-8 », un navigateur interprète les accents comme du
+ * latin-1 : « clés » devient « clÃ©s ». Ces routes étant consultées à la main
+ * pour diagnostiquer, leurs messages doivent rester lisibles.
+ */
+function reponseJSON(corps: unknown, statut = 200) {
+  return new NextResponse(JSON.stringify(corps), {
+    status: statut,
+    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+  });
+}
+
+
+/**
  * État de la configuration serveur.
  *
  * Dit quelles variables d'environnement sont présentes — jamais leur valeur.
@@ -53,17 +68,17 @@ function roleDeLaCle(cle: string | undefined): string {
 export async function GET() {
   const supabase = await supabaseServer();
   if (!supabase) {
-    return NextResponse.json({ message: 'Service indisponible.' }, { status: 503 });
+    return reponseJSON({ message: 'Service indisponible.' }, 503);
   }
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.json({ message: 'Connectez-vous.' }, { status: 401 });
+    return reponseJSON({ message: 'Connectez-vous.' }, 401);
   }
   const { data: membre } = await supabase
     .from('household_members').select('household_id')
     .eq('profile_id', user.id).is('deleted_at', null).limit(1);
   if (!membre || membre.length === 0) {
-    return NextResponse.json({ message: 'Accès réservé aux membres d’un foyer.' }, { status: 403 });
+    return reponseJSON({ message: 'Accès réservé aux membres d’un foyer.' }, 403);
   }
 
   const variables = {
@@ -77,7 +92,7 @@ export async function GET() {
 
   const roleService = roleDeLaCle(process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-  return NextResponse.json({
+  return reponseJSON({
     version: process.env.NEXT_PUBLIC_VERSION
       ?? process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? 'local',
     variables,

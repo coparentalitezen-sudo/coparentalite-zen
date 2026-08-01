@@ -6,6 +6,21 @@ import {
 } from '@/lib/calendrier-officiel';
 
 /**
+ * Réponse JSON avec encodage déclaré.
+ *
+ * Sans « charset=utf-8 », un navigateur interprète les accents comme du
+ * latin-1 : « clés » devient « clÃ©s ». Ces routes étant consultées à la main
+ * pour diagnostiquer, leurs messages doivent rester lisibles.
+ */
+function reponseJSON(corps: unknown, statut = 200) {
+  return new NextResponse(JSON.stringify(corps), {
+    status: statut,
+    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+  });
+}
+
+
+/**
  * Import du calendrier scolaire officiel.
  *
  * Source : data.education.gouv.fr, jeu « fr-en-calendrier-scolaire », publié
@@ -62,10 +77,10 @@ async function importRecent(): Promise<boolean> {
 
 export async function POST() {
   if (!(await autoriseMembre())) {
-    return NextResponse.json({ message: 'Connectez-vous pour synchroniser.' }, { status: 401 });
+    return reponseJSON({ message: 'Connectez-vous pour synchroniser.' }, 401);
   }
   if (await importRecent()) {
-    return NextResponse.json({
+    return reponseJSON({
       message: 'Le calendrier a déjà été mis à jour il y a moins d’une heure.',
       deja_a_jour: true,
     });
@@ -83,7 +98,7 @@ export async function GET(requete: Request) {
   // diagnostiquer sans deviner.
   if (await autoriseMembre()) {
     if (await importRecent()) {
-      return NextResponse.json({
+      return reponseJSON({
         message: 'Le calendrier a déjà été mis à jour il y a moins d’une heure.',
         deja_a_jour: true,
       });
@@ -91,7 +106,7 @@ export async function GET(requete: Request) {
     return synchroniser('manuelle');
   }
 
-  return NextResponse.json({ message: 'Non autorisé.' }, { status: 401 });
+  return reponseJSON({ message: 'Non autorisé.' }, 401);
 }
 
 async function synchroniser(origine: 'planifiee' | 'manuelle') {
@@ -175,10 +190,7 @@ async function synchroniser(origine: 'planifiee' | 'manuelle') {
         p_zone: null, p_annee: null, p_periodes: 0,
         p_statut: 'echec', p_message: 'aucune période exploitable dans la réponse',
       });
-      return NextResponse.json(
-        { message: 'La source officielle n’a renvoyé aucune période exploitable.' },
-        { status: 502 },
-      );
+      return reponseJSON({ message: 'La source officielle n’a renvoyé aucune période exploitable.' }, 502);
     }
 
     const { data: importees, error } = await service.rpc('import_school_holidays', {
@@ -213,7 +225,7 @@ async function synchroniser(origine: 'planifiee' | 'manuelle') {
       ].filter(Boolean).join(' · ') || null,
     });
 
-    return NextResponse.json({
+    return reponseJSON({
       importees: Number(importees ?? 0),
       academies,
       enregistrements_lus: brut.length,
@@ -229,12 +241,9 @@ async function synchroniser(origine: 'planifiee' | 'manuelle') {
     });
     // Aucune donnée approximative n'est écrite : mieux vaut un calendrier vide
     // qu'un calendrier faux.
-    return NextResponse.json(
-      {
-        message: 'Import impossible pour le moment.',
-        ...(exposerCause ? { cause: message } : {}),
-      },
-      { status: 502 },
-    );
+    return reponseJSON({
+      message: 'Import impossible pour le moment.',
+      ...(exposerCause ? { cause: message } : {}),
+    }, 502);
   }
 }
