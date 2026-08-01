@@ -516,15 +516,18 @@ export default function Foyer() {
                 {/* L'heure du passage change la lecture du calendrier : le
                     jour du changement se coupe en deux, matin chez l'un,
                     après-midi chez l'autre. */}
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="block">
+                {/* Les étiquettes n'ont pas la même longueur : sans
+                    alignement en bas, les deux champs se décalent l'un par
+                    rapport à l'autre. */}
+                <div className="grid grid-cols-2 items-end gap-2">
+                  <label className="block min-w-0">
                     <span className="mb-1 block text-sm font-bold">
                       Heure du passage
                     </span>
                     <input type="time" value={heurePassage}
                            onChange={(e) => setHeurePassage(e.target.value)} />
                   </label>
-                  <label className="block">
+                  <label className="block min-w-0">
                     <span className="mb-1 block text-sm font-bold">
                       Lieu <span className="font-normal text-soft">(facultatif)</span>
                     </span>

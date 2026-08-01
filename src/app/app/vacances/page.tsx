@@ -215,13 +215,13 @@ function ContenuVacances() {
                       </button>
 
                       {modifie && (
-                        <p className="mt-1 pl-12 text-[11px] text-soft/85">
+                        <p className="mt-1 pl-[3.25rem] text-[11px] text-soft/85">
                           Dates ajustées par rapport au calendrier officiel.
                         </p>
                       )}
 
                       {ouvert === p.holidayId && (
-                        <div className="mt-3 space-y-3 pl-12 pr-1">
+                        <div className="mt-3 space-y-3">
                           <fieldset>
                             <legend className="mb-1.5 text-sm font-bold">Chez quel parent ?</legend>
                             <div className="flex flex-wrap gap-2">

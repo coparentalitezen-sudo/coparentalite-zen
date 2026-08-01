@@ -57,6 +57,29 @@ input, select, textarea {
   min-height: 44px; border-radius: var(--radius-btn);
   border: 1px solid var(--color-line); background: #fff;
   padding: .5rem .875rem; width: 100%;
+  /*
+   * Sans box-sizing, le rembourrage et la bordure s'AJOUTENT aux 100 % :
+   * le champ dépasse son conteneur de 30 pixels. Invisible tant qu'il y a de
+   * la marge, criant dès que l'espace est contraint.
+   */
+  box-sizing: border-box;
+  /*
+   * Les champs de date et d'heure ont une largeur intrinsèque que Safari
+   * refuse de réduire : sans max-width, ils débordent malgré box-sizing.
+   */
+  max-width: 100%;
+  /* Safari applique une apparence native qui ignore la largeur demandée */
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/*
+ * Un conteneur en grille ou en flex ne rétrécit pas ses éléments en deçà de
+ * leur largeur intrinsèque sans min-width: 0. C'est ce qui fait déborder une
+ * grille de deux colonnes contenant des champs de date.
+ */
+input[type='date'], input[type='time'], input[type='datetime-local'] {
+  min-width: 0;
 }
 input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible, button:focus-visible {
   outline: 2px solid var(--color-navy); outline-offset: 2px;

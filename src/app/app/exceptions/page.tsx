@@ -210,7 +210,7 @@ export default function Exceptions() {
                   {!editId && (
                     <fieldset>
                       <legend className="mb-1 text-sm font-bold">Type</legend>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-2 items-end gap-2">
                         <button type="button" aria-pressed={type === 'holiday'}
                           onClick={() => setType('holiday')}
                           className={`btn ${type === 'holiday' ? 'btn-primary' : 'btn-ghost'}`}>
