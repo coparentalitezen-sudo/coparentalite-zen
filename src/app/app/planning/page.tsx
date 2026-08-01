@@ -2,14 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { BottomNav, ParentBadge } from '@/components/ui';
 import { Chargement, Erreur, SansFoyer, Vide } from '@/components/etats';
 import { Icone } from '@/components/icons';
 import { BandeauHorizon, dansHorizon } from '@/components/premium';
 import { useContexte } from '@/lib/use-contexte';
 import {
-  getRegleGarde, listerExceptions, getOffre, listerVacances,
-  type RegleGarde, type ExceptionGarde, type Offre, type VacancesScolaires,
+  getRegleGarde, listerExceptions, getOffre, listerVacances, listerEvenements,
+  type RegleGarde, type ExceptionGarde, type Offre, type VacancesScolaires, type EvenementPlanning,
 } from '@/lib/actions';
 import { buildDayMap, journeesPartagees, addDays,
   type Source, type ExceptionOverride, type JourneePartagee } from '@/lib/custody';
@@ -29,6 +30,7 @@ function dateHeure(iso: string) {
 
 export default function Planning() {
   const { ctx, recharger } = useContexte();
+  const searchParams = useSearchParams();
   const [regle, setRegle] = useState<RegleGarde | null | 'inconnu'>('inconnu');
   const [exceptions, setExceptions] = useState<ExceptionGarde[]>([]);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -38,6 +40,7 @@ export default function Planning() {
   const [vacances, setVacances] = useState<VacancesScolaires[]>([]);
   const [erreurExceptions, setErreurExceptions] = useState<string | null>(null);
   const [partagees, setPartagees] = useState<Map<string, JourneePartagee>>(new Map());
+  const [evenements, setEvenements] = useState<EvenementPlanning[]>([]);
 
   const membres = ctx.etat === 'pret' ? ctx.contexte.membres : [];
   const enfants = ctx.etat === 'pret' ? ctx.contexte.enfants : [];
@@ -73,9 +76,18 @@ export default function Planning() {
     listerVacances(hid, premierJour, dernierJour).then((r) => {
       if (r.status === 'ok') setVacances(r.data);
     });
+    listerEvenements(hid, `${premierJour}T00:00:00.000Z`, `${addDays(dernierJour, 1)}T00:00:00.000Z`).then((r) => {
+      if (r.status === 'ok') setEvenements(r.data);
+      else setEvenements([]);
+    });
   }, [ctx, premierJour, dernierJour]);
 
   useEffect(charger, [charger]);
+
+  useEffect(() => {
+    const jour = searchParams.get('jour');
+    if (jour && /^\d{4}-\d{2}-\d{2}$/.test(jour)) setJourOuvert(jour);
+  }, [searchParams]);
 
   /** Carte des jours : rythme, changements ponctuels, puis vacances. */
   const parJour = useMemo(() => {
@@ -126,6 +138,9 @@ export default function Planning() {
 
   const vacancesDuJour = (jour: string) =>
     vacances.filter((v) => v.debut <= jour && jour <= v.fin);
+
+  const evenementsDuJour = (jour: string) =>
+    evenements.filter((e) => jourDe(e.debut) === jour);
 
   const membre = (id: string) => membres.find((m) => m.profileId === id);
   const nom = (id: string) => membre(id)?.nom ?? 'Parent';
@@ -263,6 +278,10 @@ export default function Planning() {
                             {m.initiale}
                           </span>
                         ) : null}
+                        {evenementsDuJour(d).length > 0 && (
+                          <span aria-hidden title="Rendez-vous"
+                            className="absolute bottom-1 left-1/2 z-10 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-[#7C3AED]" />
+                        )}
                         {vacancesExc && (
                           <span aria-hidden className="absolute bottom-0.5 right-0.5 text-[9px] leading-none">🌴</span>
                         )}
@@ -383,6 +402,23 @@ export default function Planning() {
                     </ul>
                   )}
 
+                  {evenementsDuJour(jourOuvert).length > 0 && (
+                    <section className="space-y-2 border-t border-line-soft pt-2.5">
+                      <h3 className="text-xs font-bold uppercase tracking-wide text-soft">Rendez-vous et rappels</h3>
+                      {evenementsDuJour(jourOuvert).map((ev) => (
+                        <article key={ev.id} className="rounded-xl bg-muted p-3">
+                          <p className="font-bold">{ev.titre}</p>
+                          <p className="text-[13px] text-soft">
+                            {ev.jourEntier ? 'Toute la journée' : heureCourte(ev.debut)}
+                            {ev.enfantPrenom ? ` · ${ev.enfantPrenom}` : ''}
+                            {ev.lieu ? ` · ${ev.lieu}` : ''}
+                          </p>
+                          {ev.texteRappel && <p className="mt-1 text-[13px]">🔔 {ev.texteRappel}</p>}
+                        </article>
+                      ))}
+                    </section>
+                  )}
+
                   {exceptionsDuJour(jourOuvert).length > 0 && (
                     <ul className="divide-y divide-line-soft border-t border-line-soft pt-1">
                       {exceptionsDuJour(jourOuvert).map((e) => (
@@ -400,14 +436,22 @@ export default function Planning() {
                     </ul>
                   )}
 
-                  <Link href="/app/exceptions" className="btn btn-ghost w-full">
-                    Gérer vacances et changements
-                  </Link>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <Link href={`/app/evenements?jour=${jourOuvert}`} className="btn btn-primary w-full">
+                      Ajouter un rendez-vous
+                    </Link>
+                    <Link href="/app/exceptions" className="btn btn-ghost w-full">
+                      Gérer vacances et changements
+                    </Link>
+                  </div>
                 </section>
               )}
 
               <div className="flex flex-col gap-2">
-                <Link href="/app/exceptions" className="btn btn-primary w-full">
+                <Link href="/app/evenements" className="btn btn-primary w-full">
+                  Ajouter un rendez-vous ou un rappel
+                </Link>
+                <Link href="/app/exceptions" className="btn btn-ghost w-full">
                   Vacances et changements ponctuels
                 </Link>
                 <p className="text-center text-xs text-soft">
