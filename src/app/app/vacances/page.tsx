@@ -21,8 +21,22 @@ function versChampDate(iso: string) {
   return iso.slice(0, 10);
 }
 /** Une date seule devient un horodatage : début de journée, ou fin de journée. */
-function auDebut(jour: string) { return new Date(`${jour}T00:00:00`).toISOString(); }
-function aLaFin(jour: string) { return new Date(`${jour}T23:59:00`).toISOString(); }
+/**
+ * Un jour et une heure deviennent un horodatage.
+ * Sans heure précisée, la période couvre la journée entière : elle commence
+ * au lever et se termine au coucher.
+ */
+function horodatage(jour: string, heure: string, defaut: string) {
+  return new Date(`${jour}T${heure || defaut}:00`).toISOString();
+}
+/** Extrait l'heure d'un horodatage, au format attendu par un champ time. */
+function heureDe(iso: string | null) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
 
 function ContenuVacances() {
   const { ctx, recharger } = useContexte();
@@ -34,6 +48,8 @@ function ContenuVacances() {
   const [parentId, setParentId] = useState('');
   const [debut, setDebut] = useState('');
   const [fin, setFin] = useState('');
+  const [heureDebut, setHeureDebut] = useState('');
+  const [heureFin, setHeureFin] = useState('');
   const [busy, setBusy] = useState(false);
   const [erreurForm, setErreurForm] = useState<string | null>(null);
 
@@ -63,6 +79,8 @@ function ContenuVacances() {
     // pré-remplies, et restent entièrement modifiables.
     setDebut(versChampDate(p.debutRetenu ?? p.debutOfficiel));
     setFin(versChampDate(p.finRetenue ?? p.finOfficielle));
+    setHeureDebut(heureDe(p.debutRetenu));
+    setHeureFin(heureDe(p.finRetenue));
     setErreurForm(null);
   }
 
@@ -77,20 +95,30 @@ function ContenuVacances() {
     const r = p.exceptionId
       ? await modifierException({
           id: p.exceptionId, parentId,
-          debut: auDebut(debut), fin: aLaFin(fin), titre: p.libelle,
+          debut: horodatage(debut, heureDebut, '00:00'),
+          fin: horodatage(fin, heureFin, '23:59'),
+          titre: p.libelle,
         })
       : await creerException({
           householdId, type: 'holiday', enfantIds: enfants.map((e) => e.id),
-          parentId, debut: auDebut(debut), fin: aLaFin(fin),
+          parentId,
+          debut: horodatage(debut, heureDebut, '00:00'),
+          fin: horodatage(fin, heureFin, '23:59'),
           titre: p.libelle, anneeScolaire: p.anneeScolaire,
           periodeOfficielleId: p.holidayId,
         });
     setBusy(false);
 
     if (r.status === 'ok') {
-      setMsg(`${p.libelle} : les enfants sont chez ${nom(parentId)}.`);
+      setMsg(heureDebut
+        ? `${p.libelle} : chez ${nom(parentId)} à partir de ${heureDebut}.`
+        : `${p.libelle} : les enfants sont chez ${nom(parentId)}.`);
       setOuvert(null); charger();
-    } else if (r.status === 'error') setErreurForm(r.message);
+    } else if (r.status === 'error') {
+      // Le détail technique accompagne le message : sans lui, un refus dû à
+      // l'horizon de l'offre est indiscernable d'une erreur de saisie.
+      setErreurForm(r.details ? `${r.message} (${r.details})` : r.message);
+    }
     else setErreurForm('Session non authentifiée. Reconnectez-vous.');
   }
 
@@ -208,6 +236,33 @@ function ContenuVacances() {
                               <input type="date" value={fin} onChange={(e) => setFin(e.target.value)} />
                             </label>
                           </div>
+
+                          {/* Les heures coupent la journée en deux dans le
+                              planning : matin chez un parent, après-midi chez
+                              l'autre. Sans heure, la journée entière compte. */}
+                          <div className="grid grid-cols-2 gap-2">
+                            <label className="block">
+                              <span className="mb-1 block text-sm font-bold">
+                                À partir de <span className="font-normal text-soft">(facultatif)</span>
+                              </span>
+                              <input type="time" value={heureDebut}
+                                     onChange={(e) => setHeureDebut(e.target.value)} />
+                            </label>
+                            <label className="block">
+                              <span className="mb-1 block text-sm font-bold">
+                                Jusqu’à <span className="font-normal text-soft">(facultatif)</span>
+                              </span>
+                              <input type="time" value={heureFin}
+                                     onChange={(e) => setHeureFin(e.target.value)} />
+                            </label>
+                          </div>
+                          {(heureDebut || heureFin) && (
+                            <p className="-mt-1 text-[12px] leading-snug text-soft">
+                              {heureDebut && `Le ${jourFr(debut)}, les enfants passent chez ${nom(parentId)} à ${heureDebut}. `}
+                              {heureFin && `Ils repartent le ${jourFr(fin)} à ${heureFin}. `}
+                              Ces journées apparaîtront coupées en deux dans le planning.
+                            </p>
+                          )}
 
                           {(debut !== p.debutOfficiel || fin !== p.finOfficielle) && (
                             <button type="button"

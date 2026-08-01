@@ -20,6 +20,12 @@ const MOIS = ['janvier','février','mars','avril','mai','juin',
 
 const jourDe = (iso: string) => iso.slice(0, 10);
 
+/** Heure locale d'un horodatage, au format HH:MM. */
+function heureDe(iso: string): string {
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 function heureCourte(iso: string) {
   return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 }
@@ -109,7 +115,20 @@ function ContenuPlanning() {
         regle.startDate < premierJour ? regle.startDate : premierJour,
         dernierJour, [], ponctuels,
       );
-      setPartagees(journeesPartagees(m, regle.handoverTime));
+      // Chaque période peut imposer son heure : celle des vacances prime sur
+      // l'heure habituelle du rythme, le jour où elle commence ou s'achève.
+      const heuresParticulieres = new Map<string, string>();
+      for (const e of exceptions) {
+        const hDebut = heureDe(e.debut);
+        const hFin = heureDe(e.fin);
+        // Minuit ou fin de journée : l'utilisateur n'a pas précisé d'heure
+        if (hDebut && hDebut !== '00:00') heuresParticulieres.set(jourDe(e.debut), hDebut);
+        if (hFin && hFin !== '23:59') {
+          // Le retour a lieu le lendemain du dernier jour de la période
+          heuresParticulieres.set(addDays(jourDe(e.fin), 1), hFin);
+        }
+      }
+      setPartagees(journeesPartagees(m, regle.handoverTime, heuresParticulieres));
       const out = new Map<string, { parentId: string; source: Source }>();
       for (const [d, a] of m) out.set(d, { parentId: a.parentId, source: a.source });
       return out;
@@ -380,6 +399,17 @@ function ContenuPlanning() {
                           {m && <ParentBadge name={m.nom} initial={m.initiale}
                                   colorKey={m.couleur === 'coral' ? 'coral' : 'navy'} compact />}
                         </p>
+                        {partagees.get(jourOuvert) && (() => {
+                          const t = partagees.get(jourOuvert)!;
+                          const mMat = membre(t.matin);
+                          const mApr = membre(t.apresMidi);
+                          return (
+                            <p className="rounded-xl bg-muted px-3 py-2 text-[13px] leading-snug">
+                              Journée partagée : chez <strong>{mMat?.nom}</strong> le matin,
+                              puis chez <strong>{mApr?.nom}</strong> à partir de <strong>{t.heure}</strong>.
+                            </p>
+                          );
+                        })()}
                         <p className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[12px] font-bold text-soft">
                           {a.source === 'holiday' && <span aria-hidden>🌴</span>}
                           {a.source !== 'rule' && a.source !== 'holiday'
