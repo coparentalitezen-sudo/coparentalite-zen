@@ -8,6 +8,10 @@
     {
       "path": "/api/rappels",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/push/envoyer",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

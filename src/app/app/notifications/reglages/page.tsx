@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { BottomNav } from '@/components/ui';
 import { Chargement, Erreur, SansFoyer, Vide } from '@/components/etats';
+import { ReglagePush } from '@/components/push';
 import { useContexte } from '@/lib/use-contexte';
 import {
   listerPreferences, definirPreference, getDelaiRappel, setDelaiRappel,
@@ -91,6 +92,8 @@ function ContenuReglages() {
             Ces réglages ne concernent que vous. L’autre parent choisit les siens
             de son côté.
           </p>
+
+          <ReglagePush clePublique={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null} />
 
           {Object.entries(parCategorie).map(([cat, liste]) => (
             <section key={cat} className="card px-4 py-4">

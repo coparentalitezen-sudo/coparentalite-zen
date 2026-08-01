@@ -129,6 +129,7 @@ SQL et leurs jeux d'essai.
 | `00027` | **rendez-vous** : consultations, activités, affaires à prévoir |
 | `00028` | **programmation des rappels** : idempotente, par délai de parent |
 | `00029` | déclencheurs de notification par observation |
+| `00030` | **notifications poussées** : abonnements et file d'envoi |
 
 ---
 
@@ -181,6 +182,23 @@ session lorsqu'il est appelé depuis une fonction `SECURITY DEFINER`.
 Deux discrétions volontaires : modifier la note d'une période ne notifie pas,
 seuls les dates et le parent gardien comptent ; corriger le libellé d'un
 rendez-vous non plus, seule la date déclenche une alerte.
+
+**Notifications poussées.** Le canal Push est actif. Un abonnement appartient
+à un **appareil**, pas à un compte : un parent alerté sur son téléphone et sa
+tablette possède deux abonnements.
+
+Le protocole chiffre de bout en bout — le serveur de distribution relaie un
+message qu'il ne peut pas lire. La bibliothèque `web-push` s'en charge ;
+l'implémenter à la main demanderait ECDH, HKDF et AES-GCM.
+
+Chaque envoi laisse une trace dans `notification_deliveries` : une notification
+déjà poussée ne l'est jamais deux fois. Un abonnement expiré (404 ou 410) est
+retiré plutôt que réessayé — l'application a été désinstallée ou la permission
+révoquée.
+
+**Sur iPhone**, le Push exige iOS 16.4 et que l'application soit installée sur
+l'écran d'accueil. Depuis Safari, la permission ne peut même pas être demandée :
+l'interface explique la marche à suivre au lieu de laisser un bouton échouer.
 
 **Rappels.** Une tâche nocturne programme trois familles de rappels :
 rendez-vous à venir avec les affaires restant à préparer, début et fin des
