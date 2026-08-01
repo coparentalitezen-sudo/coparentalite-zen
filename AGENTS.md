@@ -385,6 +385,14 @@ détails techniques sont masqués en production et regroupés dans un dépliant
 
 ## Tâches planifiées
 
+**L'offre Hobby de Vercel n'autorise qu'une exécution par jour et par tâche.**
+Un horaire plus fréquent fait échouer la construction — silencieusement : le
+déploiement n'est jamais créé, et rien n'apparaît dans la liste. C'est ce qui
+a bloqué les déploiements pendant plusieurs heures avec `*/15 * * * *`.
+
+L'acheminement des notifications poussées est donc enchaîné à la fin de la
+programmation des rappels, plutôt que de disposer de son propre créneau.
+
 `vercel.json` déclare une tâche hebdomadaire (lundi 4 h) qui appelle
 `/api/vacances/synchroniser` pour importer le calendrier scolaire officiel.
 Une fois par semaine suffit : il ne change qu'à la publication d'une nouvelle

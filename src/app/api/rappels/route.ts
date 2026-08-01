@@ -177,8 +177,29 @@ export async function GET(requete: Request) {
       }
     }
 
+    // L'offre Hobby de Vercel n'autorise qu'une exécution par jour et par
+    // tâche planifiée. L'acheminement des notifications poussées est donc
+    // enchaîné ici, dans la foulée de leur programmation, plutôt que
+    // d'attendre son propre créneau.
+    let pousses = 0;
+    try {
+      const origine = process.env.NEXT_PUBLIC_SITE_URL
+        ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
+      const secret = process.env.CRON_SECRET;
+      if (origine && secret) {
+        const r = await fetch(`${origine}/api/push/envoyer`, {
+          headers: { Authorization: `Bearer ${secret}` },
+        });
+        const c = (await r.json()) as { envoyees?: number };
+        pousses = Number(c.envoyees ?? 0);
+      }
+    } catch (e) {
+      soucis.push(`acheminement · ${e instanceof Error ? e.message : String(e)}`);
+    }
+
     return reponseJSON({
       ...bilan,
+      pousses,
       ...(soucis.length > 0 ? { soucis: soucis.slice(0, 10) } : {}),
     });
   } catch (e) {
