@@ -48,6 +48,7 @@ export default function Foyer() {
   const [nom, setNom] = useState('');
   const [email, setEmail] = useState('');
   const [lien, setLien] = useState<string | null>(null);
+  const [codeInvitation, setCodeInvitation] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmer, setConfirmer] = useState<'aucun' | 'foyer' | 'compte'>('aucun');
@@ -231,7 +232,8 @@ export default function Foyer() {
     const r = await inviteParent(householdId, email, tel);
     setBusy(false);
     if (r.status === 'ok') {
-      setLien(`${window.location.origin}/invitation/${r.data}`);
+      setLien(`${window.location.origin}/invitation/${r.data.jeton}`);
+      setCodeInvitation(r.data.code);
       setMsgInvitation({ kind: 'ok', text: 'Lien créé, valable sept jours.' });
     } else if (r.status === 'demo') {
       setMsgInvitation({ kind: 'err', text: 'Session non authentifiée. Reconnectez-vous.' });
@@ -840,6 +842,24 @@ export default function Foyer() {
                 return (
                   <div className="space-y-2.5 rounded-xl bg-muted p-3">
                     <p className="text-[13px] font-bold">Lien créé — transmettez-le</p>
+
+                    {/* Le code voyage par un AUTRE canal que le lien : c'est
+                        tout l'intérêt. Un SMS transféré ne suffit alors pas. */}
+                    {codeInvitation && (
+                      <div className="rounded-xl bg-card px-3 py-3 text-center">
+                        <p className="text-[12px] font-semibold text-soft">
+                          Code de confirmation
+                        </p>
+                        <p className="mt-0.5 font-mono text-[26px] font-black tracking-[0.2em]">
+                          {codeInvitation}
+                        </p>
+                        <p className="mt-1.5 text-[12px] leading-snug text-soft">
+                          Dites-lui ce code <strong>de vive voix</strong>, ou dans un
+                          message séparé. Sans lui, le lien ne donne accès à rien —
+                          même transféré par erreur.
+                        </p>
+                      </div>
+                    )}
                     <p className="break-all rounded-lg bg-card px-2.5 py-2 text-[12px] leading-snug">
                       {lien}
                     </p>

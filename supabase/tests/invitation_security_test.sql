@@ -200,3 +200,120 @@ begin
 end $$;
 
 select 'TOUS LES TESTS DE SÉCURITÉ D''INVITATION SONT PASSÉS' as resultat;
+
+-- ============================================================
+-- C1 à C7 — CODE DE CONFIRMATION
+--
+-- Une invitation sans adresse n'a que le lien pour secret, et la page de
+-- connexion ne filtre rien : quiconque le reçoit peut créer un compte et
+-- rejoindre le foyer. Le code à six chiffres, transmis par un autre canal,
+-- rétablit le double verrou.
+-- ============================================================
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
+
+-- ============ C1 : une invitation par téléphone porte un code ============
+do $$
+declare r record;
+begin
+  select * into r from public.create_invitation(
+    'aaaaaaaa-0000-0000-0000-000000000001', null, 'parent'::member_role, '0612345678');
+  if r.code is null then
+    raise exception 'ÉCHEC C1 : aucune code généré pour une invitation sans adresse';
+  end if;
+  if length(r.code) <> 6 or r.code !~ '^[0-9]{6}$' then
+    raise exception 'ÉCHEC C1b : code mal formé (%)', r.code;
+  end if;
+  perform set_config('app.tok_tel', r.jeton::text, false);
+  perform set_config('app.code_tel', r.code, false);
+  raise notice 'C1 OK — code à six chiffres généré';
+end $$;
+
+-- ============ C2 : une invitation par e-mail n'en porte pas ============
+do $$
+declare r record;
+begin
+  select * into r from public.create_invitation(
+    'aaaaaaaa-0000-0000-0000-000000000001', 'avec.adresse@test.fr');
+  if r.code is not null then
+    raise exception 'ÉCHEC C2 : un code est exigé alors que l''adresse verrouille déjà';
+  end if;
+  raise notice 'C2 OK — pas de code superflu quand l''adresse suffit';
+end $$;
+
+-- ============ C3 : le destinataire sait qu'un code sera demandé ============
+do $$
+begin
+  if not public.invitation_exige_code(current_setting('app.tok_tel')::uuid) then
+    raise exception 'ÉCHEC C3 : l''exigence de code n''est pas annoncée';
+  end if;
+  raise notice 'C3 OK — l''exigence est annoncée avant toute authentification';
+end $$;
+
+-- ============ C4 : sans code, l'invitation est refusée ============
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000f5', false);
+do $$
+begin
+  begin
+    perform public.accept_invitation(current_setting('app.tok_tel')::uuid);
+    raise exception 'ÉCHEC C4 : le lien seul a suffi à rejoindre le foyer';
+  exception when others then
+    if sqlerrm like 'ÉCHEC%' then raise; end if;
+    if sqlerrm not like '%code de confirmation%' then
+      raise exception 'ÉCHEC C4b : motif inattendu (%)', sqlerrm;
+    end if;
+  end;
+  raise notice 'C4 OK — un lien intercepté ne suffit pas';
+end $$;
+
+-- ============ C5 : un code erroné est refusé et décompté ============
+do $$
+declare tentatives_avant int;
+begin
+  tentatives_avant := public.test_tentatives_invitation(current_setting('app.tok_tel')::uuid);
+  -- Un code erroné renvoie NULL plutôt que de lever une exception : sans quoi
+  -- la transaction annulée emporterait le comptage des tentatives.
+  if public.accept_invitation(current_setting('app.tok_tel')::uuid, '000000') is not null then
+    raise exception 'ÉCHEC C5 : un code erroné a été accepté';
+  end if;
+  if public.test_tentatives_invitation(current_setting('app.tok_tel')::uuid) <> tentatives_avant + 1 then
+    raise exception 'ÉCHEC C5c : la tentative n''a pas été comptée';
+  end if;
+  raise notice 'C5 OK — code erroné refusé et décompté';
+end $$;
+
+-- ============ C6 : cinq échecs révoquent l'invitation ============
+do $$
+declare i int; statut text;
+begin
+  -- Un million de combinaisons se parcourt vite : sans plafond, l'essai
+  -- exhaustif viendrait à bout du code.
+  for i in 1..4 loop
+    begin
+      perform public.accept_invitation(current_setting('app.tok_tel')::uuid, '111111');
+    exception when others then null;
+    end;
+  end loop;
+  statut := public.test_statut_invitation(current_setting('app.tok_tel')::uuid);
+  if statut <> 'revoked' then
+    raise exception 'ÉCHEC C6 : statut % après cinq échecs, révocation attendue', statut;
+  end if;
+  raise notice 'C6 OK — révocation automatique au cinquième échec';
+end $$;
+
+-- ============ C7 : le bon code ouvre bien le foyer ============
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
+do $$
+declare r record; hid uuid;
+begin
+  select * into r from public.create_invitation(
+    'aaaaaaaa-0000-0000-0000-000000000001', null, 'parent'::member_role, '0698765432');
+
+  perform set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000f6', false);
+  hid := public.accept_invitation(r.jeton, r.code);
+  if hid is null then
+    raise exception 'ÉCHEC C7 : le bon code n''a pas ouvert le foyer';
+  end if;
+  raise notice 'C7 OK — le bon code donne accès, transmis par un autre canal';
+end $$;
+
+select 'TESTS DU CODE DE CONFIRMATION PASSÉS' as resultat;

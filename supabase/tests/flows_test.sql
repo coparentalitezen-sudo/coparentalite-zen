@@ -34,7 +34,7 @@ end $$;
 do $$
 declare tok uuid; hid uuid := current_setting('app.test_hid')::uuid;
 begin
-  tok := public.create_invitation(hid, 'Oscar@Test.fr');
+  select jeton into tok from public.create_invitation(hid, 'Oscar@Test.fr');
   perform set_config('app.test_tok', tok::text, false);
   if not exists (select 1 from invitations where token = tok and email = 'oscar@test.fr' and status = 'pending') then
     raise exception 'ÉCHEC T22 : invitation absente ou e-mail non normalisé';

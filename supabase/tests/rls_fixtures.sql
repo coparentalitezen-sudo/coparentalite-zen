@@ -352,3 +352,19 @@ begin
   update invitations set expires_at = now() - interval '1 day' where token = p_token;
 end $$;
 grant execute on function public.test_expirer_invitation(uuid) to authenticated;
+
+/** Nombre de tentatives sur une invitation, hors RLS. */
+create or replace function public.test_tentatives_invitation(p_token uuid) returns int
+language sql security definer set search_path = public as $$
+  select coalesce(tentatives, 0)::int from invitations where token = p_token
+$$;
+grant execute on function public.test_tentatives_invitation(uuid) to authenticated;
+
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000000f5', 'destinataire1@test.fr'),
+  ('00000000-0000-0000-0000-0000000000f6', 'destinataire2@test.fr')
+on conflict (id) do nothing;
+insert into profiles (id, email, display_name) values
+  ('00000000-0000-0000-0000-0000000000f5', 'destinataire1@test.fr', 'Destinataire 1'),
+  ('00000000-0000-0000-0000-0000000000f6', 'destinataire2@test.fr', 'Destinataire 2')
+on conflict (id) do nothing;
