@@ -11,7 +11,7 @@ import { ProgressionDetaillee } from '@/components/progression';
 import { InstallAppCard } from '@/components/install-app-card';
 import { invitationPrematuree, type EtatConfiguration } from '@/lib/configuration';
 import {
-  normaliserTelephone, messageInvitation, lienSMS, lienCourriel,
+  normaliserTelephone, formaterTelephone, messageInvitation, lienSMS, lienCourriel,
 } from '@/lib/partage-invitation';
 import {
   MODELES, modele, cycleParDefaut, repartition, validerCyclePersonnalise,
@@ -763,6 +763,25 @@ export default function Foyer() {
                 </span>
               </label>
 
+              {/* Le numéro se saisit ici, avec l'adresse : le proposer
+                  seulement après la création du lien reviendrait à cacher
+                  qu'un envoi par SMS est possible. */}
+              <label className="block">
+                <span className="mb-1 block text-sm font-bold">
+                  Son numéro de téléphone{' '}
+                  <span className="font-normal text-soft">(facultatif)</span>
+                </span>
+                <input type="tel" inputMode="tel" autoComplete="off"
+                       maxLength={20} value={telSecond}
+                       placeholder="06 12 34 56 78"
+                       onChange={(e) => setTelSecond(e.target.value)} />
+                <span className="mt-1 block text-xs text-soft">
+                  {telSecond && !normaliserTelephone(telSecond)
+                    ? 'Numéro non reconnu — vous pourrez choisir le contact au moment de l’envoi.'
+                    : 'Pour lui transmettre le lien par SMS depuis votre téléphone.'}
+                </span>
+              </label>
+
               <button className="btn btn-primary w-full" disabled={busy || !email.trim()}
                       onClick={() => inviter(ctx.contexte.foyer.id)}>
                 {busy ? 'Création…' : 'Créer le lien d’invitation'}
@@ -783,24 +802,9 @@ export default function Foyer() {
                     {/* Le message part depuis VOTRE téléphone : le second
                         parent reconnaît l'expéditeur, là où un envoi
                         automatique passerait pour du démarchage. */}
-                    <label className="block">
-                      <span className="mb-1 block text-sm font-bold">
-                        Son numéro <span className="font-normal text-soft">(facultatif)</span>
-                      </span>
-                      <input type="tel" inputMode="tel" autoComplete="off"
-                             maxLength={20} value={telSecond}
-                             placeholder="06 12 34 56 78"
-                             onChange={(e) => setTelSecond(e.target.value)} />
-                      {telSecond && !tel && (
-                        <span className="mt-1 block text-[12px] font-semibold text-wait">
-                          Numéro non reconnu — vous pourrez le choisir dans vos contacts.
-                        </span>
-                      )}
-                    </label>
-
                     <a href={lienSMS(telSecond, texte)}
                        className="btn btn-primary w-full">
-                      Envoyer par SMS
+                      {tel ? `Envoyer par SMS au ${formaterTelephone(tel)}` : 'Envoyer par SMS'}
                     </a>
 
                     <div className="grid grid-cols-2 gap-2">
