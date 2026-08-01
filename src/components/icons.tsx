@@ -7,11 +7,15 @@
 export type NomIcone =
   | 'cloche' | 'check' | 'info' | 'chevron' | 'pousse'
   | 'calendrier' | 'presse-papier' | 'echange' | 'recu'
-  | 'ecole' | 'sport' | 'sante' | 'repas' | 'transport' | 'cadeau' | 'personnes';
+  | 'ecole' | 'sport' | 'sante' | 'repas' | 'transport' | 'cadeau' | 'personnes'
+  | 'telecharger' | 'croix';
 
 const TRACES: Record<NomIcone, string[]> = {
   cloche: ['M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9', 'M13.7 21a2 2 0 0 1-3.4 0'],
   check: ['M20 6 9 17l-5-5'],
+  // Flèche vers un socle : l'installation sur l'appareil
+  telecharger: ['M12 3v12', 'm7 10 5 5 5-5', 'M4 19h16'],
+  croix: ['M18 6 6 18', 'm6 6 12 12'],
   info: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z', 'M12 16v-4', 'M12 8h.01'],
   chevron: ['m9 18 6-6-6-6'],
   pousse: ['M12 20v-8', 'M12 12c0-3 2.5-5 6-5 0 3.5-2.5 5-6 5Z', 'M12 14c0-2.5-2-4-5-4 0 2.8 2 4 5 4Z'],

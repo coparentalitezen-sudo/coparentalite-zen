@@ -7,30 +7,61 @@
  * souvent solliciterait la base sans bénéfice, moins souvent laisserait passer
  * un changement de garde imminent.
  */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { compterNonLues } from '@/lib/actions';
 import { useContexte } from '@/lib/use-contexte';
 import { Icone } from './icons';
 
+/**
+ * Signale que des notifications viennent d'être lues.
+ *
+ * Sans ce signal, la cloche garde sa pastille jusqu'au prochain rafraîchissement
+ * automatique — jusqu'à deux minutes après que le parent a tout lu.
+ */
+export const EVENEMENT_LECTURE = 'coparentalite:notifications-lues';
+
+export function signalerLecture() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(EVENEMENT_LECTURE));
+  }
+}
+
 export function Cloche() {
   const { ctx } = useContexte();
+  const chemin = usePathname();
   const [nonLues, setNonLues] = useState(0);
 
-  useEffect(() => {
-    if (ctx.etat !== 'pret') return;
-    const hid = ctx.contexte.foyer.id;
-    let vivant = true;
+  const hid = ctx.etat === 'pret' ? ctx.contexte.foyer.id : null;
 
-    const rafraichir = () => {
-      compterNonLues(hid).then((r) => {
-        if (vivant && r.status === 'ok') setNonLues(r.data);
-      });
-    };
+  const rafraichir = useCallback(() => {
+    if (!hid) return;
+    compterNonLues(hid).then((r) => {
+      if (r.status === 'ok') setNonLues(r.data);
+    });
+  }, [hid]);
+
+  useEffect(() => {
+    if (!hid) return;
     rafraichir();
+
+    // Trois occasions de se mettre à jour, en plus du rythme régulier :
+    // une lecture signalée, un changement d'écran, un retour dans l'onglet.
+    const surRetour = () => { if (!document.hidden) rafraichir(); };
+    window.addEventListener(EVENEMENT_LECTURE, rafraichir);
+    document.addEventListener('visibilitychange', surRetour);
     const minuterie = setInterval(rafraichir, 120_000);
-    return () => { vivant = false; clearInterval(minuterie); };
-  }, [ctx]);
+
+    return () => {
+      window.removeEventListener(EVENEMENT_LECTURE, rafraichir);
+      document.removeEventListener('visibilitychange', surRetour);
+      clearInterval(minuterie);
+    };
+  }, [hid, rafraichir]);
+
+  // Quitter l'écran des notifications remet forcément le décompte à jour
+  useEffect(() => { rafraichir(); }, [chemin, rafraichir]);
 
   const libelle = nonLues > 0
     ? `Notifications, ${nonLues} non lue${nonLues > 1 ? 's' : ''}`

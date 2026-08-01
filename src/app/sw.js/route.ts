@@ -69,6 +69,58 @@ function estImagePublique(url) {
       || /\\.(png|jpg|jpeg|webp|svg|ico|woff2?)$/i.test(url.pathname);
 }
 
+/* ---------- Notifications poussées ---------- */
+
+/*
+ * Une notification arrive : le service worker l'affiche même application
+ * fermée. Le message est chiffré de bout en bout — le serveur de distribution
+ * ne peut pas le lire, seul cet appareil le déchiffre.
+ */
+self.addEventListener('push', (event) => {
+  let contenu = {};
+  try {
+    contenu = event.data ? event.data.json() : {};
+  } catch (e) {
+    contenu = { title: 'Coparentalité Zen' };
+  }
+
+  const titre = contenu.title || 'Coparentalité Zen';
+  const options = {
+    body: contenu.body || '',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-96.png',
+    /* Regroupe les alertes similaires plutôt que d'empiler les bannières */
+    tag: contenu.tag || 'coparentalite-zen',
+    renotify: false,
+    data: { url: contenu.url || '/app/notifications' },
+    lang: 'fr',
+  };
+  event.waitUntil(self.registration.showNotification(titre, options));
+});
+
+/*
+ * Toucher la notification ouvre l'écran concerné. Si l'application est déjà
+ * ouverte, on y navigue plutôt que d'ouvrir un second onglet.
+ */
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const cible = (event.notification.data && event.notification.data.url)
+    || '/app/notifications';
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then((fenetres) => {
+        for (const f of fenetres) {
+          if (f.url.includes('/app') && 'focus' in f) {
+            f.navigate(cible);
+            return f.focus();
+          }
+        }
+        return self.clients.openWindow(cible);
+      })
+  );
+});
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;

@@ -10,6 +10,7 @@ import {
   listerNotifications, marquerLue, marquerToutLu,
   type Notification,
 } from '@/lib/actions';
+import { signalerLecture } from '@/components/cloche';
 
 /** « il y a 3 heures », « hier », « le 12 mars ». */
 function quand(iso: string): string {
@@ -50,6 +51,8 @@ function ContenuNotifications() {
       await marquerLue(n.id);
       setListe((l) => (l ?? []).map((x) =>
         x.id === n.id ? { ...x, lueLe: new Date().toISOString() } : x));
+      // La cloche doit perdre sa pastille tout de suite, pas dans deux minutes
+      signalerLecture();
     }
   }
 
@@ -58,7 +61,7 @@ function ContenuNotifications() {
     setBusy(true);
     const r = await marquerToutLu(ctx.contexte.foyer.id);
     setBusy(false);
-    if (r.status === 'ok') charger();
+    if (r.status === 'ok') { signalerLecture(); charger(); }
   }
 
   return (
