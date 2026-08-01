@@ -39,80 +39,80 @@ export default function manifest(): MetadataRoute.Manifest {
 
     icons: [
       {
-        src: '/icons/icon-48.png',
+        src: '/icons/icon-48.png?v=4',
         sizes: '48x48',
         type: 'image/png',
         purpose: 'any',
       },
       {
-        src: '/icons/icon-72.png',
+        src: '/icons/icon-72.png?v=4',
         sizes: '72x72',
         type: 'image/png',
         purpose: 'any',
       },
       {
-        src: '/icons/icon-96.png',
+        src: '/icons/icon-96.png?v=4',
         sizes: '96x96',
         type: 'image/png',
         purpose: 'any',
       },
       {
-        src: '/icons/icon-128.png',
+        src: '/icons/icon-128.png?v=4',
         sizes: '128x128',
         type: 'image/png',
         purpose: 'any',
       },
       {
-        src: '/icons/icon-144.png',
+        src: '/icons/icon-144.png?v=4',
         sizes: '144x144',
         type: 'image/png',
         purpose: 'any',
       },
       {
-        src: '/icons/icon-152.png',
+        src: '/icons/icon-152.png?v=4',
         sizes: '152x152',
         type: 'image/png',
         purpose: 'any',
       },
       {
-        src: '/icons/icon-192.png',
+        src: '/icons/icon-192.png?v=4',
         sizes: '192x192',
         type: 'image/png',
         purpose: 'any',
       },
       {
-        src: '/icons/icon-256.png',
+        src: '/icons/icon-256.png?v=4',
         sizes: '256x256',
         type: 'image/png',
         purpose: 'any',
       },
       {
-        src: '/icons/icon-384.png',
+        src: '/icons/icon-384.png?v=4',
         sizes: '384x384',
         type: 'image/png',
         purpose: 'any',
       },
       {
-        src: '/icons/icon-512.png',
+        src: '/icons/icon-512.png?v=4',
         sizes: '512x512',
         type: 'image/png',
         purpose: 'any',
       },
       {
         // Grand format demandé par certains magasins et par les aperçus système
-        src: '/icons/icon-1024.png',
+        src: '/icons/icon-1024.png?v=4',
         sizes: '1024x1024',
         type: 'image/png',
         purpose: 'any',
       },
       {
-        src: '/icons/maskable-192.png',
+        src: '/icons/maskable-192.png?v=4',
         sizes: '192x192',
         type: 'image/png',
         purpose: 'maskable',
       },
       {
-        src: '/icons/maskable-512.png',
+        src: '/icons/maskable-512.png?v=4',
         sizes: '512x512',
         type: 'image/png',
         purpose: 'maskable',
@@ -127,7 +127,7 @@ export default function manifest(): MetadataRoute.Manifest {
         url: '/app/ajouter?source=pwa-shortcut',
         icons: [
           {
-            src: '/icons/icon-192.png',
+            src: '/icons/icon-192.png?v=4',
             sizes: '192x192',
             type: 'image/png',
           },
@@ -140,7 +140,7 @@ export default function manifest(): MetadataRoute.Manifest {
         url: '/app/planning?source=pwa-shortcut',
         icons: [
           {
-            src: '/icons/icon-192.png',
+            src: '/icons/icon-192.png?v=4',
             sizes: '192x192',
             type: 'image/png',
           },
@@ -153,7 +153,7 @@ export default function manifest(): MetadataRoute.Manifest {
         url: '/app/depenses?source=pwa-shortcut',
         icons: [
           {
-            src: '/icons/icon-192.png',
+            src: '/icons/icon-192.png?v=4',
             sizes: '192x192',
             type: 'image/png',
           },

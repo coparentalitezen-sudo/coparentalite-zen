@@ -16,19 +16,19 @@ export const metadata: Metadata = {
   formatDetection: { telephone: false },
   icons: {
     icon: [
-      { url: '/favicon.ico?v=3', sizes: 'any' },
-      { url: '/icons/icon-32.png?v=3', sizes: '32x32', type: 'image/png' },
-      { url: '/icons/maskable-192.png?v=3', sizes: '192x192', type: 'image/png' },
-      { url: '/icons/maskable-512.png?v=3', sizes: '512x512', type: 'image/png' },
+      { url: '/favicon.ico?v=4', sizes: 'any' },
+      { url: '/icons/icon-32.png?v=4', sizes: '32x32', type: 'image/png' },
+      { url: '/icons/icon-192.png?v=4', sizes: '192x192', type: 'image/png' },
+      { url: '/icons/icon-512.png?v=4', sizes: '512x512', type: 'image/png' },
     ],
     apple: [
-      { url: '/icons/maskable-192.png?v=3', sizes: '180x180', type: 'image/png' },
-      { url: '/icons/maskable-192.png?v=3', sizes: '167x167', type: 'image/png' },
-      { url: '/icons/maskable-192.png?v=3', sizes: '152x152', type: 'image/png' },
-      { url: '/icons/maskable-192.png?v=3', sizes: '120x120', type: 'image/png' },
+      { url: '/icons/apple-touch-icon-180.png?v=4', sizes: '180x180', type: 'image/png' },
+      { url: '/icons/apple-touch-icon-167.png?v=4', sizes: '167x167', type: 'image/png' },
+      { url: '/icons/apple-touch-icon-152.png?v=4', sizes: '152x152', type: 'image/png' },
+      { url: '/icons/apple-touch-icon-120.png?v=4', sizes: '120x120', type: 'image/png' },
     ],
   },
-  manifest: '/manifest.webmanifest?v=3',
+  manifest: '/manifest.webmanifest?v=4',
   openGraph: {
     title: 'Coparentalité Zen',
     description: 'S’organiser • Coopérer • Avancer — pour le bien de nos enfants.',

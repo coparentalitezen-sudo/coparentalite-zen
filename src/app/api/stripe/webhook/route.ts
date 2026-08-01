@@ -32,6 +32,21 @@ function statutSupabase(statutStripe: string): string {
   }
 }
 
+async function confirmerEvenement(service: ReturnType<typeof supabaseService>, eventId: string) {
+  if (!service) throw new Error('Client de service indisponible');
+  const { error } = await service.rpc('confirm_billing_event', { p_event_id: eventId });
+  if (error) throw new Error(`Confirmation de facturation impossible : ${error.message}`);
+}
+
+async function signalerEchec(
+  service: NonNullable<ReturnType<typeof supabaseService>>, eventId: string, message: string,
+) {
+  const { error } = await service.rpc('fail_billing_event', {
+    p_event_id: eventId, p_erreur: message,
+  });
+  if (error) console.error('[webhook] journalisation de l’échec', error.message);
+}
+
 export async function POST(requete: Request) {
   const config = configStripe();
   if (!config) {
@@ -88,7 +103,7 @@ export async function POST(requete: Request) {
       if (mode === 'payment' && metadonnees.type === 'extension') {
         if (!householdId || !metadonnees.extension_id) {
           console.error('[webhook] extension sans métadonnées exploitables');
-          await service.rpc('confirm_billing_event', { p_event_id: evenement.id });
+          await confirmerEvenement(service, evenement.id);
           return NextResponse.json({ recu: true, ignore: true });
         }
         const { error } = await service.rpc('grant_extension', {
@@ -145,7 +160,7 @@ export async function POST(requete: Request) {
         ?? ((objet.metadata as Record<string, string>)?.household_id ?? null);
       if (!foyer) {
         console.error('[webhook] abonnement sans foyer rattaché');
-        await service.rpc('confirm_billing_event', { p_event_id: evenement.id });
+        await confirmerEvenement(service, evenement.id);
         return NextResponse.json({ recu: true, ignore: true });
       }
       const items = objet.items as { data?: { price?: { id?: string } }[] } | undefined;
@@ -169,12 +184,12 @@ export async function POST(requete: Request) {
 
     // Marqué traité seulement maintenant : un échec plus haut laisse
     // l'événement rejouable par Stripe.
-    await service.rpc('confirm_billing_event', { p_event_id: evenement.id });
+    await confirmerEvenement(service, evenement.id);
     return NextResponse.json({ recu: true });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     console.error('[webhook]', evenement.type, message);
-    await service.rpc('fail_billing_event', { p_event_id: evenement.id, p_erreur: message });
+    await signalerEchec(service, evenement.id, message);
     // 500 : Stripe réessaiera, et record_billing_event autorisera la reprise
     return NextResponse.json({ message: 'Traitement à reprendre.' }, { status: 500 });
   }

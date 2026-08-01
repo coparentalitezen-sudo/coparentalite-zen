@@ -3,21 +3,21 @@
 Génération des icônes et écrans de démarrage de Coparentalité Zen.
 
 POURQUOI CE SCRIPT
-Le symbole source occupe 100 % de la largeur de son fichier et touche les bords
-gauche et droit. Toute icône générée avec une marge insuffisante se retrouve
+Le symbole source est détouré et ne contient aucun texte. Il est replacé
+avec une zone de sécurité suffisante pour les masques iOS et Android. Toute icône générée avec une marge insuffisante se retrouve
 rognée : iOS applique un masque à coins arrondis, Android un masque circulaire.
 Le logo doit donc être recadré sur son contenu réel, puis replacé avec des
 marges conformes aux recommandations des deux plateformes.
 
 RÈGLES APPLIQUÉES
-  * Icône « any »      : le logo occupe 80 % de la largeur — visible en entier,
+  * Icône « any »      : le symbole occupe 66 % de la largeur — visible en entier,
                          quelle que soit la forme du masque appliqué.
   * Icône « maskable » : Android garantit uniquement un cercle de 80 % du
                          canevas. Un carré inscrit dans ce cercle mesure
                          0,8 / √2 ≈ 56 % du côté. Le logo est donc limité à
                          54 % pour rester intact même sur un masque circulaire.
   * Apple touch icon   : fond opaque obligatoire (iOS ne gère pas la
-                         transparence), logo à 76 %.
+                         transparence), symbole à 62 %.
   * Écrans de démarrage: logo à 46 % de la largeur de l'écran, centré
                          optiquement (légèrement au-dessus du milieu).
 
@@ -33,10 +33,10 @@ PUBLIC = RACINE / 'public'
 CREME = (252, 249, 246, 255)          # --color-cream, fond de l'application
 
 # Proportion de la LARGEUR du canevas occupée par le logo
-PART_ANY = 0.80
-PART_MASKABLE = 0.54
-PART_APPLE = 0.76
-PART_SPLASH = 0.46
+PART_ANY = 0.66
+PART_MASKABLE = 0.52
+PART_APPLE = 0.62
+PART_SPLASH = 0.34
 
 
 def symbole_recadre() -> Image.Image:

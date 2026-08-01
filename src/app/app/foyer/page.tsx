@@ -485,8 +485,10 @@ export default function Foyer() {
                         parent1={{ nom: p1.nom, initiale: p1.initiale, couleur: p1.couleur }}
                         parent2={{ nom: p2.nom, initiale: p2.initiale, couleur: p2.couleur }}
                       />
-                      <p className="mt-1 text-[12px] text-soft">
-                        Touchez un jour pour changer de parent. Le cycle se répète indéfiniment.
+                      <p className="mt-1 text-[12px] leading-snug text-soft">
+                        Touchez un jour pour changer de parent. Les colonnes restent toujours liées
+                        aux vrais jours de la semaine : une bascule choisie le vendredi apparaîtra
+                        bien chaque vendredi dans le planning.
                       </p>
                     </div>
 
@@ -538,10 +540,14 @@ export default function Foyer() {
                 </p>
 
                 <label className="block">
-                  <span className="mb-1 block text-sm font-bold">Date de début du cycle</span>
+                  <span className="mb-1 block text-sm font-bold">
+                    {rythme === 'custom' ? "Date d’entrée en vigueur" : 'Date de début du cycle'}
+                  </span>
                   <input type="date" value={debut} onChange={(e) => setDebut(e.target.value)} />
-                  <span className="mt-1 block text-xs text-soft">
-                    Le cycle démarre chez {p1.nom} à cette date.
+                  <span className="mt-1 block text-xs leading-snug text-soft">
+                    {rythme === 'custom'
+                      ? 'Le planning appliquera à cette date le parent prévu pour ce vrai jour de la semaine. La grille reste ancrée du lundi au dimanche.'
+                      : `Le cycle démarre chez ${p1.nom} à cette date.`}
                   </span>
                 </label>
 

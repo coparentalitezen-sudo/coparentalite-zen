@@ -29,10 +29,10 @@ const PAGE_HORS_LIGNE = '/hors-ligne';
 // Coquille minimale : uniquement des ressources publiques et non personnelles
 const PRECHARGE = [
   PAGE_HORS_LIGNE,
-  '/manifest.webmanifest',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
-  '/symbole.png',
+  '/manifest.webmanifest?v=4',
+  '/icons/icon-192.png?v=4',
+  '/icons/icon-512.png?v=4',
+  '/symbole.png?v=4',
 ];
 
 self.addEventListener('install', (e) => {

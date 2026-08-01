@@ -1,34 +1,53 @@
-# Coparentalité Zen — Application (Next.js 15 + Supabase)
+# Coparentalité Zen
 
-## Démarrage
+Application Next.js/Supabase destinée aux parents séparés : planning de garde,
+vacances et exceptions, dépenses partagées, remboursements, justificatifs,
+notifications internes et offre Zen Plus.
+
+## Installation locale
+
 ```bash
-npm install
-npm run dev        # http://localhost:3000 — mode démo (données fictives)
-npm test           # 34 tests moteurs (planning + budget)
-npm run typecheck  # TypeScript strict
-npm run build      # build de production (vérifié : 12 routes)
+npm ci
+npm run dev
 ```
 
-## Mode démo vs production
-Sans variables d'environnement, l'app tourne en **mode démonstration** : navigation
-complète avec données fictives, bandeau « Version de démonstration » affiché.
-Pour la production, créer `.env.local` :
-```
-NEXT_PUBLIC_SUPABASE_URL=https://<projet>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<clé anon>
-```
-puis appliquer les migrations du dossier `supabase/migrations/` (voir RAPPORT-TESTS-BDD.md).
+Copier `.env.example` vers `.env.local` et renseigner les variables nécessaires.
+Les secrets (`SUPABASE_SERVICE_ROLE_KEY`, clés Stripe et `CRON_SECRET`) ne doivent
+jamais être préfixés par `NEXT_PUBLIC_` ni être commités.
 
-## Structure
-- `src/lib/custody.ts`, `src/lib/money.ts` — moteurs métier testés (34 tests)
-- `src/lib/demo-data.ts` — données fictives du mode démo
-- `src/lib/supabase/` — clients navigateur et serveur
-- `src/app/` — landing, connexion, inscription, et `/app/*` (accueil, planning, ajouter, dépenses, plus)
-- `src/app/globals.css` — design tokens extraits du logo officiel
-- `public/` — logo, symbole, icônes PWA, favicon, image Open Graph
-- `supabase/` — migrations, RLS, tests d'isolation (voir zips précédents)
+## Vérifications
 
-## État honnête (22/07/2026)
-Fonctionnel et testé : moteurs, build, rendu SSR des 5 écrans, PWA manifest, mode démo.
-Fonctionnel non testé en conditions réelles : formulaires Supabase Auth (nécessitent un projet Supabase).
-Non développé : écrans détaillés du menu Plus, justificatifs, messagerie, rapports PDF, e-mails, Stripe.
+```bash
+npm run typecheck
+npm test
+npm run build
+npm run test:sql
+npm run test:e2e
+```
+
+Les tests E2E publics contrôlent l'installation PWA, les routes publiques et les
+gardes d'authentification. Les parcours authentifiés complets nécessitent un
+environnement Supabase de test isolé ; ils ne doivent pas être déclarés validés
+s'ils n'ont pas réellement été exécutés.
+
+## Base de données
+
+Les migrations sont dans `supabase/migrations/` et doivent être appliquées dans
+l'ordre. Toujours versionner une modification SQL avant de l'appliquer à la
+production afin que le dépôt et la base restent synchronisés.
+
+## Déploiement
+
+Vercel déploie le code Next.js. Avant toute mise en production :
+
+1. appliquer les migrations rétrocompatibles ;
+2. exécuter les tests ;
+3. déployer le code ;
+4. vérifier `/api/diagnostic`, les journaux Vercel et le dernier commit affiché.
+
+## Statut produit
+
+Le produit possède les principaux flux métier. Avant une commercialisation à
+grande échelle, maintenir un environnement de staging et exécuter de vrais
+parcours authentifiés de bout en bout, notamment invitation du second parent,
+planning, dépenses, justificatifs et Stripe en mode test.

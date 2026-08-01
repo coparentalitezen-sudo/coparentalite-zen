@@ -3,7 +3,7 @@ import {
   MODELES, modele, schemaDeuxSemaines, repartition,
   cycleParDefaut, validerCyclePersonnalise,
 } from '../src/lib/rythmes';
-import { buildDayMap } from '../src/lib/custody';
+import { buildDayMap, journeesPartagees } from '../src/lib/custody';
 
 describe('catalogue des rythmes', () => {
   it('propose les six modèles annoncés', () => {
@@ -122,6 +122,49 @@ describe('cycle personnalisé', () => {
     expect(m.get('2026-07-08')!.parentId).toBe('p1');
     // et le cycle se répète
     expect(m.get('2026-07-13')!.parentId).toBe('p2');
+  });
+
+  it('conserve les bascules sur le bon jour de semaine quand la règle commence en cours de semaine', () => {
+    // La grille est saisie lundi -> dimanche. Ici, P1 a les enfants du lundi
+    // au jeudi et P2 du vendredi au dimanche. La règle entre en vigueur un
+    // mercredi : le vendredi doit malgré tout rester le jour de bascule.
+    const cycle: ('P1' | 'P2')[] = [
+      'P1', 'P1', 'P1', 'P1', 'P2', 'P2', 'P2',
+      'P1', 'P1', 'P1', 'P1', 'P2', 'P2', 'P2',
+    ];
+    const m = buildDayMap(
+      { pattern: 'custom', startDate: '2026-07-08', parent1: 'p1', parent2: 'p2', customCycle: cycle },
+      '2026-07-08', '2026-07-19',
+    );
+
+    expect(m.get('2026-07-08')!.parentId).toBe('p1'); // mercredi
+    expect(m.get('2026-07-09')!.parentId).toBe('p1'); // jeudi
+    expect(m.get('2026-07-10')!.parentId).toBe('p2'); // vendredi : bascule
+    expect(m.get('2026-07-12')!.parentId).toBe('p2'); // dimanche
+    expect(m.get('2026-07-13')!.parentId).toBe('p1'); // lundi suivant
+    expect(m.get('2026-07-17')!.parentId).toBe('p2'); // vendredi suivant
+
+    const transitions = journeesPartagees(m, '18:00');
+    expect(transitions.get('2026-07-10')).toMatchObject({
+      matin: 'p1', apresMidi: 'p2', heure: '18:00',
+    });
+    expect(transitions.get('2026-07-17')).toMatchObject({
+      matin: 'p1', apresMidi: 'p2', heure: '18:00',
+    });
+  });
+
+  it('conserve aussi le vendredi comme bascule quand la règle entre en vigueur un vendredi', () => {
+    const cycle: ('P1' | 'P2')[] = [
+      'P1', 'P1', 'P1', 'P1', 'P2', 'P2', 'P2',
+    ];
+    const m = buildDayMap(
+      { pattern: 'custom', startDate: '2026-07-10', parent1: 'p1', parent2: 'p2', customCycle: cycle },
+      '2026-07-10', '2026-07-19',
+    );
+
+    expect(m.get('2026-07-10')!.parentId).toBe('p2');
+    expect(m.get('2026-07-13')!.parentId).toBe('p1');
+    expect(m.get('2026-07-17')!.parentId).toBe('p2');
   });
 
   it('la répartition annonce des chiffres exacts', () => {

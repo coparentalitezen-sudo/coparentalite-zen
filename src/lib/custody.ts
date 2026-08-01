@@ -157,7 +157,22 @@ export function assignDays(rule: CustodyRule, from: string, to: string): DayAssi
           throw new Error('Rythme personnalisé sans cycle défini');
         }
         const c = rule.customCycle;
-        const idx = ((daysBetween(rule.startDate, date) % c.length) + c.length) % c.length;
+
+        // La grille de configuration est toujours présentée de lundi à
+        // dimanche. Le cycle personnalisé doit donc rester attaché aux jours
+        // de la semaine, même si sa date d'entrée en vigueur est un mercredi,
+        // un vendredi ou n'importe quel autre jour.
+        //
+        // Ancien comportement : l'index 0 du tableau était appliqué à
+        // startDate. Une date de début choisie un vendredi faisait ainsi
+        // correspondre la colonne « lundi » au vendredi et décalait toutes les
+        // bascules. On ancre désormais le tableau sur le lundi de la semaine
+        // contenant startDate. startDate demeure seulement la date à partir de
+        // laquelle la règle devient active.
+        const start = new Date(toUTC(rule.startDate));
+        const joursDepuisLundi = (start.getUTCDay() + 6) % 7;
+        const lundiAncre = addDays(rule.startDate, -joursDepuisLundi);
+        const idx = ((daysBetween(lundiAncre, date) % c.length) + c.length) % c.length;
         who = c[idx];
         break;
       }
