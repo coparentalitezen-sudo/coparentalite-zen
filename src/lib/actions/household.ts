@@ -1,14 +1,19 @@
 'use client';
 
 /** Foyer : création et invitation du second parent. */
-import { supabaseBrowser, ok, err, lisible, type ActionResult } from './core';
+import { supabaseBrowser, ok, err, lisible, detail, type ActionResult } from './core';
 
 // ---------------- Invitations ----------------
 export async function inviteParent(householdId: string, email: string): Promise<ActionResult<string>> {
   const supabase = supabaseBrowser();
   if (!supabase) return { status: 'demo' };
   const { data, error } = await supabase.rpc('create_invitation', { p_household: householdId, p_email: email });
-  if (error) return err(lisible('L’invitation n’a pas pu être créée. Vérifiez l’adresse.', error));
+  // Le détail accompagne le message : sans lui, un refus de la base est
+  // indiscernable d'un bouton resté sans effet.
+  if (error) return err(
+    lisible('L’invitation n’a pas pu être créée. Vérifiez l’adresse.', error),
+    detail(error),
+  );
   return ok(data as string);
 }
 

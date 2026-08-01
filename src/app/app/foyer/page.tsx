@@ -56,6 +56,8 @@ export default function Foyer() {
   const [cyclePerso, setCyclePerso] = useState<('P1' | 'P2')[]>([]);
   const [prenomSecond, setPrenomSecond] = useState('');
   const [telSecond, setTelSecond] = useState('');
+  const [msgInvitation, setMsgInvitation] =
+    useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [heurePassage, setHeurePassage] = useState('');
   const [lieuPassage, setLieuPassage] = useState('');
   const [debut, setDebut] = useState(() => new Date().toISOString().slice(0, 10));
@@ -212,16 +214,27 @@ export default function Foyer() {
   }
 
   async function inviter(householdId: string) {
-    setMsg(null);
-    if (!email.includes('@')) { setMsg({ kind: 'err', text: 'Saisissez une adresse e-mail valide.' }); return; }
+    setMsg(null); setMsgInvitation(null);
+    if (!email.includes('@')) {
+      setMsgInvitation({ kind: 'err', text: 'Saisissez une adresse e-mail valide.' });
+      return;
+    }
     setBusy(true);
     const r = await inviteParent(householdId, email);
     setBusy(false);
     if (r.status === 'ok') {
       setLien(`${window.location.origin}/invitation/${r.data}`);
-      setMsg({ kind: 'ok', text: 'Invitation créée (valable 7 jours). Envoyez le lien vous-même au second parent.' });
-    } else if (r.status === 'demo') setMsg({ kind: 'ok', text: 'Mode démo.' });
-    else setMsg({ kind: 'err', text: r.message });
+      setMsgInvitation({ kind: 'ok', text: 'Lien créé, valable sept jours.' });
+    } else if (r.status === 'demo') {
+      setMsgInvitation({ kind: 'err', text: 'Session non authentifiée. Reconnectez-vous.' });
+    } else {
+      // Le détail technique accompagne le message : un refus dû à une règle
+      // métier était jusqu'ici indiscernable d'un bouton sans effet.
+      setMsgInvitation({
+        kind: 'err',
+        text: r.details ? `${r.message} (${r.details})` : r.message,
+      });
+    }
   }
 
   async function enregistrerRythme(householdId: string, p1: string, p2: string) {
@@ -781,6 +794,14 @@ export default function Foyer() {
                     : 'Pour lui transmettre le lien par SMS depuis votre téléphone.'}
                 </span>
               </label>
+
+              {msgInvitation && (
+                <p role={msgInvitation.kind === 'err' ? 'alert' : 'status'}
+                   className={`rounded-xl px-3 py-2 text-sm font-bold ${
+                     msgInvitation.kind === 'err' ? 'bg-err-bg text-err' : 'bg-ok-bg text-ok'}`}>
+                  {msgInvitation.text}
+                </p>
+              )}
 
               <button className="btn btn-primary w-full" disabled={busy || !email.trim()}
                       onClick={() => inviter(ctx.contexte.foyer.id)}>
