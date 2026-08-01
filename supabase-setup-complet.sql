@@ -1,8 +1,3 @@
--- ATTENTION — ARCHIVE HISTORIQUE, NE PAS UTILISER POUR UNE INSTALLATION.
--- Ce fichier s'arrête aux premières migrations et ne contient pas les évolutions
--- récentes (vacances, notifications, rendez-vous, rappels, sécurité).
--- La seule source d'installation supportée est supabase/migrations/, dans l'ordre.
-
 -- ============================================================
 -- COPARENTALITÉ ZEN — INSTALLATION COMPLÈTE (v3, IDEMPOTENT)
 -- Rejouable sans risque. Inclut désormais les migrations 00006

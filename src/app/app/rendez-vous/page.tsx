@@ -8,6 +8,7 @@ import { Icone } from '@/components/icons';
 import { useContexte } from '@/lib/use-contexte';
 import {
   listerRendezVous, listerCategoriesRdv, creerRendezVous, supprimerRendezVous,
+  cocherAffaire, ajouterAffaire,
   type RendezVous, type CategorieRdv,
 } from '@/lib/actions';
 
@@ -90,9 +91,6 @@ function ContenuRendezVous() {
     setBusy(false);
     if (r.status === 'ok') {
       setMsg('Rendez-vous ajouté. L’autre parent en est informé.');
-      // Programme immédiatement les rappels du foyer sans attendre le cron nocturne.
-      // L’appel est idempotent et son éventuel échec ne remet pas en cause le rendez-vous.
-      void fetch('/api/rappels', { method: 'POST' }).catch(() => undefined);
       setFormOuvert(false); reinitialiser(); charger();
     } else if (r.status === 'error') setErreurForm(r.message);
   }
@@ -208,7 +206,7 @@ function ContenuRendezVous() {
                     className={`btn px-3 py-2 text-[13px] ${accompagnant === '' ? 'btn-primary' : 'btn-ghost'}`}>
                     Le parent de garde
                   </button>
-                  {membres.filter((m) => !m.provisoire).map((m) => (
+                  {membres.filter((m) => !m.provisoire || true).map((m) => (
                     <button key={m.profileId} type="button" aria-pressed={accompagnant === m.profileId}
                       onClick={() => setAccompagnant(m.profileId)}
                       className={`btn px-3 py-2 text-[13px] ${

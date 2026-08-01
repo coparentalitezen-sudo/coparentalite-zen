@@ -28,6 +28,7 @@ import { buildSchedule, whereToday } from '@/lib/custody';
 import { calculerSerenite } from '@/lib/serenite';
 import { BandeauHorizon } from '@/components/premium';
 import { ProgressionCompacte } from '@/components/progression';
+import { InstallAppCard } from '@/components/install-app-card';
 import { invitationPrematuree, type EtatConfiguration } from '@/lib/configuration';
 import { getOffre, type Offre } from '@/lib/actions';
 
@@ -545,6 +546,8 @@ export default function Accueil() {
               {serenite.libelle}
             </span>
           </header>
+
+          <InstallAppCard />
 
           {/* Limite de planification gratuite */}
           <section

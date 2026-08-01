@@ -7,16 +7,8 @@ import { Chargement, Erreur, SansFoyer, Vide } from '@/components/etats';
 import { useContexte } from '@/lib/use-contexte';
 import {
   listerPreferences, definirPreference, getDelaiRappel, setDelaiRappel,
-  compterNonLues, DELAIS_RAPPEL, type PreferenceNotification,
+  DELAIS_RAPPEL, type PreferenceNotification,
 } from '@/lib/actions';
-import {
-  applicationInstallee,
-  badgeApplicationDisponible,
-  demanderPermissionBadge,
-  permissionBadge,
-  synchroniserBadgeApplication,
-  type BadgePermissionState,
-} from '@/lib/app-badge';
 
 const CATEGORIES: Record<string, string> = {
   planning: 'Planning et garde',
@@ -30,9 +22,6 @@ function ContenuReglages() {
   const [delai, setDelai] = useState(60);
   const [erreur, setErreur] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
-  const [etatBadge, setEtatBadge] = useState<BadgePermissionState>('unsupported');
-  const [installee, setInstallee] = useState(false);
-  const [activationBadge, setActivationBadge] = useState(false);
 
   const charger = useCallback(() => {
     if (ctx.etat !== 'pret') return;
@@ -47,11 +36,6 @@ function ContenuReglages() {
     getDelaiRappel(hid).then((r) => { if (r.status === 'ok') setDelai(r.data); });
   }, [ctx]);
   useEffect(charger, [charger]);
-
-  useEffect(() => {
-    setInstallee(applicationInstallee());
-    setEtatBadge(permissionBadge());
-  }, []);
 
   async function basculer(p: PreferenceNotification) {
     if (ctx.etat !== 'pret' || !p.canalActif) return;
@@ -68,34 +52,6 @@ function ContenuReglages() {
     const r = await setDelaiRappel(ctx.contexte.foyer.id, minutes);
     if (r.status === 'ok') setMsg('Délai de rappel enregistré.');
     else if (r.status === 'error') setErreur(r.message);
-  }
-
-  async function activerBadge() {
-    if (ctx.etat !== 'pret' || activationBadge) return;
-    setActivationBadge(true);
-    setErreur(null);
-    setMsg(null);
-
-    const permission = await demanderPermissionBadge();
-    setEtatBadge(permission);
-
-    if (permission === 'granted') {
-      const compte = await compterNonLues(ctx.contexte.foyer.id);
-      if (compte.status === 'ok') {
-        await synchroniserBadgeApplication(compte.data);
-        setMsg('La pastille sur l’icône est activée.');
-      } else {
-        setErreur('Autorisation accordée, mais le compteur n’a pas pu être synchronisé.');
-      }
-    } else if (permission === 'denied') {
-      setErreur(
-        'Autorisation refusée. Vous pouvez la réactiver dans les réglages de notifications du téléphone.',
-      );
-    } else if (permission === 'unsupported') {
-      setErreur('La pastille d’application n’est pas prise en charge sur cet appareil.');
-    }
-
-    setActivationBadge(false);
   }
 
   // Seul le canal « application » est actif : on n'affiche que lui, les autres
@@ -168,46 +124,6 @@ function ContenuReglages() {
               </ul>
             </section>
           ))}
-
-          <section className="card px-4 py-4">
-            <h2 className="font-bold">Pastille sur l’icône</h2>
-            <p className="mt-1 text-[13px] leading-snug text-soft">
-              Affiche le nombre de notifications non lues sur l’icône de
-              Coparentalité Zen installée sur votre écran d’accueil.
-            </p>
-
-            {!badgeApplicationDisponible() ? (
-              <p className="mt-3 rounded-xl bg-muted px-3 py-2 text-[13px] leading-snug text-soft">
-                Cette fonction n’est pas disponible sur ce navigateur.
-              </p>
-            ) : etatBadge === 'granted' ? (
-              <p className="mt-3 rounded-xl bg-ok-bg px-3 py-2 text-[13px] font-bold text-ok">
-                Pastille activée sur cet appareil.
-              </p>
-            ) : (
-              <>
-                {!installee && (
-                  <p className="mt-3 rounded-xl bg-muted px-3 py-2 text-[13px] leading-snug text-soft">
-                    Installez d’abord l’application sur l’écran d’accueil, puis
-                    ouvrez-la depuis son icône pour activer la pastille.
-                  </p>
-                )}
-                <button
-                  type="button"
-                  className="btn btn-primary mt-3 w-full"
-                  disabled={activationBadge}
-                  onClick={activerBadge}
-                >
-                  {activationBadge ? 'Activation…' : 'Activer la pastille'}
-                </button>
-              </>
-            )}
-
-            <p className="mt-2 text-[11px] leading-snug text-soft/80">
-              Le téléphone reste maître de l’affichage. Vous pouvez désactiver
-              les pastilles à tout moment dans ses réglages.
-            </p>
-          </section>
 
           {/* Un seul délai : plusieurs rappels pour un même événement finiraient
               par être ignorés. */}

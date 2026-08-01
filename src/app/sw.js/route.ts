@@ -58,21 +58,7 @@ self.addEventListener('activate', (e) => {
 
 // L'application peut demander l'activation immédiate d'une nouvelle version
 self.addEventListener('message', (e) => {
-  if (e.data === 'SKIP_WAITING') {
-    self.skipWaiting();
-    return;
-  }
-
-  if (e.data?.type === 'SET_BADGE') {
-    const total = Math.max(0, Number(e.data.count ?? 0));
-    e.waitUntil(
-      total > 0 && self.navigator.setAppBadge
-        ? self.navigator.setAppBadge(total)
-        : self.navigator.clearAppBadge
-          ? self.navigator.clearAppBadge()
-          : Promise.resolve()
-    );
-  }
+  if (e.data === 'SKIP_WAITING') self.skipWaiting();
 });
 
 function estStatiqueImmuable(url) {
