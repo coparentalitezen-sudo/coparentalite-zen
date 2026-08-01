@@ -82,6 +82,7 @@ découpage interne peut évoluer sans rien casser.
 | `actions/notifications.ts` | centre, préférences et délais de rappel |
 | `actions/rendez-vous.ts` | rendez-vous et affaires à prévoir |
 | `partage-invitation.ts` | numéros, message et liens de transmission |
+| `installation.ts` | détection de plateforme et marche à suivre |
 | `tarifs.ts` | lecture de la grille publique ; **aucun montant en dur** |
 | `actions/vacances.ts` | calendrier scolaire officiel du foyer |
 | `actions/localisation.ts` | pays, subdivision, déduction depuis le code postal |

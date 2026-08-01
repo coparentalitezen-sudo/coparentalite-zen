@@ -28,6 +28,7 @@ import { buildSchedule, whereToday } from '@/lib/custody';
 import { calculerSerenite } from '@/lib/serenite';
 import { BandeauHorizon } from '@/components/premium';
 import { ProgressionCompacte } from '@/components/progression';
+import { EncartInstallation } from '@/components/installation';
 import { invitationPrematuree, type EtatConfiguration } from '@/lib/configuration';
 import { getOffre, type Offre } from '@/lib/actions';
 
@@ -753,6 +754,10 @@ export default function Accueil() {
             zoneScolaireDefinie: true,
             invitationEnvoyee: false,
           }} />
+
+          {/* Disparaît une fois l'application installée, et se referme d'un
+              geste pour un mois. */}
+          <EncartInstallation />
 
           <BandeauHorizon offre={offre} />
 
