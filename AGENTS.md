@@ -57,6 +57,7 @@ Aucune dépendance d'interface ajoutée : les icônes sont des tracés SVG maiso
 | `/api/paiement/portail` | `api/paiement/portail/route.ts` | portail de gestion |
 | `/api/stripe/webhook` | `api/stripe/webhook/route.ts` | réception des événements |
 | `/api/vacances/synchroniser` | `api/vacances/synchroniser/route.ts` | import du calendrier officiel |
+| `/api/rappels` | `api/rappels/route.ts` | programmation nocturne des rappels |
 | `/hors-ligne` | `hors-ligne/page.tsx` | repli du service worker |
 | `/sw.js` | `sw.js/route.ts` | service worker, version injectée au build |
 
@@ -126,6 +127,7 @@ SQL et leurs jeux d'essai.
 | `00024` | correction de `propositions_vacances` (min(uuid) impossible) |
 | `00025` | **moteur de notifications** : types, canaux, préférences, rappels |
 | `00027` | **rendez-vous** : consultations, activités, affaires à prévoir |
+| `00028` | **programmation des rappels** : idempotente, par délai de parent |
 
 ---
 
@@ -161,6 +163,23 @@ calculs.
 modifiée ni supprimée. Il faut annuler le remboursement d'abord. Le critère est
 chronologique : seul un remboursement postérieur à l'entrée de la dépense dans
 le solde la verrouille.
+
+**Rappels.** Une tâche nocturne programme trois familles de rappels :
+rendez-vous à venir avec les affaires restant à préparer, début et fin des
+périodes de vacances, changements de garde.
+
+Le calcul des changements vit dans la route applicative et non en base : le
+moteur qui détermine qui a les enfants quel jour est en TypeScript, éprouvé
+par ses tests. Le réécrire en SQL créerait deux vérités concurrentes.
+
+**L'idempotence est la propriété critique** : la tâche repasse chaque nuit sur
+les mêmes événements. Un index unique sur (destinataire, type, entité) rend
+l'opération rejouable — sans lui, un rendez-vous produirait un rappel par nuit
+jusqu'à sa date. Un événement déplacé met à jour l'heure et réactive le rappel
+même s'il avait été lu ; un événement supprimé voit son rappel purgé.
+
+Chaque parent reçoit son propre horaire, calculé depuis son réglage : l'un
+veut la veille, l'autre une heure avant.
 
 **Rendez-vous.** Un moment précis concernant un enfant — consultation,
 réunion, activité. Il **se superpose au planning sans jamais modifier la

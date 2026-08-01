@@ -4,6 +4,10 @@
     {
       "path": "/api/vacances/synchroniser",
       "schedule": "0 4 * * 1"
+    },
+    {
+      "path": "/api/rappels",
+      "schedule": "0 3 * * *"
     }
   ]
 }

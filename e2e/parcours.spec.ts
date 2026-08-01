@@ -165,3 +165,9 @@ test('parcours guidé : l’invitation est présentée en dernier', async ({ pag
   await expect(page).toHaveURL(/\/connexion/);
   expect(page.url()).toContain('suite=%2Fapp%2Ffoyer');
 });
+
+test('rappels : la programmation exige le secret de tâche planifiée', async ({ request }) => {
+  const r = await request.get('/api/rappels');
+  expect([401, 503]).toContain(r.status());
+  expect(r.status()).not.toBe(200);
+});
