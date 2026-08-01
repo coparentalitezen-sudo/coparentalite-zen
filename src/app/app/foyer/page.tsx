@@ -8,6 +8,7 @@ import { Chargement, Erreur } from '@/components/etats';
 import { Icone } from '@/components/icons';
 import { SchemaRythme, GrilleCycle } from '@/components/rythme';
 import { ProgressionDetaillee } from '@/components/progression';
+import { InstallAppCard } from '@/components/install-app-card';
 import { invitationPrematuree, type EtatConfiguration } from '@/lib/configuration';
 import {
   MODELES, modele, cycleParDefaut, repartition, validerCyclePersonnalise,
@@ -786,6 +787,8 @@ export default function Foyer() {
           )}
         </section>
       )}
+
+      <InstallAppCard permanent />
 
       <section className="card space-y-3 p-4">
         <h2 className="font-bold">Vos données (RGPD)</h2>
