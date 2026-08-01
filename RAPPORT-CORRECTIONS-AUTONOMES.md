@@ -93,20 +93,3 @@ bascules étaient décalées.
 
 Aucune migration SQL n'est nécessaire : les cycles déjà enregistrés sont
 interprétés correctement dès le déploiement du nouveau moteur.
-
-## Lot rendez-vous et rappels
-
-Ajout de la migration `00027_calendar_events_reminders.sql`, d'un écran complet
-`/app/evenements`, des actions TypeScript associées et de l'intégration dans le
-planning mensuel.
-
-Fonctionnalités :
-- rendez-vous partagé avec type, enfant, date, heure, fin, lieu et note ;
-- jusqu'à cinq rappels configurables ;
-- message pratique libre (« N'oublie pas son cartable », documents, tenue…) ;
-- notification immédiate de l'autre parent à la création/modification/suppression ;
-- rappels programmés pour les deux parents ;
-- nettoyage des rappels futurs en cas de modification ou suppression ;
-- point violet sur la journée du planning et détail du rendez-vous ;
-- tests SQL E1 à E6 couvrant création, notifications, reprogrammation,
-  suppression et isolation entre foyers.

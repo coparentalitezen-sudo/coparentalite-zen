@@ -211,3 +211,157 @@ begin
 end $$;
 
 select 'TESTS DES NOTIFICATIONS PASSÉS' as resultat;
+
+-- ============================================================
+-- D1 à D6 — DÉCLENCHEURS PAR OBSERVATION
+--
+-- Quatre types restaient inertes. Ils sont désormais émis par des déclencheurs
+-- qui observent les changements, sans réécrire les fonctions métier.
+-- ============================================================
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
+
+-- ============ D1 : une dépense créée prévient l'autre parent ============
+do $$
+declare avant int; apres int; eid uuid; n record;
+begin
+  eid := public.create_expense_full('aaaaaaaa-0000-0000-0000-000000000001',
+    'Cantine septembre', 4250, current_date, null,
+    '00000000-0000-0000-0000-00000000000a',
+    array['cccccccc-0000-0000-0000-000000000001']::uuid[],
+    format('[{"parent_id":"%s","owed_cents":2125},{"parent_id":"%s","owed_cents":2125}]',
+           '00000000-0000-0000-0000-00000000000a',
+           '00000000-0000-0000-0000-00000000000b')::jsonb);
+  perform set_config('app.dep', eid::text, false);
+
+  apres := public.test_compter_notifs_entite('expense_created', eid);
+  if apres < 1 then
+    raise exception 'ÉCHEC D1 : dépense non signalée';
+  end if;
+
+  -- Le montant doit figurer : sans lui, il faut ouvrir l'application
+  select * into n from public.test_rappel_horaire('expense_created', eid,
+    '00000000-0000-0000-0000-00000000000b') r;
+  if n.corps not like '%42,50%' then
+    raise exception 'ÉCHEC D1b : le montant n''est pas lisible (%)', n.corps;
+  end if;
+  raise notice 'D1 OK — « % »', n.corps;
+end $$;
+
+-- ============ D2 : l'auteur de la dépense n'est pas notifié ============
+do $$
+declare n int;
+begin
+  -- Les fixtures créent leurs propres dépenses : on ne compte donc que la
+  -- notification portant sur CETTE dépense, pas le total du foyer.
+  n := public.test_compter_notifs_destinataire('expense_created',
+        current_setting('app.dep')::uuid, '00000000-0000-0000-0000-00000000000a');
+  if n <> 0 then
+    raise exception 'ÉCHEC D2 : l''auteur reçoit % notification(s) de sa propre dépense', n;
+  end if;
+  -- et l'autre parent l'a bien reçue
+  n := public.test_compter_notifs_destinataire('expense_created',
+        current_setting('app.dep')::uuid, '00000000-0000-0000-0000-00000000000b');
+  if n <> 1 then
+    raise exception 'ÉCHEC D2b : l''autre parent a reçu % notification(s)', n;
+  end if;
+  raise notice 'D2 OK — l''auteur épargné, l''autre parent prévenu';
+end $$;
+
+-- ============ D3 : une dépense contestée transmet le motif ============
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', false);
+do $$
+declare n record;
+begin
+  perform public.review_expense(current_setting('app.dep')::uuid, 'dispute',
+    'Le montant ne correspond pas à la facture');
+
+  perform set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
+  select * into n from public.test_rappel_horaire('expense_reviewed',
+    current_setting('app.dep')::uuid, '00000000-0000-0000-0000-00000000000a') r;
+  if n.titre is null then raise exception 'ÉCHEC D3 : contestation non signalée'; end if;
+  -- Le motif permet de corriger : sans lui, l'alerte oblige à ouvrir l'app
+  if n.corps not like '%ne correspond pas%' then
+    raise exception 'ÉCHEC D3b : le motif n''est pas transmis (%)', n.corps;
+  end if;
+  raise notice 'D3 OK — « % » · %', n.titre, left(n.corps, 50);
+end $$;
+
+-- ============ D4 : une période modifiée est signalée, mais pas pour rien ============
+do $$
+declare eid uuid; avant int; apres int; apres2 int;
+begin
+  select x into eid from public.create_custody_exception(
+    'aaaaaaaa-0000-0000-0000-000000000001', 'swap',
+    array['cccccccc-0000-0000-0000-000000000001']::uuid[],
+    '00000000-0000-0000-0000-00000000000b',
+    (current_date + 30)::timestamptz, (current_date + 32)::timestamptz,
+    'À déplacer', null, null, null) x;
+
+  avant := public.test_compter_notifs('00000000-0000-0000-0000-00000000000b', 'event_updated');
+
+  -- Changement de note seule : ne doit rien déclencher
+  perform public.update_custody_exception(eid, '00000000-0000-0000-0000-00000000000b',
+    (current_date + 30)::timestamptz, (current_date + 32)::timestamptz,
+    'À déplacer', 'une note ajoutée');
+  apres := public.test_compter_notifs('00000000-0000-0000-0000-00000000000b', 'event_updated');
+  if apres <> avant then
+    raise exception 'ÉCHEC D4 : une modification de note a déclenché une alerte';
+  end if;
+
+  -- Changement de dates : doit déclencher
+  perform public.update_custody_exception(eid, '00000000-0000-0000-0000-00000000000b',
+    (current_date + 33)::timestamptz, (current_date + 35)::timestamptz,
+    'À déplacer', null);
+  apres2 := public.test_compter_notifs('00000000-0000-0000-0000-00000000000b', 'event_updated');
+  if apres2 <> avant + 1 then
+    raise exception 'ÉCHEC D4b : déplacement non signalé (% -> %)', avant, apres2;
+  end if;
+  raise notice 'D4 OK — dates signalées, note silencieuse';
+end $$;
+
+-- ============ D5 : un remboursement est signalé ============
+do $$
+declare avant int; apres int; b record;
+begin
+  select * into b from public.household_balance('aaaaaaaa-0000-0000-0000-000000000001');
+  if b.debiteur is null then
+    raise notice 'D5 ignoré — aucun solde à régulariser dans ce jeu de test';
+  else
+    perform set_config('request.jwt.claim.sub', b.debiteur::text, false);
+    avant := public.test_compter_notifs(b.crediteur, 'reimbursement_created');
+    perform public.create_reimbursement('aaaaaaaa-0000-0000-0000-000000000001',
+      b.debiteur, b.crediteur, 500, current_date, 'virement', null, null);
+    apres := public.test_compter_notifs(b.crediteur, 'reimbursement_created');
+    if apres <> avant + 1 then
+      raise exception 'ÉCHEC D5 : remboursement non signalé (% -> %)', avant, apres;
+    end if;
+    raise notice 'D5 OK — remboursement signalé au bénéficiaire';
+  end if;
+end $$;
+
+-- ============ D6 : les déclencheurs respectent les préférences ============
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', false);
+do $$
+declare avant int; apres int;
+begin
+  perform public.definir_preference_notification(
+    'aaaaaaaa-0000-0000-0000-000000000001', 'expense_created', 'in_app', false);
+
+  perform set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
+  avant := public.test_compter_notifs('00000000-0000-0000-0000-00000000000b', 'expense_created');
+  perform public.create_expense_full('aaaaaaaa-0000-0000-0000-000000000001',
+    'Silencieuse', 1000, current_date, null,
+    '00000000-0000-0000-0000-00000000000a',
+    array['cccccccc-0000-0000-0000-000000000001']::uuid[],
+    format('[{"parent_id":"%s","owed_cents":500},{"parent_id":"%s","owed_cents":500}]',
+           '00000000-0000-0000-0000-00000000000a',
+           '00000000-0000-0000-0000-00000000000b')::jsonb);
+  apres := public.test_compter_notifs('00000000-0000-0000-0000-00000000000b', 'expense_created');
+
+  if apres <> avant then
+    raise exception 'ÉCHEC D6 : notification émise malgré la préférence désactivée';
+  end if;
+  raise notice 'D6 OK — les déclencheurs respectent les préférences';
+end $$;
+
+select 'TESTS DES DÉCLENCHEURS PASSÉS' as resultat;

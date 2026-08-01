@@ -386,3 +386,53 @@ describe('journées de transition — case coupée en deux', () => {
     expect(journeesPartagees(carte, '18:00').has('2026-07-06')).toBe(false);
   });
 });
+
+describe('heures particulières — une période peut imposer son horaire', () => {
+  const rythme = {
+    pattern: 'alternating_weeks' as const,
+    startDate: '2026-07-06', parent1: 'p1', parent2: 'p2',
+  };
+
+  it('l’heure d’une période prime sur celle du rythme', () => {
+    // Le rythme change à 18h, mais les vacances commencent à 16h
+    const carte = buildDayMap(rythme, '2026-07-06', '2026-07-26', [], [
+      { startsOn: '2026-07-08', endsOn: '2026-07-12', parentId: 'p2',
+        source: 'holiday', priorite: 30 },
+    ]);
+    const p = journeesPartagees(carte, '18:00', new Map([['2026-07-08', '16:00']]));
+    expect(p.get('2026-07-08')!.heure).toBe('16:00');
+    // Le 20 juillet, le rythme reprend chez le premier parent : cette
+    // transition-là garde l'heure habituelle.
+    expect(p.get('2026-07-20')!.heure).toBe('18:00');
+  });
+
+  it('une heure particulière coupe la journée même sans heure de rythme', () => {
+    const carte = buildDayMap(rythme, '2026-07-06', '2026-07-26', [], [
+      { startsOn: '2026-07-08', endsOn: '2026-07-12', parentId: 'p2',
+        source: 'holiday', priorite: 30 },
+    ]);
+    const p = journeesPartagees(carte, null, new Map([['2026-07-08', '16:00']]));
+    expect(p.get('2026-07-08')?.heure).toBe('16:00');
+    // sans heure déclarée ailleurs, aucune autre journée n'est coupée
+    expect(p.has('2026-07-20')).toBe(false);
+  });
+
+  it('sans aucune heure, rien n’est coupé', () => {
+    const carte = buildDayMap(rythme, '2026-07-06', '2026-07-26');
+    expect(journeesPartagees(carte, null, new Map()).size).toBe(0);
+  });
+
+  it('le retour de vacances porte aussi son heure', () => {
+    const carte = buildDayMap(rythme, '2026-07-06', '2026-07-26', [], [
+      { startsOn: '2026-07-08', endsOn: '2026-07-12', parentId: 'p2',
+        source: 'holiday', priorite: 30 },
+    ]);
+    // Le retour au rythme se fait ici le 20 : la veille chez p2, le jour chez p1
+    const p = journeesPartagees(carte, '18:00', new Map([
+      ['2026-07-08', '16:00'], ['2026-07-20', '10:00'],
+    ]));
+    expect(p.get('2026-07-20')!.heure).toBe('10:00');
+    expect(p.get('2026-07-20')!.matin).toBe('p2');
+    expect(p.get('2026-07-20')!.apresMidi).toBe('p1');
+  });
+});

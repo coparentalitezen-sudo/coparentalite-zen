@@ -2,15 +2,15 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
 import { BottomNav, ParentBadge } from '@/components/ui';
 import { Chargement, Erreur, SansFoyer, Vide } from '@/components/etats';
 import { Icone } from '@/components/icons';
 import { BandeauHorizon, dansHorizon } from '@/components/premium';
 import { useContexte } from '@/lib/use-contexte';
 import {
-  getRegleGarde, listerExceptions, getOffre, listerVacances, listerEvenements,
-  type RegleGarde, type ExceptionGarde, type Offre, type VacancesScolaires, type EvenementPlanning,
+  getRegleGarde, listerExceptions, getOffre, listerVacances, listerRendezVous,
+  type RegleGarde, type ExceptionGarde, type Offre, type VacancesScolaires,
+  type RendezVous,
 } from '@/lib/actions';
 import { buildDayMap, journeesPartagees, addDays,
   type Source, type ExceptionOverride, type JourneePartagee } from '@/lib/custody';
@@ -20,6 +20,12 @@ const MOIS = ['janvier','février','mars','avril','mai','juin',
 
 const jourDe = (iso: string) => iso.slice(0, 10);
 
+/** Heure locale d'un horodatage, au format HH:MM. */
+function heureDe(iso: string): string {
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 function heureCourte(iso: string) {
   return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 }
@@ -28,9 +34,8 @@ function dateHeure(iso: string) {
   return `${d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} à ${heureCourte(iso)}`;
 }
 
-function PlanningContent() {
+function ContenuPlanning() {
   const { ctx, recharger } = useContexte();
-  const searchParams = useSearchParams();
   const [regle, setRegle] = useState<RegleGarde | null | 'inconnu'>('inconnu');
   const [exceptions, setExceptions] = useState<ExceptionGarde[]>([]);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -40,7 +45,7 @@ function PlanningContent() {
   const [vacances, setVacances] = useState<VacancesScolaires[]>([]);
   const [erreurExceptions, setErreurExceptions] = useState<string | null>(null);
   const [partagees, setPartagees] = useState<Map<string, JourneePartagee>>(new Map());
-  const [evenements, setEvenements] = useState<EvenementPlanning[]>([]);
+  const [rendezVous, setRendezVous] = useState<RendezVous[]>([]);
 
   const membres = ctx.etat === 'pret' ? ctx.contexte.membres : [];
   const enfants = ctx.etat === 'pret' ? ctx.contexte.enfants : [];
@@ -76,18 +81,14 @@ function PlanningContent() {
     listerVacances(hid, premierJour, dernierJour).then((r) => {
       if (r.status === 'ok') setVacances(r.data);
     });
-    listerEvenements(hid, `${premierJour}T00:00:00.000Z`, `${addDays(dernierJour, 1)}T00:00:00.000Z`).then((r) => {
-      if (r.status === 'ok') setEvenements(r.data);
-      else setEvenements([]);
+    // Les rendez-vous se superposent au planning : ils ne modifient jamais la
+    // garde, un échec de chargement ne doit donc rien vider.
+    listerRendezVous(hid, premierJour, dernierJour).then((r) => {
+      if (r.status === 'ok') setRendezVous(r.data);
     });
   }, [ctx, premierJour, dernierJour]);
 
   useEffect(charger, [charger]);
-
-  useEffect(() => {
-    const jour = searchParams.get('jour');
-    if (jour && /^\d{4}-\d{2}-\d{2}$/.test(jour)) setJourOuvert(jour);
-  }, [searchParams]);
 
   /** Carte des jours : rythme, changements ponctuels, puis vacances. */
   const parJour = useMemo(() => {
@@ -114,7 +115,20 @@ function PlanningContent() {
         regle.startDate < premierJour ? regle.startDate : premierJour,
         dernierJour, [], ponctuels,
       );
-      setPartagees(journeesPartagees(m, regle.handoverTime));
+      // Chaque période peut imposer son heure : celle des vacances prime sur
+      // l'heure habituelle du rythme, le jour où elle commence ou s'achève.
+      const heuresParticulieres = new Map<string, string>();
+      for (const e of exceptions) {
+        const hDebut = heureDe(e.debut);
+        const hFin = heureDe(e.fin);
+        // Minuit ou fin de journée : l'utilisateur n'a pas précisé d'heure
+        if (hDebut && hDebut !== '00:00') heuresParticulieres.set(jourDe(e.debut), hDebut);
+        if (hFin && hFin !== '23:59') {
+          // Le retour a lieu le lendemain du dernier jour de la période
+          heuresParticulieres.set(addDays(jourDe(e.fin), 1), hFin);
+        }
+      }
+      setPartagees(journeesPartagees(m, regle.handoverTime, heuresParticulieres));
       const out = new Map<string, { parentId: string; source: Source }>();
       for (const [d, a] of m) out.set(d, { parentId: a.parentId, source: a.source });
       return out;
@@ -139,8 +153,8 @@ function PlanningContent() {
   const vacancesDuJour = (jour: string) =>
     vacances.filter((v) => v.debut <= jour && jour <= v.fin);
 
-  const evenementsDuJour = (jour: string) =>
-    evenements.filter((e) => jourDe(e.debut) === jour);
+  const rdvDuJour = (jour: string) =>
+    rendezVous.filter((r) => r.debut.slice(0, 10) === jour);
 
   const membre = (id: string) => membres.find((m) => m.profileId === id);
   const nom = (id: string) => membre(id)?.nom ?? 'Parent';
@@ -264,6 +278,11 @@ function PlanningContent() {
                             title="Vacances scolaires" />
                         )}
                         <span className="relative z-10 text-xs font-bold">{Number(d.slice(8))}</span>
+                        {rdvDuJour(d).length > 0 && (
+                          <span aria-hidden
+                            className="absolute bottom-0.5 left-0.5 z-10 h-1.5 w-1.5 rounded-full bg-[#6741B8]"
+                            title="Rendez-vous" />
+                        )}
                         {transition && mMatin && m ? (
                           <span className="relative z-10 mt-0.5 flex flex-col text-[9px] font-black leading-[1.15]">
                             <span className={mMatin.couleur === 'coral' ? 'text-coral-text' : 'text-navy-text'}>
@@ -278,10 +297,6 @@ function PlanningContent() {
                             {m.initiale}
                           </span>
                         ) : null}
-                        {evenementsDuJour(d).length > 0 && (
-                          <span aria-hidden title="Rendez-vous"
-                            className="absolute bottom-1 left-1/2 z-10 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-[#7C3AED]" />
-                        )}
                         {vacancesExc && (
                           <span aria-hidden className="absolute bottom-0.5 right-0.5 text-[9px] leading-none">🌴</span>
                         )}
@@ -329,6 +344,12 @@ function PlanningContent() {
                       <span className="absolute inset-x-0 top-1/2 h-px bg-ink/25" />
                     </span>
                     Jour de changement — case coupée, matin en haut
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span aria-hidden className="relative h-5 w-5 shrink-0 rounded-md bg-muted">
+                      <span className="absolute bottom-1 left-1 h-1.5 w-1.5 rounded-full bg-[#6741B8]" />
+                    </span>
+                    Rendez-vous — pastille violette, sans effet sur la garde
                   </li>
                 </ul>
               </section>
@@ -378,6 +399,17 @@ function PlanningContent() {
                           {m && <ParentBadge name={m.nom} initial={m.initiale}
                                   colorKey={m.couleur === 'coral' ? 'coral' : 'navy'} compact />}
                         </p>
+                        {partagees.get(jourOuvert) && (() => {
+                          const t = partagees.get(jourOuvert)!;
+                          const mMat = membre(t.matin);
+                          const mApr = membre(t.apresMidi);
+                          return (
+                            <p className="rounded-xl bg-muted px-3 py-2 text-[13px] leading-snug">
+                              Journée partagée : chez <strong>{mMat?.nom}</strong> le matin,
+                              puis chez <strong>{mApr?.nom}</strong> à partir de <strong>{t.heure}</strong>.
+                            </p>
+                          );
+                        })()}
                         <p className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[12px] font-bold text-soft">
                           {a.source === 'holiday' && <span aria-hidden>🌴</span>}
                           {a.source !== 'rule' && a.source !== 'holiday'
@@ -387,6 +419,30 @@ function PlanningContent() {
                       </>
                     );
                   })()}
+
+                  {rdvDuJour(jourOuvert).length > 0 && (
+                    <ul className="border-t border-line-soft pt-2.5">
+                      {rdvDuJour(jourOuvert).map((r) => (
+                        <li key={r.id} className="text-[13px] leading-snug">
+                          <span className="font-bold">
+                            {r.journeeEntiere ? '' : `${new Date(r.debut).toLocaleTimeString('fr-FR',
+                              { hour: '2-digit', minute: '2-digit' })} · `}
+                            {r.titre}
+                          </span>
+                          <span className="block text-soft/85">
+                            {r.enfants}
+                            {r.lieu && ` · ${r.lieu}`}
+                            {r.affairesTotal > 0 && ` · ${r.affairesCochees}/${r.affairesTotal} préparé`}
+                          </span>
+                        </li>
+                      ))}
+                      <li className="mt-1.5">
+                        <Link href="/app/rendez-vous" className="text-[12px] font-bold underline">
+                          Voir les rendez-vous
+                        </Link>
+                      </li>
+                    </ul>
+                  )}
 
                   {vacancesDuJour(jourOuvert).length > 0 && (
                     <ul className="border-t border-line-soft pt-2.5">
@@ -400,23 +456,6 @@ function PlanningContent() {
                         </li>
                       ))}
                     </ul>
-                  )}
-
-                  {evenementsDuJour(jourOuvert).length > 0 && (
-                    <section className="space-y-2 border-t border-line-soft pt-2.5">
-                      <h3 className="text-xs font-bold uppercase tracking-wide text-soft">Rendez-vous et rappels</h3>
-                      {evenementsDuJour(jourOuvert).map((ev) => (
-                        <article key={ev.id} className="rounded-xl bg-muted p-3">
-                          <p className="font-bold">{ev.titre}</p>
-                          <p className="text-[13px] text-soft">
-                            {ev.jourEntier ? 'Toute la journée' : heureCourte(ev.debut)}
-                            {ev.enfantPrenom ? ` · ${ev.enfantPrenom}` : ''}
-                            {ev.lieu ? ` · ${ev.lieu}` : ''}
-                          </p>
-                          {ev.texteRappel && <p className="mt-1 text-[13px]">🔔 {ev.texteRappel}</p>}
-                        </article>
-                      ))}
-                    </section>
                   )}
 
                   {exceptionsDuJour(jourOuvert).length > 0 && (
@@ -436,22 +475,14 @@ function PlanningContent() {
                     </ul>
                   )}
 
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <Link href={`/app/evenements?jour=${jourOuvert}`} className="btn btn-primary w-full">
-                      Ajouter un rendez-vous
-                    </Link>
-                    <Link href="/app/exceptions" className="btn btn-ghost w-full">
-                      Gérer vacances et changements
-                    </Link>
-                  </div>
+                  <Link href="/app/exceptions" className="btn btn-ghost w-full">
+                    Gérer vacances et changements
+                  </Link>
                 </section>
               )}
 
               <div className="flex flex-col gap-2">
-                <Link href="/app/evenements" className="btn btn-primary w-full">
-                  Ajouter un rendez-vous ou un rappel
-                </Link>
-                <Link href="/app/exceptions" className="btn btn-ghost w-full">
+                <Link href="/app/exceptions" className="btn btn-primary w-full">
                   Vacances et changements ponctuels
                 </Link>
                 <p className="text-center text-xs text-soft">
@@ -470,11 +501,18 @@ function PlanningContent() {
   );
 }
 
-
+/**
+ * Frontière Suspense.
+ *
+ * Lors de la génération statique, tout hook lisant l'URL — directement ou via
+ * un composant importé — doit être isolé derrière une frontière Suspense, sans
+ * quoi la construction échoue. Le planning n'affiche que des données propres au
+ * foyer connecté : cette frontière ne coûte rien et l'immunise durablement.
+ */
 export default function Planning() {
   return (
     <Suspense fallback={<main className="px-4 pt-3"><Chargement /></main>}>
-      <PlanningContent />
+      <ContenuPlanning />
     </Suspense>
   );
 }

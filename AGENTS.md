@@ -57,6 +57,7 @@ Aucune dépendance d'interface ajoutée : les icônes sont des tracés SVG maiso
 | `/api/paiement/portail` | `api/paiement/portail/route.ts` | portail de gestion |
 | `/api/stripe/webhook` | `api/stripe/webhook/route.ts` | réception des événements |
 | `/api/vacances/synchroniser` | `api/vacances/synchroniser/route.ts` | import du calendrier officiel |
+| `/api/rappels` | `api/rappels/route.ts` | programmation nocturne des rappels |
 | `/hors-ligne` | `hors-ligne/page.tsx` | repli du service worker |
 | `/sw.js` | `sw.js/route.ts` | service worker, version injectée au build |
 
@@ -79,6 +80,7 @@ découpage interne peut évoluer sans rien casser.
 | `rythmes.ts` | catalogue des six rythmes, explications et schémas |
 | `configuration.ts` | étapes du parcours guidé, fonctions pures |
 | `actions/notifications.ts` | centre, préférences et délais de rappel |
+| `actions/rendez-vous.ts` | rendez-vous et affaires à prévoir |
 | `tarifs.ts` | lecture de la grille publique ; **aucun montant en dur** |
 | `actions/vacances.ts` | calendrier scolaire officiel du foyer |
 | `actions/localisation.ts` | pays, subdivision, déduction depuis le code postal |
@@ -124,6 +126,9 @@ SQL et leurs jeux d'essai.
 | `00023` | **second parent provisoire** : nommé avant son inscription |
 | `00024` | correction de `propositions_vacances` (min(uuid) impossible) |
 | `00025` | **moteur de notifications** : types, canaux, préférences, rappels |
+| `00027` | **rendez-vous** : consultations, activités, affaires à prévoir |
+| `00028` | **programmation des rappels** : idempotente, par délai de parent |
+| `00029` | déclencheurs de notification par observation |
 
 ---
 
@@ -159,6 +164,53 @@ calculs.
 modifiée ni supprimée. Il faut annuler le remboursement d'abord. Le critère est
 chronologique : seul un remboursement postérieur à l'entrée de la dépense dans
 le solde la verrouille.
+
+**Émission des notifications.** Les faits du planning passent par les fonctions
+métier ; les autres — dépenses, remboursements, invitations, modifications de
+période — sont émis par des **déclencheurs qui observent les changements**.
+
+Ce choix évite de réécrire des fonctions éprouvées, dont celles qui garantissent
+l'intégrité comptable : une réécriture large a déjà fait disparaître du code
+dans ce projet. La notification part en outre quelle que soit la voie
+d'écriture employée.
+
+Dans un déclencheur, **l'auteur se lit dans la ligne** (`created_by`,
+`from_parent`) plutôt que via `auth.uid()`, qui ne reflète pas toujours la
+session lorsqu'il est appelé depuis une fonction `SECURITY DEFINER`.
+
+Deux discrétions volontaires : modifier la note d'une période ne notifie pas,
+seuls les dates et le parent gardien comptent ; corriger le libellé d'un
+rendez-vous non plus, seule la date déclenche une alerte.
+
+**Rappels.** Une tâche nocturne programme trois familles de rappels :
+rendez-vous à venir avec les affaires restant à préparer, début et fin des
+périodes de vacances, changements de garde.
+
+Le calcul des changements vit dans la route applicative et non en base : le
+moteur qui détermine qui a les enfants quel jour est en TypeScript, éprouvé
+par ses tests. Le réécrire en SQL créerait deux vérités concurrentes.
+
+**L'idempotence est la propriété critique** : la tâche repasse chaque nuit sur
+les mêmes événements. Un index unique sur (destinataire, type, entité) rend
+l'opération rejouable — sans lui, un rendez-vous produirait un rappel par nuit
+jusqu'à sa date. Un événement déplacé met à jour l'heure et réactive le rappel
+même s'il avait été lu ; un événement supprimé voit son rappel purgé.
+
+Chaque parent reçoit son propre horaire, calculé depuis son réglage : l'un
+veut la veille, l'autre une heure avant.
+
+**Rendez-vous.** Un moment précis concernant un enfant — consultation,
+réunion, activité. Il **se superpose au planning sans jamais modifier la
+garde** : noter un dentiste ne déplace aucun enfant. C'est la différence
+essentielle avec une exception, et un test la vérifie explicitement.
+
+L'accompagnant est explicite et non déduit : un parent peut emmener l'enfant
+chez le médecin un jour où il n'est pas chez lui.
+
+Les **affaires à prévoir** (« cartable », « carte Vitale ») s'attachent à un
+rendez-vous ou à un jour de la semaine récurrent — c'est au moment du passage
+d'un parent à l'autre qu'on oublie le plus. Chaque catégorie propose ses
+suggestions.
 
 **Notifications.** Une notification est un fait ; le canal par lequel elle
 atteint le parent est une question distincte. Cette séparation permettra

@@ -22,5 +22,4 @@ export * from './premium';
 export * from './vacances';
 export * from './localisation';
 export * from './notifications';
-
-export * from './events';
+export * from './rendez-vous';

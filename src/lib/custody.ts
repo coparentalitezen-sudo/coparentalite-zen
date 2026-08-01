@@ -283,20 +283,31 @@ export interface JourneePartagee {
 export function journeesPartagees(
   carte: Map<string, DayAssignment>,
   heurePassage: string | null | undefined,
+  /**
+   * Heures propres à certaines journées, prioritaires sur celle du rythme.
+   *
+   * Une période de vacances peut commencer à 16 h alors que le rythme change
+   * habituellement à 18 h : c'est l'heure de la période qui vaut ce jour-là.
+   */
+  heuresParticulieres?: Map<string, string>,
 ): Map<string, JourneePartagee> {
   const partagees = new Map<string, JourneePartagee>();
-  if (!heurePassage) return partagees;
+  // Une heure particulière suffit à couper une journée, même si le rythme
+  // n'en déclare aucune.
+  if (!heurePassage && !heuresParticulieres?.size) return partagees;
 
   const dates = [...carte.keys()].sort();
   for (let i = 1; i < dates.length; i += 1) {
     const veille = carte.get(dates[i - 1])!;
     const jour = carte.get(dates[i])!;
     if (veille.parentId !== jour.parentId) {
+      const heure = heuresParticulieres?.get(dates[i]) ?? heurePassage;
+      if (!heure) continue;      // aucune heure connue : journée non coupée
       partagees.set(dates[i], {
         date: dates[i],
         matin: veille.parentId,
         apresMidi: jour.parentId,
-        heure: heurePassage,
+        heure,
       });
     }
   }

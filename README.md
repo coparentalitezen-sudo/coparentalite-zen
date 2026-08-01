@@ -33,7 +33,7 @@ s'ils n'ont pas réellement été exécutés.
 ## Base de données
 
 Les migrations sont dans `supabase/migrations/` et doivent être appliquées dans
-l'ordre. Toujours versionner une modification SQL avant de l'appliquer à la
+l'ordre. Le fichier `supabase-setup-complet.sql` est une archive historique et ne doit pas être exécuté. Toujours versionner une modification SQL avant de l'appliquer à la
 production afin que le dépôt et la base restent synchronisés.
 
 ## Déploiement

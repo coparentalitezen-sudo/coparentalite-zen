@@ -33,7 +33,7 @@ test('garde d’authentification : /app/* renvoie vers la connexion', async ({ p
 });
 
 test('toutes les routes protégées sont bien gardées', async ({ page }) => {
-  for (const route of ['/app/planning', '/app/depenses', '/app/ajouter', '/app/plus', '/app/foyer', '/app/enfants', '/app/exceptions', '/app/offre', '/app/vacances', '/app/notifications', '/app/notifications/reglages']) {
+  for (const route of ['/app/planning', '/app/depenses', '/app/ajouter', '/app/plus', '/app/foyer', '/app/enfants', '/app/exceptions', '/app/offre', '/app/vacances', '/app/notifications', '/app/notifications/reglages', '/app/rendez-vous']) {
     // on attend la fin de chaque navigation : enchaîner sans attendre annulerait
     // la redirection en cours (comportement de navigateur, pas de l'application)
     await page.goto(route, { waitUntil: 'load' });
@@ -164,4 +164,10 @@ test('parcours guidé : l’invitation est présentée en dernier', async ({ pag
   await page.goto('/app/foyer');
   await expect(page).toHaveURL(/\/connexion/);
   expect(page.url()).toContain('suite=%2Fapp%2Ffoyer');
+});
+
+test('rappels : la programmation exige le secret de tâche planifiée', async ({ request }) => {
+  const r = await request.get('/api/rappels');
+  expect([401, 503]).toContain(r.status());
+  expect(r.status()).not.toBe(200);
 });

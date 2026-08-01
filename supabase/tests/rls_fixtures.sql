@@ -259,3 +259,88 @@ returns int language sql security definer set search_path = public as $$
      and read_at is null and scheduled_at <= now()
 $$;
 grant execute on function public.test_compter_non_lues_dues(uuid, uuid) to authenticated;
+
+-- ---- Programmation des rappels : réservée au rôle de service en production.
+create or replace function public.test_programmer_rdv(p_household uuid) returns int
+language plpgsql security definer set search_path = public as $$
+begin return public.programmer_rappels_rendez_vous(p_household); end $$;
+
+create or replace function public.test_programmer_vacances(p_household uuid) returns int
+language plpgsql security definer set search_path = public as $$
+begin return public.programmer_rappels_vacances(p_household); end $$;
+
+create or replace function public.test_programmer_changement(
+  p_household uuid, p_date date, p_parent uuid, p_heure time) returns int
+language plpgsql security definer set search_path = public as $$
+begin return public.programmer_rappel_changement(p_household, p_date, p_parent, p_heure); end $$;
+
+create or replace function public.test_purger_rappels(p_household uuid) returns int
+language plpgsql security definer set search_path = public as $$
+begin return public.purger_rappels_obsoletes(p_household); end $$;
+
+create or replace function public.test_programmer_rappel(
+  p_household uuid, p_type text, p_dest uuid, p_titre text, p_corps text,
+  p_entity text, p_entity_id uuid, p_quand timestamptz) returns boolean
+language plpgsql security definer set search_path = public as $$
+begin
+  return public.programmer_rappel(p_household, p_type, p_dest, p_titre, p_corps,
+                                  '/app/planning', p_entity, p_entity_id, p_quand);
+end $$;
+
+create or replace function public.test_definir_delai(
+  p_profil uuid, p_household uuid, p_minutes int) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  insert into reminder_settings (profile_id, household_id, minutes_avant)
+  values (p_profil, p_household, p_minutes)
+  on conflict (profile_id, household_id) do update set minutes_avant = excluded.minutes_avant;
+end $$;
+
+grant execute on function public.test_programmer_rdv(uuid) to authenticated;
+grant execute on function public.test_programmer_vacances(uuid) to authenticated;
+grant execute on function public.test_programmer_changement(uuid, date, uuid, time) to authenticated;
+grant execute on function public.test_purger_rappels(uuid) to authenticated;
+grant execute on function public.test_programmer_rappel(uuid, text, uuid, text, text, text, uuid, timestamptz) to authenticated;
+grant execute on function public.test_definir_delai(uuid, uuid, int) to authenticated;
+
+/** Manipulation directe des notifications, pour les tests d'idempotence. */
+create or replace function public.test_purger_notifs(p_kind text) returns void
+language plpgsql security definer set search_path = public as $$
+begin delete from notifications where kind = p_kind; end $$;
+
+create or replace function public.test_marquer_lu_direct(p_kind text, p_entity uuid, p_profil uuid)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  update notifications set read_at = now()
+   where kind = p_kind and entity_id = p_entity and profile_id = p_profil;
+end $$;
+
+create or replace function public.test_rappel_horaire(p_kind text, p_entity uuid, p_profil uuid)
+returns table (quand timestamptz, lu timestamptz, corps text, titre text)
+language sql security definer set search_path = public as $$
+  select scheduled_at, read_at, body, title from notifications
+   where kind = p_kind and entity_id = p_entity and profile_id = p_profil
+$$;
+
+grant execute on function public.test_purger_notifs(text) to authenticated;
+grant execute on function public.test_marquer_lu_direct(text, uuid, uuid) to authenticated;
+grant execute on function public.test_rappel_horaire(text, uuid, uuid) to authenticated;
+
+create or replace function public.test_compter_notifs_type(p_kind text) returns int
+language sql security definer set search_path = public as $$
+  select count(*)::int from notifications where kind = p_kind
+$$;
+create or replace function public.test_compter_notifs_entite(p_kind text, p_entity uuid) returns int
+language sql security definer set search_path = public as $$
+  select count(*)::int from notifications where kind = p_kind and entity_id = p_entity
+$$;
+grant execute on function public.test_compter_notifs_type(text) to authenticated;
+grant execute on function public.test_compter_notifs_entite(text, uuid) to authenticated;
+
+create or replace function public.test_compter_notifs_destinataire(
+  p_kind text, p_entity uuid, p_profil uuid) returns int
+language sql security definer set search_path = public as $$
+  select count(*)::int from notifications
+   where kind = p_kind and entity_id = p_entity and profile_id = p_profil
+$$;
+grant execute on function public.test_compter_notifs_destinataire(text, uuid, uuid) to authenticated;

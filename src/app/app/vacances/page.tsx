@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { BottomNav } from '@/components/ui';
 import { Chargement, Erreur, SansFoyer, Vide } from '@/components/etats';
@@ -16,15 +16,37 @@ function jourFr(iso: string) {
   return new Date(iso.length > 10 ? iso : `${iso}T12:00:00`)
     .toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
 }
-/** ISO vers valeur d'un champ date (heure locale). */
-function versChampDate(iso: string) {
-  return iso.slice(0, 10);
+/**
+ * ISO vers la valeur d'un champ datetime-local, en heure locale.
+ *
+ * Le format attendu est « AAAA-MM-JJTHH:MM », sans fuseau : découper la chaîne
+ * ISO donnerait l'heure UTC et décalerait l'affichage.
+ */
+function versChampDateHeure(iso: string, heureDefaut = '00:00') {
+  if (iso.length <= 10) return `${iso}T${heureDefaut}`;
+  const d = new Date(iso);
+  const p2 = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`
+    + `T${p2(d.getHours())}:${p2(d.getMinutes())}`;
+}
+
+/** Jour seul, pour comparer aux dates officielles. */
+function jourSeul(valeur: string) {
+  return valeur.slice(0, 10);
 }
 /** Une date seule devient un horodatage : début de journée, ou fin de journée. */
-function auDebut(jour: string) { return new Date(`${jour}T00:00:00`).toISOString(); }
-function aLaFin(jour: string) { return new Date(`${jour}T23:59:00`).toISOString(); }
+/** Valeur d'un champ datetime-local vers un horodatage ISO. */
+function horodatage(valeur: string) {
+  return new Date(valeur).toISOString();
+}
 
-export default function Vacances() {
+/** Heure lisible d'une valeur de champ, ou null si minuit ou fin de journée. */
+function heureUtile(valeur: string): string | null {
+  const h = valeur.slice(11, 16);
+  return h && h !== '00:00' && h !== '23:59' ? h : null;
+}
+
+function ContenuVacances() {
   const { ctx, recharger } = useContexte();
   const [liste, setListe] = useState<PropositionVacances[] | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -61,8 +83,8 @@ export default function Vacances() {
     setParentId(p.parentId ?? membres[0]?.profileId ?? '');
     // Les dates officielles ne sont qu'une proposition : elles s'affichent
     // pré-remplies, et restent entièrement modifiables.
-    setDebut(versChampDate(p.debutRetenu ?? p.debutOfficiel));
-    setFin(versChampDate(p.finRetenue ?? p.finOfficielle));
+    setDebut(versChampDateHeure(p.debutRetenu ?? p.debutOfficiel, '00:00'));
+    setFin(versChampDateHeure(p.finRetenue ?? p.finOfficielle, '23:59'));
     setErreurForm(null);
   }
 
@@ -70,27 +92,37 @@ export default function Vacances() {
     setErreurForm(null); setMsg(null);
     if (!parentId) { setErreurForm('Indiquez chez quel parent sont les enfants.'); return; }
     if (!debut || !fin) { setErreurForm('Indiquez les dates.'); return; }
-    if (fin < debut) { setErreurForm('La fin doit être postérieure au début.'); return; }
+    if (new Date(fin) <= new Date(debut)) {
+      setErreurForm('La fin doit être postérieure au début.'); return;
+    }
     if (enfants.length === 0) { setErreurForm('Ajoutez d’abord un enfant.'); return; }
 
     setBusy(true);
     const r = p.exceptionId
       ? await modifierException({
           id: p.exceptionId, parentId,
-          debut: auDebut(debut), fin: aLaFin(fin), titre: p.libelle,
+          debut: horodatage(debut), fin: horodatage(fin),
+          titre: p.libelle,
         })
       : await creerException({
           householdId, type: 'holiday', enfantIds: enfants.map((e) => e.id),
-          parentId, debut: auDebut(debut), fin: aLaFin(fin),
+          parentId, debut: horodatage(debut), fin: horodatage(fin),
           titre: p.libelle, anneeScolaire: p.anneeScolaire,
           periodeOfficielleId: p.holidayId,
         });
     setBusy(false);
 
     if (r.status === 'ok') {
-      setMsg(`${p.libelle} : les enfants sont chez ${nom(parentId)}.`);
+      const h = heureUtile(debut);
+      setMsg(h
+        ? `${p.libelle} : chez ${nom(parentId)} à partir de ${h}.`
+        : `${p.libelle} : les enfants sont chez ${nom(parentId)}.`);
       setOuvert(null); charger();
-    } else if (r.status === 'error') setErreurForm(r.message);
+    } else if (r.status === 'error') {
+      // Le détail technique accompagne le message : sans lui, un refus dû à
+      // l'horizon de l'offre est indiscernable d'une erreur de saisie.
+      setErreurForm(r.details ? `${r.message} (${r.details})` : r.message);
+    }
     else setErreurForm('Session non authentifiée. Reconnectez-vous.');
   }
 
@@ -140,8 +172,8 @@ export default function Vacances() {
                 {liste.map((p) => {
                   const decide = Boolean(p.exceptionId);
                   const modifie = decide
-                    && (versChampDate(p.debutRetenu ?? '') !== p.debutOfficiel
-                      || versChampDate(p.finRetenue ?? '') !== p.finOfficielle);
+                    && (jourSeul(versChampDateHeure(p.debutRetenu ?? '')) !== p.debutOfficiel
+                      || jourSeul(versChampDateHeure(p.finRetenue ?? '')) !== p.finOfficielle);
                   const parent = membres.find((m) => m.profileId === p.parentId);
 
                   return (
@@ -159,7 +191,13 @@ export default function Vacances() {
                           <span className="block truncate font-bold leading-snug">{p.libelle}</span>
                           <span className="block text-[13px] leading-snug text-soft/85">
                             {decide
-                              ? `Chez ${nom(p.parentId)} · du ${jourFr(p.debutRetenu!)} au ${jourFr(p.finRetenue!)}`
+                              ? `Chez ${nom(p.parentId)} · du ${jourFr(p.debutRetenu!)}${
+                                  heureUtile(versChampDateHeure(p.debutRetenu!))
+                                    ? ` à ${heureUtile(versChampDateHeure(p.debutRetenu!))}` : ''
+                                } au ${jourFr(p.finRetenue!)}${
+                                  heureUtile(versChampDateHeure(p.finRetenue!))
+                                    ? ` à ${heureUtile(versChampDateHeure(p.finRetenue!))}` : ''
+                                }`
                               : `Officiel : du ${jourFr(p.debutOfficiel)} au ${jourFr(p.finOfficielle)}`}
                           </span>
                         </span>
@@ -177,13 +215,13 @@ export default function Vacances() {
                       </button>
 
                       {modifie && (
-                        <p className="mt-1 pl-12 text-[11px] text-soft/85">
+                        <p className="mt-1 pl-[3.25rem] text-[11px] text-soft/85">
                           Dates ajustées par rapport au calendrier officiel.
                         </p>
                       )}
 
                       {ouvert === p.holidayId && (
-                        <div className="mt-3 space-y-3 pl-12 pr-1">
+                        <div className="mt-3 space-y-3">
                           <fieldset>
                             <legend className="mb-1.5 text-sm font-bold">Chez quel parent ?</legend>
                             <div className="flex flex-wrap gap-2">
@@ -198,25 +236,34 @@ export default function Vacances() {
                             </div>
                           </fieldset>
 
-                          <div className="grid grid-cols-2 gap-2">
+                          {/* Un seul sélecteur par borne : le calendrier
+                              natif propose la date ET l'heure, ce qui évite
+                              deux champs à remplir séparément. */}
+                          <div className="space-y-2">
                             <label className="block">
-                              <span className="mb-1 block text-sm font-bold">Début</span>
-                              <input type="date" value={debut} onChange={(e) => setDebut(e.target.value)} />
+                              <span className="mb-1 block text-sm font-bold">
+                                Début — date et heure
+                              </span>
+                              <input type="datetime-local" value={debut}
+                                     onChange={(e) => setDebut(e.target.value)} />
                             </label>
                             <label className="block">
-                              <span className="mb-1 block text-sm font-bold">Fin</span>
-                              <input type="date" value={fin} onChange={(e) => setFin(e.target.value)} />
+                              <span className="mb-1 block text-sm font-bold">
+                                Fin — date et heure
+                              </span>
+                              <input type="datetime-local" value={fin}
+                                     onChange={(e) => setFin(e.target.value)} />
                             </label>
                           </div>
 
-                          {(debut !== p.debutOfficiel || fin !== p.finOfficielle) && (
-                            <button type="button"
-                              className="text-[12px] font-bold text-navy-text underline"
-                              onClick={() => {
-                                setDebut(p.debutOfficiel); setFin(p.finOfficielle);
-                              }}>
-                              Revenir aux dates officielles
-                            </button>
+                          {(heureUtile(debut) || heureUtile(fin)) && (
+                            <p className="rounded-xl bg-muted px-3 py-2 text-[12px] leading-snug text-soft">
+                              {heureUtile(debut)
+                                && `Le ${jourFr(jourSeul(debut))}, les enfants passent chez ${nom(parentId)} à ${heureUtile(debut)}. `}
+                              {heureUtile(fin)
+                                && `Ils repartent le ${jourFr(jourSeul(fin))} à ${heureUtile(fin)}. `}
+                              Ces journées apparaîtront coupées en deux dans le planning.
+                            </p>
                           )}
 
                           {erreurForm && (
@@ -253,5 +300,14 @@ export default function Vacances() {
 
       <BottomNav active="/app/planning" />
     </main>
+  );
+}
+
+/** Frontière Suspense : immunise la page contre l'échec de génération statique. */
+export default function Vacances() {
+  return (
+    <Suspense fallback={<main className="px-4 pt-3"><Chargement /></main>}>
+      <ContenuVacances />
+    </Suspense>
   );
 }
