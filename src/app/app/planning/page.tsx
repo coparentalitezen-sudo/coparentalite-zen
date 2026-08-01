@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { BottomNav, ParentBadge } from '@/components/ui';
@@ -28,7 +28,7 @@ function dateHeure(iso: string) {
   return `${d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} à ${heureCourte(iso)}`;
 }
 
-export default function Planning() {
+function PlanningContent() {
   const { ctx, recharger } = useContexte();
   const searchParams = useSearchParams();
   const [regle, setRegle] = useState<RegleGarde | null | 'inconnu'>('inconnu');
@@ -467,5 +467,14 @@ export default function Planning() {
 
       <BottomNav active="/app/planning" />
     </main>
+  );
+}
+
+
+export default function Planning() {
+  return (
+    <Suspense fallback={<main className="px-4 pt-3"><Chargement /></main>}>
+      <PlanningContent />
+    </Suspense>
   );
 }

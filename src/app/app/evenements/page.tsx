@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { BottomNav } from '@/components/ui';
@@ -45,7 +45,7 @@ function dateLisible(iso: string) {
   });
 }
 
-export default function EvenementsPage() {
+function ContenuEvenements() {
   const { ctx, recharger } = useContexte();
   const params = useSearchParams();
   const jourParam = params.get('jour');
@@ -251,5 +251,14 @@ export default function EvenementsPage() {
       )}
       <BottomNav active="/app/planning" />
     </main>
+  );
+}
+
+
+export default function EvenementsPage() {
+  return (
+    <Suspense fallback={<main className="px-4 pt-3"><Chargement /></main>}>
+      <ContenuEvenements />
+    </Suspense>
   );
 }
