@@ -112,8 +112,9 @@ test('PWA : service worker et balises d’installation présents', async ({ page
   expect(code).toContain("startsWith('/api/')");
 
   await page.goto('/');
-  await expect(page.locator('link[rel="manifest"]')).toHaveAttribute('href', '/manifest.webmanifest');
-  expect(await page.locator('link[rel="apple-touch-icon"]').count()).toBeGreaterThanOrEqual(1);
+  await expect(page.locator('link[rel="manifest"]')).toHaveAttribute('href', /manifest\.webmanifest/);
+  const appleIcon = page.locator('link[rel="apple-touch-icon"]').first();
+  await expect(appleIcon).toHaveAttribute('href', /apple-touch-icon/);
   expect(await page.locator('link[rel="apple-touch-startup-image"]').count()).toBeGreaterThanOrEqual(5);
   await expect(page.locator('meta[name="apple-mobile-web-app-capable"]')).toHaveAttribute('content', 'yes');
 });

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
 import { configStripe, creerSessionExtension, creerSessionAbonnement } from '@/lib/stripe';
+import { cleIdempotencePaiement } from '@/lib/payment-idempotency';
 
 /**
  * Ouverture d'un paiement.
@@ -87,7 +88,9 @@ export async function POST(requete: Request) {
         libelle: ext.label as string,
         montantCents: Number(ext.price_cents),
         emailClient: user.email ?? undefined,
-        cleIdempotence: `ext:${householdId}:${ext.id}:${Date.now()}`,
+        cleIdempotence: cleIdempotencePaiement({
+          userId: user.id, householdId, type: 'extension', resource: String(ext.id),
+        }),
       });
       return NextResponse.json({ url: session.url });
     }
@@ -126,7 +129,9 @@ export async function POST(requete: Request) {
       periodicite,
       emailClient: user.email ?? undefined,
       clientExistant: (abo?.stripe_customer_id as string) ?? null,
-      cleIdempotence: `sub:${householdId}:${periodicite}:${Date.now()}`,
+      cleIdempotence: cleIdempotencePaiement({
+        userId: user.id, householdId, type: 'abonnement', resource: periodicite,
+      }),
     });
     return NextResponse.json({ url: session.url });
   } catch (e) {

@@ -22,6 +22,13 @@ export async function creerRemboursement(input: {
   if (!Number.isInteger(input.montantCents) || input.montantCents <= 0) {
     return err('Indiquez un montant valide, par exemple 12,50.');
   }
+  if (input.justificatif) {
+    const check = checkFile(input.justificatif, MAX_JUSTIFICATIF_BYTES);
+    if (!check.ok) return err(check.message);
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) return err('Votre session a expiré. Reconnectez-vous.');
+  }
+
   const { data, error } = await supabase.rpc('create_reimbursement', {
     p_household: input.householdId,
     p_from_parent: input.deParent,
@@ -36,17 +43,25 @@ export async function creerRemboursement(input: {
 
   const rid = data as string;
   if (input.justificatif) {
-    const check = checkFile(input.justificatif, MAX_JUSTIFICATIF_BYTES);
-    if (!check.ok) return err(`Remboursement enregistré, mais le justificatif a été refusé : ${check.message}`);
-    const path = buildStoragePath(input.householdId, input.justificatif.type as AllowedMime, crypto.randomUUID());
-    const { error: upErr } = await supabase.storage.from('justificatifs')
-      .upload(path, input.justificatif, { contentType: input.justificatif.type, upsert: false });
-    if (upErr) return err('Remboursement enregistré, mais le dépôt du justificatif a échoué.');
-    const { error: dbErr } = await supabase.rpc('set_reimbursement_attachment',
-      { p_id: rid, p_path: path });
-    if (dbErr) {
-      await supabase.storage.from('justificatifs').remove([path]);
-      return err('Remboursement enregistré, mais le justificatif n’a pas pu être rattaché.');
+    const path = buildStoragePath(
+      input.householdId, input.justificatif.type as AllowedMime, crypto.randomUUID(),
+    );
+    let charge = false;
+    try {
+      const { error: upErr } = await supabase.storage.from('justificatifs')
+        .upload(path, input.justificatif, { contentType: input.justificatif.type, upsert: false });
+      if (upErr) return err('Remboursement enregistré, mais le dépôt du justificatif a échoué.');
+      charge = true;
+
+      const { error: dbErr } = await supabase.rpc('set_reimbursement_attachment',
+        { p_id: rid, p_path: path });
+      if (dbErr) return err('Remboursement enregistré, mais le justificatif n’a pas pu être rattaché.');
+      charge = false;
+    } finally {
+      if (charge) {
+        const { error: cleanupError } = await supabase.storage.from('justificatifs').remove([path]);
+        if (cleanupError) console.error('[remboursements] nettoyage du fichier orphelin', cleanupError.message);
+      }
     }
   }
   return ok(rid);

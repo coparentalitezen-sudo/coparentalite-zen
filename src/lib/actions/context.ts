@@ -19,7 +19,9 @@ export async function getContexte(): Promise<ActionResult<Contexte | null>> {
     const { data: membre, error: e1 } = await supabase
       .from('household_members')
       .select('role, household_id')
+      .eq('profile_id', user.id)
       .is('deleted_at', null)
+      .order('joined_at', { ascending: true })
       .limit(1)
       .maybeSingle();
     if (e1) return err(lisible('Impossible de charger votre foyer.', e1), detail(e1));
