@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { BottomNav } from '@/components/ui';
 import { Chargement, Erreur, SansFoyer, Vide } from '@/components/etats';
 import { Icone } from '@/components/icons';
+import { signalerChangementNotifications } from '@/lib/notifications-events';
 import { useContexte } from '@/lib/use-contexte';
 import {
   listerNotifications, marquerLue, marquerToutLu,
@@ -46,11 +47,19 @@ function ContenuNotifications() {
   const nonLues = (liste ?? []).filter((n) => !n.lueLe).length;
 
   async function ouvrir(n: Notification) {
-    if (!n.lueLe) {
-      await marquerLue(n.id);
-      setListe((l) => (l ?? []).map((x) =>
-        x.id === n.id ? { ...x, lueLe: new Date().toISOString() } : x));
+    if (n.lueLe) return;
+
+    const r = await marquerLue(n.id);
+    if (r.status !== 'ok') {
+      setErreur(r.status === 'error' ? r.message : 'Action indisponible.');
+      return;
     }
+
+    const maintenant = new Date().toISOString();
+    const nouveauTotal = Math.max(0, nonLues - 1);
+    setListe((l) => (l ?? []).map((x) =>
+      x.id === n.id ? { ...x, lueLe: maintenant } : x));
+    signalerChangementNotifications(nouveauTotal);
   }
 
   async function toutMarquer() {
@@ -58,7 +67,16 @@ function ContenuNotifications() {
     setBusy(true);
     const r = await marquerToutLu(ctx.contexte.foyer.id);
     setBusy(false);
-    if (r.status === 'ok') charger();
+
+    if (r.status !== 'ok') {
+      setErreur(r.status === 'error' ? r.message : 'Action indisponible.');
+      return;
+    }
+
+    const maintenant = new Date().toISOString();
+    setListe((l) => (l ?? []).map((n) => ({ ...n, lueLe: n.lueLe ?? maintenant })));
+    setErreur(null);
+    signalerChangementNotifications(0);
   }
 
   return (
