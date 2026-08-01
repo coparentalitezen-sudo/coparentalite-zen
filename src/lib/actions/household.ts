@@ -4,10 +4,23 @@
 import { supabaseBrowser, ok, err, lisible, detail, type ActionResult } from './core';
 
 // ---------------- Invitations ----------------
-export async function inviteParent(householdId: string, email: string): Promise<ActionResult<string>> {
+/**
+ * Crée un lien d'invitation.
+ *
+ * L'adresse e-mail verrouille l'invitation à une personne précise : le lien
+ * transféré ne sert alors à rien. Sans adresse, le lien devient le seul
+ * secret — d'où l'avertissement affiché à l'écran.
+ */
+export async function inviteParent(
+  householdId: string, email: string, telephone?: string | null,
+): Promise<ActionResult<string>> {
   const supabase = supabaseBrowser();
   if (!supabase) return { status: 'demo' };
-  const { data, error } = await supabase.rpc('create_invitation', { p_household: householdId, p_email: email });
+  const { data, error } = await supabase.rpc('create_invitation', {
+    p_household: householdId,
+    p_email: email.trim() || null,
+    p_phone: telephone?.trim() || null,
+  });
   // Le détail accompagne le message : sans lui, un refus de la base est
   // indiscernable d'un bouton resté sans effet.
   if (error) return err(

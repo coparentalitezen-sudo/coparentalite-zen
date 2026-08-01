@@ -215,12 +215,20 @@ export default function Foyer() {
 
   async function inviter(householdId: string) {
     setMsg(null); setMsgInvitation(null);
-    if (!email.includes('@')) {
-      setMsgInvitation({ kind: 'err', text: 'Saisissez une adresse e-mail valide.' });
+    const tel = normaliserTelephone(telSecond);
+    if (!email.trim() && !tel) {
+      setMsgInvitation({
+        kind: 'err',
+        text: 'Indiquez son adresse e-mail ou son numéro de téléphone.',
+      });
+      return;
+    }
+    if (email.trim() && !email.includes('@')) {
+      setMsgInvitation({ kind: 'err', text: 'Cette adresse e-mail semble incomplète.' });
       return;
     }
     setBusy(true);
-    const r = await inviteParent(householdId, email);
+    const r = await inviteParent(householdId, email, tel);
     setBusy(false);
     if (r.status === 'ok') {
       setLien(`${window.location.origin}/invitation/${r.data}`);
@@ -766,13 +774,18 @@ export default function Foyer() {
                 </p>
               )}
 
+              <p className="text-[12px] leading-snug text-soft/85">
+                Renseignez au moins l’un des deux.
+              </p>
+
               <label className="block">
                 <span className="mb-1 block text-sm font-bold">Son adresse e-mail</span>
                 <input type="email" inputMode="email" autoComplete="off"
                        value={email} placeholder="prenom@exemple.fr"
                        onChange={(e) => setEmail(e.target.value)} />
                 <span className="mt-1 block text-xs text-soft">
-                  L’invitation n’est valable que pour cette adresse, et expire au bout de sept jours.
+                  L’invitation n’est alors valable que pour cette adresse : c’est la
+                  façon la plus sûre d’inviter.
                 </span>
               </label>
 
@@ -781,8 +794,7 @@ export default function Foyer() {
                   qu'un envoi par SMS est possible. */}
               <label className="block">
                 <span className="mb-1 block text-sm font-bold">
-                  Son numéro de téléphone{' '}
-                  <span className="font-normal text-soft">(facultatif)</span>
+                  Son numéro de téléphone
                 </span>
                 <input type="tel" inputMode="tel" autoComplete="off"
                        maxLength={20} value={telSecond}
@@ -795,6 +807,17 @@ export default function Foyer() {
                 </span>
               </label>
 
+              {/* Sans adresse, le lien devient le seul secret : quiconque le
+                  reçoit entre dans le foyer. Le dire vaut mieux que de le taire. */}
+              {!email.trim() && normaliserTelephone(telSecond) && (
+                <p className="rounded-xl bg-wait-bg px-3 py-2 text-[12px] leading-snug text-wait">
+                  Sans adresse e-mail, le lien suffit à rejoindre votre foyer :
+                  ne le transmettez qu’au bon numéro. Il expire au bout de sept
+                  jours, ne sert qu’une fois, et vous serez prévenu dès que
+                  quelqu’un l’aura utilisé.
+                </p>
+              )}
+
               {msgInvitation && (
                 <p role={msgInvitation.kind === 'err' ? 'alert' : 'status'}
                    className={`rounded-xl px-3 py-2 text-sm font-bold ${
@@ -803,7 +826,8 @@ export default function Foyer() {
                 </p>
               )}
 
-              <button className="btn btn-primary w-full" disabled={busy || !email.trim()}
+              <button className="btn btn-primary w-full"
+                      disabled={busy || (!email.trim() && !normaliserTelephone(telSecond))}
                       onClick={() => inviter(ctx.contexte.foyer.id)}>
                 {busy ? 'Création…' : 'Créer le lien d’invitation'}
               </button>

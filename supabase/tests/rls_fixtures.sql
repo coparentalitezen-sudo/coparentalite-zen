@@ -344,3 +344,11 @@ language sql security definer set search_path = public as $$
    where kind = p_kind and entity_id = p_entity and profile_id = p_profil
 $$;
 grant execute on function public.test_compter_notifs_destinataire(text, uuid, uuid) to authenticated;
+
+/** Force l'expiration d'une invitation, pour tester le garde-fou. */
+create or replace function public.test_expirer_invitation(p_token uuid) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  update invitations set expires_at = now() - interval '1 day' where token = p_token;
+end $$;
+grant execute on function public.test_expirer_invitation(uuid) to authenticated;

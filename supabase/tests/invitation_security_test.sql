@@ -145,18 +145,58 @@ begin
   raise notice 'T49 OK — appartenance à un autre foyer refusée, invitation intacte';
 end $$;
 
--- ============ T50 : invitation sans adresse rattachée ============
+-- ============ T50 : invitation par téléphone, sans adresse ============
+--
+-- COMPROMIS ASSUMÉ, décidé avec le propriétaire du produit. Une invitation
+-- peut n'être rattachée qu'à un numéro de téléphone : le lien devient alors
+-- le seul secret, et quiconque le reçoit entre dans le foyer.
+--
+-- Ce n'est acceptable que parce que trois garde-fous demeurent, vérifiés
+-- ci-dessous : expiration, usage unique, et notification de l'invitant.
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000f4', false);
 do $$
+declare hid uuid; statut text;
 begin
+  hid := public.accept_invitation('77777777-7777-7777-7777-777777777775'); -- sans adresse
+  if hid is null then
+    raise exception 'ÉCHEC T50 : une invitation par téléphone a été refusée';
+  end if;
+
+  -- Usage unique : le jeton est consommé
+  statut := public.test_statut_invitation('77777777-7777-7777-7777-777777777775');
+  if statut <> 'accepted' then
+    raise exception 'ÉCHEC T50b : statut % après acceptation', statut;
+  end if;
+
+  -- Et il ne peut pas resservir
   begin
-    perform public.accept_invitation('77777777-7777-7777-7777-777777777775'); -- email null
-    raise exception 'ÉCHEC T50 : un lien sans destinataire a été accepté';
+    perform public.accept_invitation('77777777-7777-7777-7777-777777777775');
+    raise exception 'ÉCHEC T50c : le lien a resservi une seconde fois';
   exception when others then
     if sqlerrm like 'ÉCHEC%' then raise; end if;
-    if sqlerrm not like '%aucune adresse%' then raise exception 'ÉCHEC T50b : mauvais motif (%)', sqlerrm; end if;
+    if sqlerrm not like '%déjà été utilisée%' then
+      raise exception 'ÉCHEC T50d : motif inattendu (%)', sqlerrm;
+    end if;
   end;
-  raise notice 'T50 OK — invitation sans adresse rattachée refusée';
+  raise notice 'T50 OK — invitation par téléphone acceptée, jeton consommé, non rejouable';
+end $$;
+
+-- ============ T51 : le lien reste soumis à l'expiration ============
+do $$
+begin
+  -- Une invitation expirée est refusée, avec ou sans adresse : c'est le
+  -- garde-fou qui limite la portée d'un lien égaré.
+  begin
+    perform public.test_expirer_invitation('77777777-7777-7777-7777-777777777776');
+    perform public.accept_invitation('77777777-7777-7777-7777-777777777776');
+    raise exception 'ÉCHEC T51 : une invitation expirée a été acceptée';
+  exception when others then
+    if sqlerrm like 'ÉCHEC%' then raise; end if;
+    if sqlerrm not like '%expiré%' then
+      raise exception 'ÉCHEC T51b : motif inattendu (%)', sqlerrm;
+    end if;
+  end;
+  raise notice 'T51 OK — un lien expiré reste refusé, adresse ou non';
 end $$;
 
 select 'TOUS LES TESTS DE SÉCURITÉ D''INVITATION SONT PASSÉS' as resultat;

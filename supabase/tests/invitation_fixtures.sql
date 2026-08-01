@@ -27,9 +27,13 @@ insert into invitations (household_id, email, token, status, expires_at, created
   ('aaaaaaaa-0000-0000-0000-000000000001','carol@test.fr',
    '77777777-7777-7777-7777-777777777774','pending', now() + interval '7 days',
    '00000000-0000-0000-0000-00000000000a'),
-  -- 5 : sans adresse rattachée
+  -- 5 : sans adresse, rattachée à un numéro de téléphone
   ('aaaaaaaa-0000-0000-0000-000000000001', null,
    '77777777-7777-7777-7777-777777777775','pending', now() + interval '7 days',
+   '00000000-0000-0000-0000-00000000000a'),
+  -- 6 : sans adresse également, pour éprouver l'expiration
+  ('aaaaaaaa-0000-0000-0000-000000000001', null,
+   '77777777-7777-7777-7777-777777777776','pending', now() + interval '7 days',
    '00000000-0000-0000-0000-00000000000a')
 on conflict (token) do nothing;
 
