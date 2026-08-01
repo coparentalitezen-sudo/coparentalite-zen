@@ -10,6 +10,9 @@ import { SchemaRythme, GrilleCycle } from '@/components/rythme';
 import { ProgressionDetaillee } from '@/components/progression';
 import { invitationPrematuree, type EtatConfiguration } from '@/lib/configuration';
 import {
+  normaliserTelephone, messageInvitation, lienSMS, lienCourriel,
+} from '@/lib/partage-invitation';
+import {
   MODELES, modele, cycleParDefaut, repartition, validerCyclePersonnalise,
 } from '@/lib/rythmes';
 import { useContexte } from '@/lib/use-contexte';
@@ -51,6 +54,7 @@ export default function Foyer() {
   const [rythme, setRythme] = useState<CustodyPattern>('alternating_weeks');
   const [cyclePerso, setCyclePerso] = useState<('P1' | 'P2')[]>([]);
   const [prenomSecond, setPrenomSecond] = useState('');
+  const [telSecond, setTelSecond] = useState('');
   const [heurePassage, setHeurePassage] = useState('');
   const [lieuPassage, setLieuPassage] = useState('');
   const [debut, setDebut] = useState(() => new Date().toISOString().slice(0, 10));
@@ -763,25 +767,72 @@ export default function Foyer() {
                 {busy ? 'Création…' : 'Créer le lien d’invitation'}
               </button>
 
-              {lien && (
-                <div className="rounded-xl bg-muted p-3">
-                  <p className="text-[13px] font-bold">Lien créé — transmettez-le à {email}</p>
-                  <p className="mt-1 break-all rounded-lg bg-card px-2.5 py-2 text-[12px] leading-snug">
-                    {lien}
-                  </p>
-                  <button type="button" className="btn btn-ghost mt-2 w-full"
-                          onClick={() => {
-                            navigator.clipboard?.writeText(lien);
-                            setMsg({ kind: 'ok', text: 'Lien copié.' });
-                          }}>
-                    Copier le lien
-                  </button>
-                  <p className="mt-2 text-[11px] leading-snug text-soft/85">
-                    Envoyez-le par le moyen de votre choix. Nous n’envoyons pas
-                    d’e-mail à sa place : c’est à vous de le transmettre.
-                  </p>
-                </div>
-              )}
+              {lien && (() => {
+                const monNom = membres.find((m) => m.profileId === ctx.contexte.moi)?.nom ?? '';
+                const texte = messageInvitation(monNom, lien);
+                const tel = normaliserTelephone(telSecond);
+
+                return (
+                  <div className="space-y-2.5 rounded-xl bg-muted p-3">
+                    <p className="text-[13px] font-bold">Lien créé — transmettez-le</p>
+                    <p className="break-all rounded-lg bg-card px-2.5 py-2 text-[12px] leading-snug">
+                      {lien}
+                    </p>
+
+                    {/* Le message part depuis VOTRE téléphone : le second
+                        parent reconnaît l'expéditeur, là où un envoi
+                        automatique passerait pour du démarchage. */}
+                    <label className="block">
+                      <span className="mb-1 block text-sm font-bold">
+                        Son numéro <span className="font-normal text-soft">(facultatif)</span>
+                      </span>
+                      <input type="tel" inputMode="tel" autoComplete="off"
+                             maxLength={20} value={telSecond}
+                             placeholder="06 12 34 56 78"
+                             onChange={(e) => setTelSecond(e.target.value)} />
+                      {telSecond && !tel && (
+                        <span className="mt-1 block text-[12px] font-semibold text-wait">
+                          Numéro non reconnu — vous pourrez le choisir dans vos contacts.
+                        </span>
+                      )}
+                    </label>
+
+                    <a href={lienSMS(telSecond, texte)}
+                       className="btn btn-primary w-full">
+                      Envoyer par SMS
+                    </a>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <a href={lienCourriel(email, texte)} className="btn btn-ghost">
+                        Par e-mail
+                      </a>
+                      <button type="button" className="btn btn-ghost"
+                              onClick={async () => {
+                                // Le partage natif propose WhatsApp, Signal,
+                                // Messages… selon ce qui est installé.
+                                if (navigator.share) {
+                                  try {
+                                    await navigator.share({
+                                      title: 'Coparentalité Zen', text: texte,
+                                    });
+                                    return;
+                                  } catch { /* partage annulé */ }
+                                }
+                                navigator.clipboard?.writeText(texte);
+                                setMsg({ kind: 'ok', text: 'Message copié.' });
+                              }}>
+                        Autre moyen
+                      </button>
+                    </div>
+
+                    <p className="text-[11px] leading-snug text-soft/85">
+                      Le message s’ouvrira dans votre messagerie, prêt à envoyer.
+                      Nous n’écrivons jamais à sa place : il reconnaîtra ainsi
+                      votre numéro.
+                    </p>
+                  </div>
+                );
+              })()}
             </>
           )}
         </section>
