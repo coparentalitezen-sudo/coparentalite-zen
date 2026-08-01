@@ -128,6 +128,7 @@ SQL et leurs jeux d'essai.
 | `00025` | **moteur de notifications** : types, canaux, préférences, rappels |
 | `00027` | **rendez-vous** : consultations, activités, affaires à prévoir |
 | `00028` | **programmation des rappels** : idempotente, par délai de parent |
+| `00029` | déclencheurs de notification par observation |
 
 ---
 
@@ -163,6 +164,23 @@ calculs.
 modifiée ni supprimée. Il faut annuler le remboursement d'abord. Le critère est
 chronologique : seul un remboursement postérieur à l'entrée de la dépense dans
 le solde la verrouille.
+
+**Émission des notifications.** Les faits du planning passent par les fonctions
+métier ; les autres — dépenses, remboursements, invitations, modifications de
+période — sont émis par des **déclencheurs qui observent les changements**.
+
+Ce choix évite de réécrire des fonctions éprouvées, dont celles qui garantissent
+l'intégrité comptable : une réécriture large a déjà fait disparaître du code
+dans ce projet. La notification part en outre quelle que soit la voie
+d'écriture employée.
+
+Dans un déclencheur, **l'auteur se lit dans la ligne** (`created_by`,
+`from_parent`) plutôt que via `auth.uid()`, qui ne reflète pas toujours la
+session lorsqu'il est appelé depuis une fonction `SECURITY DEFINER`.
+
+Deux discrétions volontaires : modifier la note d'une période ne notifie pas,
+seuls les dates et le parent gardien comptent ; corriger le libellé d'un
+rendez-vous non plus, seule la date déclenche une alerte.
 
 **Rappels.** Une tâche nocturne programme trois familles de rappels :
 rendez-vous à venir avec les affaires restant à préparer, début et fin des

@@ -336,3 +336,11 @@ language sql security definer set search_path = public as $$
 $$;
 grant execute on function public.test_compter_notifs_type(text) to authenticated;
 grant execute on function public.test_compter_notifs_entite(text, uuid) to authenticated;
+
+create or replace function public.test_compter_notifs_destinataire(
+  p_kind text, p_entity uuid, p_profil uuid) returns int
+language sql security definer set search_path = public as $$
+  select count(*)::int from notifications
+   where kind = p_kind and entity_id = p_entity and profile_id = p_profil
+$$;
+grant execute on function public.test_compter_notifs_destinataire(text, uuid, uuid) to authenticated;
