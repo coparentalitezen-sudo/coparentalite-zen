@@ -88,6 +88,11 @@ export async function GET() {
     cron_secret: presente('CRON_SECRET'),
     stripe_cle: presente('STRIPE_SECRET_KEY'),
     stripe_webhook: presente('STRIPE_WEBHOOK_SECRET'),
+    // Notifications poussées : la clé publique atteint le navigateur, la
+    // privée signe les envois. Les deux sont nécessaires.
+    push_cle_publique: presente('NEXT_PUBLIC_VAPID_PUBLIC_KEY'),
+    push_cle_privee: presente('VAPID_PRIVATE_KEY'),
+    push_contact: presente('VAPID_CONTACT'),
   };
 
   const roleService = roleDeLaCle(process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -105,6 +110,9 @@ export async function GET() {
         && 'Synchronisation hebdomadaire automatique inactive (CRON_SECRET manquante).',
       (!variables.stripe_cle || !variables.stripe_webhook)
         && 'Paiements indisponibles (clés Stripe manquantes).',
+      (!variables.push_cle_publique || !variables.push_cle_privee)
+        && 'Notifications poussées inactives (clés VAPID manquantes) : '
+           + 'les alertes restent consultables dans l’application.',
       roleService.includes('INCORRECTE')
         && `SUPABASE_SERVICE_ROLE_KEY contient une clé de rôle « ${roleService.split(' ')[0]} » : `
            + 'les traitements sans utilisateur seront refusés. Utilisez la clé service_role.',
