@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { BottomNav } from '@/components/ui';
 import { Chargement, Erreur, SansFoyer, Vide } from '@/components/etats';
@@ -16,7 +16,7 @@ const CATEGORIES: Record<string, string> = {
   foyer: 'Foyer',
 };
 
-export default function ReglagesNotifications() {
+function ContenuReglages() {
   const { ctx, recharger } = useContexte();
   const [prefs, setPrefs] = useState<PreferenceNotification[] | null>(null);
   const [delai, setDelai] = useState(60);
@@ -155,5 +155,14 @@ export default function ReglagesNotifications() {
 
       <BottomNav active="/app/accueil" />
     </main>
+  );
+}
+
+/** Frontière Suspense : immunise la page contre l'échec de génération statique. */
+export default function ReglagesNotifications() {
+  return (
+    <Suspense fallback={<main className="px-4 pt-3"><Chargement /></main>}>
+      <ContenuReglages />
+    </Suspense>
   );
 }

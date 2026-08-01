@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { BottomNav } from '@/components/ui';
 import { Chargement, Erreur, SansFoyer, Vide } from '@/components/etats';
@@ -24,7 +24,7 @@ function versChampDate(iso: string) {
 function auDebut(jour: string) { return new Date(`${jour}T00:00:00`).toISOString(); }
 function aLaFin(jour: string) { return new Date(`${jour}T23:59:00`).toISOString(); }
 
-export default function Vacances() {
+function ContenuVacances() {
   const { ctx, recharger } = useContexte();
   const [liste, setListe] = useState<PropositionVacances[] | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -253,5 +253,14 @@ export default function Vacances() {
 
       <BottomNav active="/app/planning" />
     </main>
+  );
+}
+
+/** Frontière Suspense : immunise la page contre l'échec de génération statique. */
+export default function Vacances() {
+  return (
+    <Suspense fallback={<main className="px-4 pt-3"><Chargement /></main>}>
+      <ContenuVacances />
+    </Suspense>
   );
 }

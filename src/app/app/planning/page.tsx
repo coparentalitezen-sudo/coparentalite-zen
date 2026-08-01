@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { BottomNav, ParentBadge } from '@/components/ui';
 import { Chargement, Erreur, SansFoyer, Vide } from '@/components/etats';
@@ -27,7 +27,7 @@ function dateHeure(iso: string) {
   return `${d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} à ${heureCourte(iso)}`;
 }
 
-export default function Planning() {
+function ContenuPlanning() {
   const { ctx, recharger } = useContexte();
   const [regle, setRegle] = useState<RegleGarde | null | 'inconnu'>('inconnu');
   const [exceptions, setExceptions] = useState<ExceptionGarde[]>([]);
@@ -423,5 +423,21 @@ export default function Planning() {
 
       <BottomNav active="/app/planning" />
     </main>
+  );
+}
+
+/**
+ * Frontière Suspense.
+ *
+ * Lors de la génération statique, tout hook lisant l'URL — directement ou via
+ * un composant importé — doit être isolé derrière une frontière Suspense, sans
+ * quoi la construction échoue. Le planning n'affiche que des données propres au
+ * foyer connecté : cette frontière ne coûte rien et l'immunise durablement.
+ */
+export default function Planning() {
+  return (
+    <Suspense fallback={<main className="px-4 pt-3"><Chargement /></main>}>
+      <ContenuPlanning />
+    </Suspense>
   );
 }

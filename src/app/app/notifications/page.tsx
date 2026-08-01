@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { BottomNav } from '@/components/ui';
 import { Chargement, Erreur, SansFoyer, Vide } from '@/components/etats';
@@ -25,7 +25,7 @@ function quand(iso: string): string {
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
 }
 
-export default function Notifications() {
+function ContenuNotifications() {
   const { ctx, recharger } = useContexte();
   const [liste, setListe] = useState<Notification[] | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -144,5 +144,14 @@ export default function Notifications() {
 
       <BottomNav active="/app/accueil" />
     </main>
+  );
+}
+
+/** Frontière Suspense : immunise la page contre l'échec de génération statique. */
+export default function Notifications() {
+  return (
+    <Suspense fallback={<main className="px-4 pt-3"><Chargement /></main>}>
+      <ContenuNotifications />
+    </Suspense>
   );
 }
