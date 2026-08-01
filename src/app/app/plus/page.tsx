@@ -8,6 +8,7 @@ import { seDeconnecter } from '@/lib/actions';
 const rubriques: [string, string, string | null][] = [
   ['Enfants', 'Ajouter, modifier, archiver', '/app/enfants'],
   ['Paramètres du foyer', 'Membres, rythme de garde, invitation', '/app/foyer'],
+  ['Rendez-vous', 'Consultations, réunions, activités et affaires à prévoir', '/app/rendez-vous'],
   ['Vacances scolaires', 'Répartir les cinq périodes de l’année', '/app/vacances'],
   ['Changements et exceptions', 'Échanges, voyages, absences ponctuelles', '/app/exceptions'],
   ['Notifications', 'Choisir ce dont vous voulez être prévenu', '/app/notifications/reglages'],

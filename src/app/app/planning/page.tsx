@@ -8,8 +8,9 @@ import { Icone } from '@/components/icons';
 import { BandeauHorizon, dansHorizon } from '@/components/premium';
 import { useContexte } from '@/lib/use-contexte';
 import {
-  getRegleGarde, listerExceptions, getOffre, listerVacances,
+  getRegleGarde, listerExceptions, getOffre, listerVacances, listerRendezVous,
   type RegleGarde, type ExceptionGarde, type Offre, type VacancesScolaires,
+  type RendezVous,
 } from '@/lib/actions';
 import { buildDayMap, journeesPartagees, addDays,
   type Source, type ExceptionOverride, type JourneePartagee } from '@/lib/custody';
@@ -38,6 +39,7 @@ function ContenuPlanning() {
   const [vacances, setVacances] = useState<VacancesScolaires[]>([]);
   const [erreurExceptions, setErreurExceptions] = useState<string | null>(null);
   const [partagees, setPartagees] = useState<Map<string, JourneePartagee>>(new Map());
+  const [rendezVous, setRendezVous] = useState<RendezVous[]>([]);
 
   const membres = ctx.etat === 'pret' ? ctx.contexte.membres : [];
   const enfants = ctx.etat === 'pret' ? ctx.contexte.enfants : [];
@@ -72,6 +74,11 @@ function ContenuPlanning() {
     getOffre(hid).then((r) => { if (r.status === 'ok') setOffre(r.data); });
     listerVacances(hid, premierJour, dernierJour).then((r) => {
       if (r.status === 'ok') setVacances(r.data);
+    });
+    // Les rendez-vous se superposent au planning : ils ne modifient jamais la
+    // garde, un échec de chargement ne doit donc rien vider.
+    listerRendezVous(hid, premierJour, dernierJour).then((r) => {
+      if (r.status === 'ok') setRendezVous(r.data);
     });
   }, [ctx, premierJour, dernierJour]);
 
@@ -126,6 +133,9 @@ function ContenuPlanning() {
 
   const vacancesDuJour = (jour: string) =>
     vacances.filter((v) => v.debut <= jour && jour <= v.fin);
+
+  const rdvDuJour = (jour: string) =>
+    rendezVous.filter((r) => r.debut.slice(0, 10) === jour);
 
   const membre = (id: string) => membres.find((m) => m.profileId === id);
   const nom = (id: string) => membre(id)?.nom ?? 'Parent';
@@ -249,6 +259,11 @@ function ContenuPlanning() {
                             title="Vacances scolaires" />
                         )}
                         <span className="relative z-10 text-xs font-bold">{Number(d.slice(8))}</span>
+                        {rdvDuJour(d).length > 0 && (
+                          <span aria-hidden
+                            className="absolute bottom-0.5 left-0.5 z-10 h-1.5 w-1.5 rounded-full bg-[#6741B8]"
+                            title="Rendez-vous" />
+                        )}
                         {transition && mMatin && m ? (
                           <span className="relative z-10 mt-0.5 flex flex-col text-[9px] font-black leading-[1.15]">
                             <span className={mMatin.couleur === 'coral' ? 'text-coral-text' : 'text-navy-text'}>
@@ -311,6 +326,12 @@ function ContenuPlanning() {
                     </span>
                     Jour de changement — case coupée, matin en haut
                   </li>
+                  <li className="flex items-center gap-2">
+                    <span aria-hidden className="relative h-5 w-5 shrink-0 rounded-md bg-muted">
+                      <span className="absolute bottom-1 left-1 h-1.5 w-1.5 rounded-full bg-[#6741B8]" />
+                    </span>
+                    Rendez-vous — pastille violette, sans effet sur la garde
+                  </li>
                 </ul>
               </section>
 
@@ -368,6 +389,30 @@ function ContenuPlanning() {
                       </>
                     );
                   })()}
+
+                  {rdvDuJour(jourOuvert).length > 0 && (
+                    <ul className="border-t border-line-soft pt-2.5">
+                      {rdvDuJour(jourOuvert).map((r) => (
+                        <li key={r.id} className="text-[13px] leading-snug">
+                          <span className="font-bold">
+                            {r.journeeEntiere ? '' : `${new Date(r.debut).toLocaleTimeString('fr-FR',
+                              { hour: '2-digit', minute: '2-digit' })} · `}
+                            {r.titre}
+                          </span>
+                          <span className="block text-soft/85">
+                            {r.enfants}
+                            {r.lieu && ` · ${r.lieu}`}
+                            {r.affairesTotal > 0 && ` · ${r.affairesCochees}/${r.affairesTotal} préparé`}
+                          </span>
+                        </li>
+                      ))}
+                      <li className="mt-1.5">
+                        <Link href="/app/rendez-vous" className="text-[12px] font-bold underline">
+                          Voir les rendez-vous
+                        </Link>
+                      </li>
+                    </ul>
+                  )}
 
                   {vacancesDuJour(jourOuvert).length > 0 && (
                     <ul className="border-t border-line-soft pt-2.5">

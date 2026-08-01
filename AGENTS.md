@@ -79,6 +79,7 @@ découpage interne peut évoluer sans rien casser.
 | `rythmes.ts` | catalogue des six rythmes, explications et schémas |
 | `configuration.ts` | étapes du parcours guidé, fonctions pures |
 | `actions/notifications.ts` | centre, préférences et délais de rappel |
+| `actions/rendez-vous.ts` | rendez-vous et affaires à prévoir |
 | `tarifs.ts` | lecture de la grille publique ; **aucun montant en dur** |
 | `actions/vacances.ts` | calendrier scolaire officiel du foyer |
 | `actions/localisation.ts` | pays, subdivision, déduction depuis le code postal |
@@ -124,6 +125,7 @@ SQL et leurs jeux d'essai.
 | `00023` | **second parent provisoire** : nommé avant son inscription |
 | `00024` | correction de `propositions_vacances` (min(uuid) impossible) |
 | `00025` | **moteur de notifications** : types, canaux, préférences, rappels |
+| `00027` | **rendez-vous** : consultations, activités, affaires à prévoir |
 
 ---
 
@@ -159,6 +161,19 @@ calculs.
 modifiée ni supprimée. Il faut annuler le remboursement d'abord. Le critère est
 chronologique : seul un remboursement postérieur à l'entrée de la dépense dans
 le solde la verrouille.
+
+**Rendez-vous.** Un moment précis concernant un enfant — consultation,
+réunion, activité. Il **se superpose au planning sans jamais modifier la
+garde** : noter un dentiste ne déplace aucun enfant. C'est la différence
+essentielle avec une exception, et un test la vérifie explicitement.
+
+L'accompagnant est explicite et non déduit : un parent peut emmener l'enfant
+chez le médecin un jour où il n'est pas chez lui.
+
+Les **affaires à prévoir** (« cartable », « carte Vitale ») s'attachent à un
+rendez-vous ou à un jour de la semaine récurrent — c'est au moment du passage
+d'un parent à l'autre qu'on oublie le plus. Chaque catégorie propose ses
+suggestions.
 
 **Notifications.** Une notification est un fait ; le canal par lequel elle
 atteint le parent est une question distincte. Cette séparation permettra
