@@ -14,11 +14,16 @@ export default function Inscription() {
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [legalAccepted, setLegalAccepted] = useState(false);
   const supabase = supabaseBrowser();
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!legalAccepted) {
+      setError('Vous devez accepter les conditions générales et la politique de confidentialité.');
+      return;
+    }
     if (password.length < 8) {
       setError('Choisissez un mot de passe d’au moins 8 caractères.');
       return;
@@ -31,7 +36,13 @@ export default function Inscription() {
     const { error } = await supabase.auth.signUp({
       email, password,
       options: {
-        data: { display_name: name },
+        data: {
+          display_name: name,
+          terms_accepted: true,
+          terms_version: '2026-08-02',
+          privacy_accepted: true,
+          privacy_version: '2026-08-02',
+        },
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
@@ -72,12 +83,13 @@ export default function Inscription() {
             <span className="mt-1 block text-xs text-soft">8 caractères minimum.</span>
           </label>
           {error && <p role="alert" className="rounded-xl bg-err-bg px-3 py-2 text-sm font-bold text-err">{error}</p>}
-          <button className="btn btn-primary w-full" disabled={loading}>
+          <label className="flex items-start gap-2 text-xs leading-relaxed text-soft">
+            <input type="checkbox" required checked={legalAccepted} onChange={(e) => setLegalAccepted(e.target.checked)} className="mt-0.5 h-4 w-4" />
+            <span>J’accepte les <Link className="font-bold underline" href="/cgu" target="_blank">conditions générales</Link> et la <Link className="font-bold underline" href="/confidentialite" target="_blank">politique de confidentialité</Link>.</span>
+          </label>
+          <button className="btn btn-primary w-full" disabled={loading || !legalAccepted}>
             {loading ? 'Création…' : 'Créer mon compte'}
           </button>
-          <p className="text-xs text-soft">
-            En créant un compte, vous acceptez les conditions générales et la politique de confidentialité.
-          </p>
           <p className="text-sm">
             Déjà un compte ? <Link className="font-bold text-navy-text underline" href="/connexion">Se connecter</Link>
           </p>

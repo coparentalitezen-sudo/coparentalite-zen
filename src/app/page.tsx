@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import { InstallAppCard } from '@/components/install-app-card';
 import Link from 'next/link';
 import { lireGrilleTarifaire, lireGrilleExtensions, formatPrix } from '@/lib/tarifs';
 
@@ -249,6 +250,8 @@ export default async function Landing() {
           </div>
         </div>
       </section>
+
+      <section className="mx-auto max-w-3xl px-5 py-8"><InstallAppCard permanent /></section>
 
       <section className="bg-white py-14">
         <div className="mx-auto max-w-6xl px-5">
@@ -518,9 +521,7 @@ export default async function Landing() {
           </div>
 
           <p className="mx-auto mt-5 max-w-2xl text-center text-xs leading-relaxed text-soft">
-            Les tarifs et les paiements seront activés après la finalisation
-            du système de paiement sécurisé. Aucun achat n’est actuellement
-            possible depuis cette page.
+            Les paiements sont traités sur la page sécurisée de Stripe. Coparentalité Zen ne conserve aucune donnée bancaire. La souscription s’effectue depuis votre espace après création du foyer.
           </p>
         </div>
       </section>
@@ -593,10 +594,10 @@ export default async function Landing() {
           </p>
 
           <div className="mt-5 flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs font-semibold text-soft">
-            <span>Politique de confidentialité</span>
-            <span>Conditions générales</span>
-            <span>Mentions légales</span>
-            <span>Contact</span>
+            <Link href="/confidentialite" className="underline">Politique de confidentialité</Link>
+            <Link href="/cgu" className="underline">Conditions générales</Link>
+            <Link href="/mentions-legales" className="underline">Mentions légales</Link>
+            <Link href="/contact" className="underline">Contact</Link>
           </div>
 
           <p className="mt-5 text-xs text-soft">

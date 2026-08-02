@@ -88,6 +88,12 @@ export async function GET() {
     cron_secret: presente('CRON_SECRET'),
     stripe_cle: presente('STRIPE_SECRET_KEY'),
     stripe_webhook: presente('STRIPE_WEBHOOK_SECRET'),
+    stripe_mode: process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_') ? 'live'
+      : process.env.STRIPE_SECRET_KEY?.startsWith('sk_test_') ? 'test' : 'inconnu',
+    mentions_legales: presente('NEXT_PUBLIC_LEGAL_NAME')
+      && presente('NEXT_PUBLIC_LEGAL_SIREN')
+      && presente('NEXT_PUBLIC_LEGAL_ADDRESS')
+      && presente('NEXT_PUBLIC_SUPPORT_EMAIL'),
     // Notifications poussées : la clé publique atteint le navigateur, la
     // privée signe les envois. Les deux sont nécessaires.
     push_cle_publique: presente('NEXT_PUBLIC_VAPID_PUBLIC_KEY'),
@@ -110,6 +116,10 @@ export async function GET() {
         && 'Synchronisation hebdomadaire automatique inactive (CRON_SECRET manquante).',
       (!variables.stripe_cle || !variables.stripe_webhook)
         && 'Paiements indisponibles (clés Stripe manquantes).',
+      variables.stripe_mode !== 'live'
+        && 'Stripe n’est pas en mode live : aucun paiement réel ne sera encaissé.',
+      !variables.mentions_legales
+        && 'Identité légale incomplète : renseignez les variables NEXT_PUBLIC_LEGAL_* avant vente publique.',
       (!variables.push_cle_publique || !variables.push_cle_privee)
         && 'Notifications poussées inactives (clés VAPID manquantes) : '
            + 'les alertes restent consultables dans l’application.',

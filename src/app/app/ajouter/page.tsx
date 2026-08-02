@@ -61,10 +61,11 @@ export default function Ajouter() {
       const c = checkFile(fichier, MAX_JUSTIFICATIF_BYTES);
       if (!c.ok) { setErreur(c.message); return; }
     }
+    if (!parent1) { setErreur('Aucun parent actif n’est disponible dans ce foyer.'); return; }
     const regles = parent2
-      ? [{ kind: 'percentage' as const, parentId: parent1!.profileId, basisPoints: split },
+      ? [{ kind: 'percentage' as const, parentId: parent1.profileId, basisPoints: split },
          { kind: 'percentage' as const, parentId: parent2.profileId, basisPoints: 10000 - split }]
-      : [{ kind: 'percentage' as const, parentId: parent1!.profileId, basisPoints: 10000 }];
+      : [{ kind: 'percentage' as const, parentId: parent1.profileId, basisPoints: 10000 }];
 
     setBusy(true);
     const r = await creerDepense({

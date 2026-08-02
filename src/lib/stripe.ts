@@ -82,6 +82,9 @@ export async function creerSessionExtension(params: {
     success_url: `${config.origine}/app/offre?paiement=reussi`,
     cancel_url: `${config.origine}/app/offre?paiement=annule`,
     locale: 'fr',
+    billing_address_collection: 'auto',
+    'custom_text[submit][message]': 'Paiement sécurisé par Stripe.',
+    client_reference_id: params.householdId,
     // Le foyer et l'extension voyagent dans les métadonnées : le webhook s'y
     // fie plutôt qu'à un paramètre d'URL, qu'un client pourrait falsifier.
     'metadata[household_id]': params.householdId,
@@ -100,7 +103,10 @@ export async function creerSessionExtension(params: {
     champs['line_items[0][price_data][product_data][name]'] =
       `Coparentalité Zen — ${params.libelle}`;
   }
-  if (params.emailClient) champs.customer_email = params.emailClient;
+  if (params.emailClient) {
+    champs.customer_email = params.emailClient;
+    champs.customer_creation = 'always';
+  }
 
   return appel<SessionPaiement>(config.cleSecrete, '/checkout/sessions', 'POST', champs, params.cleIdempotence);
 }
@@ -124,6 +130,9 @@ export async function creerSessionAbonnement(params: {
     success_url: `${config.origine}/app/offre?paiement=reussi`,
     cancel_url: `${config.origine}/app/offre?paiement=annule`,
     locale: 'fr',
+    billing_address_collection: 'auto',
+    'custom_text[submit][message]': 'Paiement sécurisé par Stripe.',
+    client_reference_id: params.householdId,
     'metadata[household_id]': params.householdId,
     'metadata[type]': 'abonnement',
     'metadata[periodicite]': params.periodicite,

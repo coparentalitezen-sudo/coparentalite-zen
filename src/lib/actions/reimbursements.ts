@@ -70,12 +70,20 @@ export async function creerRemboursement(input: {
 export async function listerRemboursements(householdId: string): Promise<ActionResult<Remboursement[]>> {
   const supabase = supabaseBrowser();
   if (!supabase) return { status: 'demo' };
-  const { data, error } = await supabase.from('reimbursements')
-    .select('id, from_parent, to_parent, amount_cents, paid_on, method, reference, comment, attachment_path, created_by')
-    .eq('household_id', householdId).is('deleted_at', null)
-    .order('paid_on', { ascending: false }).limit(50);
-  if (error) return err(lisible('Impossible de charger les remboursements.', error), detail(error));
-  return ok((data ?? []).map((r) => ({
+  const pageSize = 200;
+  const tous: Record<string, unknown>[] = [];
+  for (let debut = 0; ; debut += pageSize) {
+    const { data, error } = await supabase.from('reimbursements')
+      .select('id, from_parent, to_parent, amount_cents, paid_on, method, reference, comment, attachment_path, created_by')
+      .eq('household_id', householdId).is('deleted_at', null)
+      .order('paid_on', { ascending: false })
+      .range(debut, debut + pageSize - 1);
+    if (error) return err(lisible('Impossible de charger les remboursements.', error), detail(error));
+    const lot = (data ?? []) as unknown as Record<string, unknown>[];
+    tous.push(...lot);
+    if (lot.length < pageSize) break;
+  }
+  return ok(tous.map((r) => ({
     id: r.id as string,
     deParent: r.from_parent as string,
     versParent: r.to_parent as string,

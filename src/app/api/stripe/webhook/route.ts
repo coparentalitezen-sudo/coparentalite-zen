@@ -21,6 +21,11 @@ const EVENEMENTS_ABONNEMENT = new Set([
   'customer.subscription.deleted',
 ]);
 
+const EVENEMENTS_FACTURE = new Set([
+  'invoice.paid',
+  'invoice.payment_failed',
+]);
+
 function statutSupabase(statutStripe: string): string {
   switch (statutStripe) {
     case 'active': return 'active';
@@ -151,6 +156,39 @@ export async function POST(requete: Request) {
           p_trial_end: essaiFin,
         });
         if (error) throw new Error(error.message);
+      }
+    }
+
+
+    if (EVENEMENTS_FACTURE.has(evenement.type)) {
+      const idAbo = typeof objet.subscription === 'string'
+        ? objet.subscription
+        : ((objet.parent as { subscription_details?: { subscription?: string } } | undefined)
+            ?.subscription_details?.subscription ?? null);
+      if (idAbo) {
+        const abo = await lireAbonnement(config, idAbo);
+        const metaAbo = (abo.metadata ?? {}) as Record<string, string>;
+        const foyer = metaAbo.household_id ?? householdId;
+        if (foyer) {
+          const items = abo.items as { data?: { price?: { id?: string } }[] } | undefined;
+          const statut = evenement.type === 'invoice.payment_failed'
+            ? 'past_due'
+            : statutSupabase(String(abo.status ?? 'active'));
+          const { error } = await service.rpc('upsert_subscription', {
+            p_household: foyer,
+            p_plan: 'premium',
+            p_status: statut,
+            p_customer: (abo.customer as string) ?? (objet.customer as string) ?? null,
+            p_subscription: idAbo,
+            p_price: items?.data?.[0]?.price?.id ?? null,
+            p_period_end: abo.current_period_end
+              ? new Date(Number(abo.current_period_end) * 1000).toISOString() : null,
+            p_cancel_at_period_end: Boolean(abo.cancel_at_period_end),
+            p_trial_end: abo.trial_end
+              ? new Date(Number(abo.trial_end) * 1000).toISOString() : null,
+          });
+          if (error) throw new Error(error.message);
+        }
       }
     }
 

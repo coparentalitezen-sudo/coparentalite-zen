@@ -50,18 +50,26 @@ export async function creerDepense(input: NouvelleDepense): Promise<ActionResult
 export async function listerDepenses(householdId: string): Promise<ActionResult<DepenseListe[]>> {
   const supabase = supabaseBrowser();
   if (!supabase) return { status: 'demo' };
-  const { data, error } = await supabase.from('expenses')
-    .select(`id, title, amount_cents, spent_on, status, paid_by, created_by, category_id,
-             expense_categories(name),
-             expense_shares(parent_id, owed_cents, basis_points),
-             expense_children(child_id),
-             expense_attachments(id),
-             expense_comments(kind, body, author_id, created_at)`)
-    .eq('household_id', householdId).is('deleted_at', null)
-    .order('spent_on', { ascending: false }).limit(100);
-  if (error) return err(lisible('Impossible de charger les dépenses.', error));
+  const pageSize = 200;
+  const toutes: Record<string, unknown>[] = [];
+  for (let debut = 0; ; debut += pageSize) {
+    const { data, error } = await supabase.from('expenses')
+      .select(`id, title, amount_cents, spent_on, status, paid_by, created_by, category_id,
+               expense_categories(name),
+               expense_shares(parent_id, owed_cents, basis_points),
+               expense_children(child_id),
+               expense_attachments(id),
+               expense_comments(kind, body, author_id, created_at)`)
+      .eq('household_id', householdId).is('deleted_at', null)
+      .order('spent_on', { ascending: false })
+      .range(debut, debut + pageSize - 1);
+    if (error) return err(lisible('Impossible de charger les dépenses.', error));
+    const lot = (data ?? []) as unknown as Record<string, unknown>[];
+    toutes.push(...lot);
+    if (lot.length < pageSize) break;
+  }
 
-  return ok((data ?? []).map((e) => ({
+  return ok(toutes.map((e) => ({
     id: e.id as string,
     titre: e.title as string,
     montantCents: Number(e.amount_cents),

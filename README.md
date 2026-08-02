@@ -51,3 +51,8 @@ Le produit possède les principaux flux métier. Avant une commercialisation à
 grande échelle, maintenir un environnement de staging et exécuter de vrais
 parcours authentifiés de bout en bout, notamment invitation du second parent,
 planning, dépenses, justificatifs et Stripe en mode test.
+
+
+## Mise en service commerciale
+
+Avant ouverture publique, appliquez `supabase/migrations/00037_commercial_readiness.sql`, complétez les variables `NEXT_PUBLIC_LEGAL_*`, puis suivez `STRIPE-MISE-EN-SERVICE.md`. Les paiements doivent d'abord être validés en mode Stripe Test avant passage en Live.
