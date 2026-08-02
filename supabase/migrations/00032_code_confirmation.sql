@@ -34,10 +34,17 @@ alter table invitations add column if not exists tentatives smallint not null de
  *
  * `gen_random_bytes` fournit un aléa cryptographique, contrairement à
  * `random()` dont la suite est prédictible à partir d'une graine connue.
+ *
+ * Le search_path doit citer « extensions » : Supabase y installe pgcrypto, et
+ * non dans public. Sans cette mention, la fonction se crée sans broncher mais
+ * échoue à l'appel depuis create_invitation, dont le search_path se limite à
+ * public — « function gen_random_bytes(integer) does not exist ».
  */
 create or replace function public.generer_code_confirmation()
 returns text
-language sql volatile as $$
+language sql volatile
+set search_path = public, extensions, pg_catalog
+as $$
   select lpad((('x' || encode(gen_random_bytes(4), 'hex'))::bit(32)::bigint % 1000000)::text, 6, '0')
 $$;
 

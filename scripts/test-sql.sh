@@ -77,6 +77,19 @@ end \$\$;" > /dev/null
 admin -d postgres -c "drop database if exists $GABARIT;" > /dev/null
 admin -d postgres -c "create database $GABARIT;" > /dev/null
 
+# Supabase installe ses extensions dans un schéma « extensions » séparé, jamais
+# dans « public ». La nuance n'est pas cosmétique : un « create extension if not
+# exists pgcrypto » y est alors sans effet, et gen_random_bytes reste introuvable
+# pour toute fonction dont le search_path se limite à public. C'est exactement ce
+# qui a mis l'invitation en panne en production alors que ce banc de test passait
+# au vert — il installait pgcrypto dans public, où tout se résolvait tout seul.
+# On reproduit donc l'implantation réelle : les tests doivent échouer ici.
+admin -d "$GABARIT" -c "
+create schema extensions;
+create extension if not exists pgcrypto with schema extensions;
+grant usage on schema extensions to $APP_ROLE;
+" > /dev/null
+
 # Supabase fournit nativement le schéma auth et la fonction auth.uid().
 # En dehors de Supabase, on les reproduit à l'identique — sans jamais accorder
 # au rôle applicatif de droits qu'il n'aurait pas en production.
