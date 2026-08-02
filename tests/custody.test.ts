@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { assignDays, buildSchedule, validateSchedule, whereToday, holidayAssignments, isoWeek, addDays, type CustodyRule, buildDayMap , journeesPartagees } from '../src/lib/custody';
+import { assignDays, buildSchedule, validateSchedule, whereToday, holidayAssignments, isoWeek, addDays, dernierJourTenu, type CustodyRule, buildDayMap , journeesPartagees } from '../src/lib/custody';
 
 const P1 = 'alice', P2 = 'bob';
 // Lundi 5 janvier 2026 comme ancre (2026-01-05 est bien un lundi)
@@ -533,5 +533,59 @@ describe('jour du changement', () => {
     for (const [date, a] of sans) {
       expect(avec.get(date)!.parentId, date).toBe(a.parentId);
     }
+  });
+});
+
+describe('périodes qui s’achèvent en cours de journée', () => {
+  it('le dernier jour revient à qui prend le relais', () => {
+    // Une période close le 23 à 14 h ne tient pas la nuit du 23.
+    expect(dernierJourTenu('2026-08-10', '2026-08-23', '14:00')).toBe('2026-08-22');
+    // Sans heure précisée, la journée entière lui appartient.
+    expect(dernierJourTenu('2026-08-10', '2026-08-23', '23:59')).toBe('2026-08-23');
+    expect(dernierJourTenu('2026-08-10', '2026-08-23', '00:00')).toBe('2026-08-23');
+    expect(dernierJourTenu('2026-08-10', '2026-08-23', null)).toBe('2026-08-23');
+    // Une période d'une seule journée garde la sienne, sans quoi elle
+    // disparaîtrait du planning.
+    expect(dernierJourTenu('2026-08-23', '2026-08-23', '18:00')).toBe('2026-08-23');
+  });
+
+  it('deux périodes qui se succèdent le même jour basculent ce jour-là', () => {
+    // Cas réel : des vacances chez P1 jusqu'au 23 août 14 h, puis une période
+    // chez P2 du 23 août 14 h au 1er septembre 9 h. Le changement doit se lire
+    // le 23, jour saisi — et non le 24, que personne n'a jamais indiqué.
+    const vacances = { startsOn: '2026-08-01', endsOn: dernierJourTenu('2026-08-01', '2026-08-23', '14:00'),
+                       parentId: P1, source: 'holiday', priorite: 30 };
+    const sejour = { startsOn: '2026-08-23', endsOn: dernierJourTenu('2026-08-23', '2026-09-01', '09:00'),
+                     parentId: P2, source: 'swap', priorite: 10 };
+
+    const carte = buildDayMap(base, '2026-08-01', '2026-09-05', [], [vacances, sejour]);
+
+    expect(carte.get('2026-08-22')!.parentId).toBe(P1);
+    expect(carte.get('2026-08-23')!.parentId).toBe(P2);
+    expect(carte.get('2026-08-24')!.parentId).toBe(P2);
+    expect(carte.get('2026-08-31')!.parentId).toBe(P2);
+
+    // La coupure se lit bien le 23, à l'heure saisie.
+    const heures = new Map([['2026-08-23', '14:00'], ['2026-09-01', '09:00']]);
+    const partagees = journeesPartagees(carte, null, heures);
+    expect(partagees.get('2026-08-23')).toMatchObject({ matin: P1, apresMidi: P2, heure: '14:00' });
+    expect(partagees.has('2026-08-24')).toBe(false);
+  });
+
+  it('une période prioritaire ne masque plus celle qui démarre le même jour', () => {
+    // Sans la règle du dernier jour tenu, les vacances gardaient le 23 entier
+    // et le séjour ne commençait qu'au 24.
+    const sansRegle = buildDayMap(base, '2026-08-20', '2026-08-26', [], [
+      { startsOn: '2026-08-01', endsOn: '2026-08-23', parentId: P1, source: 'holiday', priorite: 30 },
+      { startsOn: '2026-08-23', endsOn: '2026-08-31', parentId: P2, source: 'swap', priorite: 10 },
+    ]);
+    expect(sansRegle.get('2026-08-23')!.parentId).toBe(P1);   // l'ancien défaut
+
+    const avecRegle = buildDayMap(base, '2026-08-20', '2026-08-26', [], [
+      { startsOn: '2026-08-01', endsOn: dernierJourTenu('2026-08-01', '2026-08-23', '14:00'),
+        parentId: P1, source: 'holiday', priorite: 30 },
+      { startsOn: '2026-08-23', endsOn: '2026-08-31', parentId: P2, source: 'swap', priorite: 10 },
+    ]);
+    expect(avecRegle.get('2026-08-23')!.parentId).toBe(P2);
   });
 });

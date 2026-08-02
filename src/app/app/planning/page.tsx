@@ -12,7 +12,7 @@ import {
   type RegleGarde, type ExceptionGarde, type Offre, type VacancesScolaires,
   type RendezVous,
 } from '@/lib/actions';
-import { buildDayMap, journeesPartagees, addDays, isoWeek,
+import { buildDayMap, journeesPartagees, addDays, isoWeek, dernierJourTenu,
   type Source, type ExceptionOverride, type JourneePartagee } from '@/lib/custody';
 
 const MOIS = ['janvier','février','mars','avril','mai','juin',
@@ -100,7 +100,10 @@ function ContenuPlanning() {
     // distinguer les vacances des autres types.
     const ponctuels: ExceptionOverride[] = exceptions.map((e) => ({
       startsOn: jourDe(e.debut),
-      endsOn: jourDe(e.fin),
+      // Une période qui s'achève à 14 h ne tient pas la nuit : ce jour-là
+      // revient à qui prend le relais, la matinée restant signalée par
+      // l'heure de passage.
+      endsOn: dernierJourTenu(jourDe(e.debut), jourDe(e.fin), heureDe(e.fin)),
       parentId: e.parentId,
       source: e.type,
       priorite: e.priorite,
@@ -124,9 +127,10 @@ function ContenuPlanning() {
         const hFin = heureDe(e.fin);
         // Minuit ou fin de journée : l'utilisateur n'a pas précisé d'heure
         if (hDebut && hDebut !== '00:00') heuresParticulieres.set(jourDe(e.debut), hDebut);
-        if (hFin && hFin !== '23:59') {
-          // Le retour a lieu le lendemain du dernier jour de la période
-          heuresParticulieres.set(addDays(jourDe(e.fin), 1), hFin);
+        // L'heure de fin nomme déjà le moment exact du retour : c'est ce
+        // jour-là que la case se coupe en deux, et non le lendemain.
+        if (hFin && hFin !== '23:59' && hFin !== '00:00') {
+          heuresParticulieres.set(jourDe(e.fin), hFin);
         }
       }
       setPartagees(journeesPartagees(m, regle.handoverTime, heuresParticulieres));

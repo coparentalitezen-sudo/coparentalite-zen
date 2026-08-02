@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseService, supabaseServer } from '@/lib/supabase/server';
-import { buildDayMap, journeesPartagees } from '@/lib/custody';
+import { buildDayMap, journeesPartagees, dernierJourTenu } from '@/lib/custody';
 
 /**
  * Réponse JSON avec encodage déclaré.
@@ -156,13 +156,20 @@ export async function GET(requete: Request) {
         regle.start_date < debut ? regle.start_date : debut,
         fin,
         [],
-        (exceptions ?? []).map((e) => ({
-          startsOn: (e.starts_at as string).slice(0, 10),
-          endsOn: (e.ends_at as string).slice(0, 10),
-          parentId: e.parent_id as string,
-          source: e.kind as string,
-          priorite: priorite.get(e.kind as string) ?? 10,
-        })),
+        (exceptions ?? []).map((e) => {
+          const debutJour = (e.starts_at as string).slice(0, 10);
+          const finJour = (e.ends_at as string).slice(0, 10);
+          return {
+            startsOn: debutJour,
+            // Même règle que le planning : une période qui s'achève en cours
+            // de journée ne tient pas la nuit. Sans quoi le rappel annoncerait
+            // le changement un jour trop tard.
+            endsOn: dernierJourTenu(debutJour, finJour, (e.ends_at as string).slice(11, 16)),
+            parentId: e.parent_id as string,
+            source: e.kind as string,
+            priorite: priorite.get(e.kind as string) ?? 10,
+          };
+        }),
       );
 
       const heure = regle.handover_time?.slice(0, 5) ?? null;

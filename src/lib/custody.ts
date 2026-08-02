@@ -228,6 +228,31 @@ export function assignDays(rule: CustodyRule, from: string, to: string): DayAssi
   return out;
 }
 
+/**
+ * Dernier jour qu'une période tient réellement.
+ *
+ * Une période qui s'achève le 23 août à 14 h ne tient pas la nuit du 23 : à
+ * partir de 14 h, les enfants sont chez qui prend le relais. Ce jour-là
+ * revient donc au suivant, et la matinée se lit dans la case coupée en deux.
+ *
+ * Sans cette règle, une période prioritaire — des vacances, par exemple —
+ * s'appropriait sa dernière journée entière et masquait la période qui
+ * démarrait le même jour. Le changement paraissait alors se produire le
+ * lendemain, à une date que personne n'avait saisie nulle part.
+ *
+ * Minuit et 23:59 signifient « aucune heure précisée » : la journée entière
+ * appartient alors à la période, comme auparavant.
+ */
+export function dernierJourTenu(
+  jourDebut: string, jourFin: string, heureFin?: string | null,
+): string {
+  if (!heureFin || heureFin === '23:59' || heureFin === '00:00') return jourFin;
+  const veille = addDays(jourFin, -1);
+  // Une période contenue dans une seule journée garde la sienne : la relâcher
+  // la ferait disparaître du planning.
+  return toUTC(veille) < toUTC(jourDebut) ? jourFin : veille;
+}
+
 /** Applique une période de vacances (prioritaire sur la règle régulière). */
 export function holidayAssignments(h: HolidayOverride): DayAssignment[] {
   const total = daysBetween(h.startsOn, h.endsOn) + 1;
