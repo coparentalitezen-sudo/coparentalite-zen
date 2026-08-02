@@ -125,3 +125,22 @@ grant execute on function public.set_custody_rule(
   uuid, custody_pattern, date, uuid, uuid, time, text, jsonb, smallint) to authenticated;
 
 commit;
+
+-- PostgREST garde en mémoire la liste des fonctions exposées. Sans ce signal,
+-- l'application continuerait d'appeler l'ancienne signature et recevrait
+-- « Could not find the function ... p_handover_day » jusqu'au prochain
+-- redémarrage.
+notify pgrst, 'reload schema';
+
+-- Contrôle immédiat : la fonction attendue est bien en place.
+do $$
+declare n int;
+begin
+  select count(*) into n from pg_proc p
+   join pg_namespace ns on ns.oid = p.pronamespace
+   where ns.nspname = 'public' and p.proname = 'set_custody_rule';
+  if n <> 1 then
+    raise exception 'set_custody_rule présente en % exemplaires : l''appel serait ambigu', n;
+  end if;
+  raise notice 'Jour du changement : set_custody_rule prête.';
+end $$;

@@ -63,6 +63,13 @@ export default function Foyer() {
   const [heurePassage, setHeurePassage] = useState('');
   /** Jour du changement, 0 = dimanche … 6 = samedi. Le lundi par défaut. */
   const [jourChangement, setJourChangement] = useState<number>(1);
+  /**
+   * Résultat de l'enregistrement du rythme, affiché sous son propre bouton.
+   * Le bandeau général siège en tête d'écran, à plusieurs pages de défilement
+   * d'ici : une erreur y passait inaperçue, et le rythme semblait enregistré
+   * alors qu'il avait été refusé.
+   */
+  const [msgRythme, setMsgRythme] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [lieuPassage, setLieuPassage] = useState('');
   const [debut, setDebut] = useState(() => new Date().toISOString().slice(0, 10));
   const [regleActuelle, setRegleActuelle] = useState<RegleGarde | null>(null);
@@ -252,7 +259,7 @@ export default function Foyer() {
   }
 
   async function enregistrerRythme(householdId: string, p1: string, p2: string) {
-    setMsg(null); setBusy(true);
+    setMsg(null); setMsgRythme(null); setBusy(true);
     // Un jour de changement n'a de sens que pour les rythmes hebdomadaires :
     // l'enregistrer ailleurs laisserait croire qu'il agit.
     const jour = accepteJourChangement(rythme) ? jourChangement : null;
@@ -265,8 +272,15 @@ export default function Foyer() {
         customCycle: rythme === 'custom' ? cyclePerso : null,
         handoverTime: heurePassage || null, handoverDay: jour,
         handoverPlace: lieuPassage || null });
-      setMsg({ kind: 'ok', text: 'Rythme de garde enregistré. Le planning est à jour.' });
-    } else if (r.status === 'error') setMsg({ kind: 'err', text: r.message });
+      const ok = accepteJourChangement(rythme)
+        ? `Rythme enregistré, changement le ${nomDuJour(jour)}. Le planning est à jour.`
+        : 'Rythme de garde enregistré. Le planning est à jour.';
+      setMsg({ kind: 'ok', text: ok });
+      setMsgRythme({ kind: 'ok', text: ok });
+    } else if (r.status === 'error') {
+      setMsg({ kind: 'err', text: r.message });
+      setMsgRythme({ kind: 'err', text: r.message });
+    }
   }
 
   async function renommer() {
@@ -665,6 +679,20 @@ export default function Foyer() {
                   onClick={() => enregistrerRythme(ctx.contexte.foyer.id, p1.profileId, p2.profileId)}>
                   {busy ? 'Enregistrement…' : 'Enregistrer le rythme'}
                 </button>
+
+                {msgRythme && (
+                  <p role={msgRythme.kind === 'err' ? 'alert' : 'status'}
+                     className={`rounded-xl px-3 py-2 text-sm font-bold ${
+                       msgRythme.kind === 'err' ? 'bg-err-bg text-err' : 'bg-ok-bg text-ok'}`}>
+                    {msgRythme.text}
+                  </p>
+                )}
+
+                {msgRythme?.kind === 'ok' && (
+                  <Link href="/app/planning" className="btn btn-ghost w-full">
+                    Voir le planning
+                  </Link>
+                )}
               </>
             )}
           </section>
