@@ -438,7 +438,10 @@ export default function Foyer() {
                     pas avoir à deviner ce que « 2-2-5-5 » signifie. */}
                 <ul className="space-y-2">
                   {MODELES.map((m) => {
-                    const choisi = rythme === m.pattern;
+                    const choisi = rythme === m.pattern
+                      // Les semaines paires et impaires sont deux faces d'un
+                      // même modèle : la carte reste choisie dans les deux cas.
+                      || (m.pattern === 'even_weeks' && rythme === 'odd_weeks');
                     return (
                       <li key={m.pattern}>
                         <button
@@ -470,7 +473,9 @@ export default function Foyer() {
                           {!m.personnalisable && (
                             <div className="mt-2.5">
                               <SchemaRythme
-                                schema={m.schema}
+                                schema={m.pattern === 'even_weeks' && rythme === 'odd_weeks'
+                                  ? m.schema.map((j) => (j === 'P1' ? 'P2' : 'P1'))
+                                  : m.schema}
                                 parent1={{ nom: p1.nom, initiale: p1.initiale, couleur: p1.couleur }}
                                 parent2={{ nom: p2.nom, initiale: p2.initiale, couleur: p2.couleur }}
                               />
@@ -487,6 +492,34 @@ export default function Foyer() {
                     );
                   })}
                 </ul>
+
+                {(rythme === 'even_weeks' || rythme === 'odd_weeks') && (
+                  <div className="space-y-2 rounded-2xl bg-muted p-3">
+                    <p className="text-sm font-bold">Qui a les semaines paires ?</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {/* Le moteur donne toujours les semaines paires au
+                          premier parent : désigner l'autre revient donc à
+                          basculer sur le rythme inverse. */}
+                      <button type="button" aria-pressed={rythme === 'even_weeks'}
+                        onClick={() => setRythme('even_weeks')}
+                        className={`btn ${rythme === 'even_weeks' ? 'btn-primary' : 'btn-ghost'}`}>
+                        {p1.nom}
+                      </button>
+                      <button type="button" aria-pressed={rythme === 'odd_weeks'}
+                        onClick={() => setRythme('odd_weeks')}
+                        className={`btn ${rythme === 'odd_weeks' ? 'btn-primary' : 'btn-ghost'}`}>
+                        {p2.nom}
+                      </button>
+                    </div>
+                    <p className="text-[12px] leading-snug text-soft">
+                      {rythme === 'even_weeks'
+                        ? `${p1.nom} a les semaines paires, ${p2.nom} les impaires.`
+                        : `${p2.nom} a les semaines paires, ${p1.nom} les impaires.`}
+                      {' '}Le numéro de semaine est celui du calendrier : aucun
+                      décompte à faire, votre agenda l’affiche déjà.
+                    </p>
+                  </div>
+                )}
 
                 {rythme === 'custom' && (
                   <div className="space-y-3 rounded-2xl bg-muted p-3">

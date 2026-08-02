@@ -12,7 +12,7 @@ import {
   type RegleGarde, type ExceptionGarde, type Offre, type VacancesScolaires,
   type RendezVous,
 } from '@/lib/actions';
-import { buildDayMap, journeesPartagees, addDays,
+import { buildDayMap, journeesPartagees, addDays, isoWeek,
   type Source, type ExceptionOverride, type JourneePartagee } from '@/lib/custody';
 
 const MOIS = ['janvier','février','mars','avril','mai','juin',
@@ -222,6 +222,9 @@ function ContenuPlanning() {
                   {cases.map((d, i) => {
                     if (!d) return <div key={`vide-${i}`} className="aspect-square" />;
                     const couvert = dansHorizon(offre, d);
+                    // Le numéro de semaine rend le rythme « semaines paires »
+                    // vérifiable d'un coup d'œil, comme sur un agenda.
+                    const lundi = new Date(`${d}T12:00:00Z`).getUTCDay() === 1;
                     const a = couvert ? parJour.get(d) : undefined;
                     const m = a ? membre(a.parentId) : undefined;
                     const estAujourdhui = d === today;
@@ -276,6 +279,12 @@ function ContenuPlanning() {
                           <span aria-hidden
                             className="absolute inset-x-0 top-0 z-10 h-[3px] bg-[#C9A227]"
                             title="Vacances scolaires" />
+                        )}
+                        {lundi && (
+                          <span aria-hidden
+                            className="absolute right-0.5 top-0.5 z-10 text-[8px] font-bold text-soft/50">
+                            S{isoWeek(d)}
+                          </span>
                         )}
                         <span className="relative z-10 text-xs font-bold">{Number(d.slice(8))}</span>
                         {rdvDuJour(d).length > 0 && (

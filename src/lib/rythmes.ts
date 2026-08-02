@@ -64,6 +64,18 @@ export const MODELES: ModeleRythme[] = [
     ordre: 10,
   },
   {
+    pattern: 'even_weeks',
+    nom: 'Semaines paires et impaires',
+    explication:
+      'Un parent a les enfants les semaines paires, l\u2019autre les semaines impaires — selon le numéro de semaine du calendrier.',
+    convientA:
+      'Ceux qui raisonnent en numéros de semaine : le planning se lit sur n\u2019importe quel agenda, sans avoir à compter.',
+    cycleJours: 14,
+    schema: schemaDeuxSemaines('even_weeks'),
+    personnalisable: false,
+    ordre: 15,
+  },
+  {
     pattern: 'p2233',
     nom: '2-2-3',
     explication:

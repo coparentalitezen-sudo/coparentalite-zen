@@ -6,11 +6,12 @@ import {
 import { buildDayMap, journeesPartagees } from '../src/lib/custody';
 
 describe('catalogue des rythmes', () => {
-  it('propose les six modèles annoncés', () => {
-    expect(MODELES).toHaveLength(6);
+  it('propose les sept modèles annoncés', () => {
+    expect(MODELES).toHaveLength(7);
     const patterns = MODELES.map((m) => m.pattern);
     expect(patterns).toEqual(expect.arrayContaining([
-      'alternating_weeks', 'p2233', 'p3443', 'p2255', 'alternating_weekends', 'custom',
+      'alternating_weeks', 'even_weeks', 'p2233', 'p3443', 'p2255',
+      'alternating_weekends', 'custom',
     ]));
   });
 
@@ -182,5 +183,68 @@ describe('modele()', () => {
   });
   it('ne renvoie rien pour un identifiant inconnu', () => {
     expect(modele('inexistant' as never)).toBeUndefined();
+  });
+});
+
+
+describe('semaines paires et impaires', () => {
+  const rythme = (pattern: 'even_weeks' | 'odd_weeks') => ({
+    pattern: pattern as never, startDate: '2026-01-05',
+    parent1: 'p1', parent2: 'p2',
+  });
+
+  /** Numéro de semaine ISO, comme l'affichent les agendas. */
+  function semaineISO(iso: string): number {
+    const d = new Date(`${iso}T12:00:00Z`);
+    const jour = (d.getUTCDay() + 6) % 7;
+    d.setUTCDate(d.getUTCDate() - jour + 3);
+    const premierJeudi = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+    const decalage = (premierJeudi.getUTCDay() + 6) % 7;
+    premierJeudi.setUTCDate(premierJeudi.getUTCDate() - decalage + 3);
+    return 1 + Math.round((d.getTime() - premierJeudi.getTime()) / (7 * 86400000));
+  }
+
+  it('les semaines paires vont au premier parent', () => {
+    const m = buildDayMap(rythme('even_weeks'), '2026-01-05', '2026-03-01');
+    for (const [date, a] of m) {
+      const attendu = semaineISO(date) % 2 === 0 ? 'p1' : 'p2';
+      expect(a.parentId, `${date} (semaine ${semaineISO(date)})`).toBe(attendu);
+    }
+  });
+
+  it('le rythme inverse donne exactement le contraire', () => {
+    const pair = buildDayMap(rythme('even_weeks'), '2026-01-05', '2026-03-01');
+    const impair = buildDayMap(rythme('odd_weeks'), '2026-01-05', '2026-03-01');
+    for (const [date, a] of pair) {
+      expect(impair.get(date)!.parentId, date).not.toBe(a.parentId);
+    }
+  });
+
+  it('une semaine entière reste chez le même parent', () => {
+    // C'est tout l'intérêt : pas de passage en milieu de semaine
+    const m = buildDayMap(rythme('even_weeks'), '2026-01-05', '2026-02-01');
+    const dates = [...m.keys()].sort();
+    for (const d of dates) {
+      const jour = new Date(`${d}T12:00:00Z`).getUTCDay();
+      if (jour === 0) continue;   // dimanche : fin de semaine ISO
+      const lendemain = new Date(new Date(`${d}T12:00:00Z`).getTime() + 86400000)
+        .toISOString().slice(0, 10);
+      if (m.has(lendemain) && semaineISO(d) === semaineISO(lendemain)) {
+        expect(m.get(lendemain)!.parentId, `${d} → ${lendemain}`).toBe(m.get(d)!.parentId);
+      }
+    }
+  });
+
+  it('la date de début ne décale pas le rythme', () => {
+    // Contrairement à l'alternance simple, le calendrier fait foi : deux
+    // foyers ayant démarré à des dates différentes voient les mêmes semaines.
+    const a = buildDayMap(rythme('even_weeks'), '2026-01-05', '2026-02-15');
+    const b = buildDayMap(
+      { pattern: 'even_weeks' as never, startDate: '2026-01-19', parent1: 'p1', parent2: 'p2' },
+      '2026-01-19', '2026-02-15',
+    );
+    for (const [date, x] of b) {
+      expect(a.get(date)!.parentId, date).toBe(x.parentId);
+    }
   });
 });
