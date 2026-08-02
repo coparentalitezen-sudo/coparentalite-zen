@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { BottomNav, ParentBadge } from '@/components/ui';
 import { Chargement, Erreur, SansFoyer, Vide } from '@/components/etats';
@@ -45,6 +45,20 @@ export default function Exceptions() {
   const [busy, setBusy] = useState(false);
   const [erreurForm, setErreurForm] = useState<string | null>(null);
   const [offre, setOffre] = useState<Offre | null>(null);
+
+  /**
+   * Le formulaire s'affiche sous les deux listes. Avec quelques périodes
+   * enregistrées, il tombe hors de l'écran : « Modifier » semblait alors sans
+   * effet, faute de voir apparaître quoi que ce soit. On l'amène au regard.
+   */
+  const formRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!formOuvert) return;
+    const t = setTimeout(() => {
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 60);
+    return () => clearTimeout(t);
+  }, [formOuvert, editId]);
 
   const membres = ctx.etat === 'pret' ? ctx.contexte.membres : [];
   const enfants = ctx.etat === 'pret' ? ctx.contexte.enfants : [];
@@ -93,6 +107,9 @@ export default function Exceptions() {
     if (r.status === 'ok') {
       setMsg(editId ? 'Période modifiée.' : 'Période enregistrée. Le planning est à jour.');
       setFormOuvert(false); setEditId(null); charger();
+      // La confirmation s'affiche en tête de page : sans ce retour, elle passe
+      // inaperçue depuis le bas de l'écran.
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } else if (r.status === 'error') setErreurForm(r.message);
     else setErreurForm('Session non authentifiée. Reconnectez-vous.');
   }
@@ -124,7 +141,9 @@ export default function Exceptions() {
         ) : (
           <ul className="mt-2 divide-y divide-line-soft">
             {items.map((e) => (
-              <li key={e.id} className="py-3">
+              <li key={e.id}
+                  className={`py-3 ${editId === e.id
+                    ? '-mx-2 rounded-xl bg-muted px-2 ring-1 ring-line-soft' : ''}`}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="font-bold leading-snug">
@@ -139,7 +158,9 @@ export default function Exceptions() {
                 </div>
                 <div className="mt-1.5 flex gap-4">
                   <button type="button" className="text-[13px] font-bold text-navy-text underline"
-                          onClick={() => ouvrirEdition(e)}>Modifier</button>
+                          onClick={() => ouvrirEdition(e)}>
+                    {editId === e.id ? 'Modification en cours…' : 'Modifier'}
+                  </button>
                   <button type="button" className="text-[13px] font-bold text-err underline"
                           onClick={() => supprimer(e)}>Supprimer</button>
                 </div>
@@ -202,7 +223,7 @@ export default function Exceptions() {
               )}
 
               {formOuvert && (
-                <section className="card space-y-3 px-4 py-5">
+                <section ref={formRef} className="card space-y-3 px-4 py-5">
                   <h2 className="font-display text-[17px] font-semibold tracking-tight">
                     {editId ? 'Modifier la période' : 'Nouvelle période'}
                   </h2>
