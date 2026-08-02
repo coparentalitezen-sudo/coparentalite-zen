@@ -179,3 +179,22 @@ export async function listerPropositionsVacances(
     segmentsTotal: Number(v.segments_total ?? 0),
   })));
 }
+
+
+/**
+ * Retire un segment de vacances dans son ensemble.
+ *
+ * Un segment regroupe une exception par enfant : n'en supprimer qu'une
+ * laisserait la période à moitié effacée, et donc impossible à corriger.
+ */
+export async function supprimerSegmentVacances(
+  exceptionId: string,
+): Promise<ActionResult<number>> {
+  const supabase = supabaseBrowser();
+  if (!supabase) return { status: 'demo' };
+  const { data, error } = await supabase.rpc('supprimer_segment_vacances', {
+    p_exception: exceptionId,
+  });
+  if (error) return err(lisible('La période n’a pas pu être retirée.', error), detail(error));
+  return ok(Number(data ?? 0));
+}

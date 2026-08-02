@@ -736,3 +736,118 @@ begin
 end $$;
 
 select 'TESTS DU PARTAGE DES VACANCES PASSÉS' as resultat;
+
+-- ============================================================
+-- SU1 à SU4 — RETRAIT D'UN SEGMENT
+--
+-- Un segment regroupe une exception par enfant. Le retrait doit les emporter
+-- toutes : n'en supprimer qu'une laissait le segment à moitié effacé, et donc
+-- impossible à corriger après une saisie erronée.
+-- ============================================================
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
+
+-- ============ SU1 : le segment entier disparaît ============
+do $$
+declare hid uuid; eid uuid; n int; enfants uuid[];
+begin
+  -- Deux enfants dans le foyer, pour éprouver le cas qui échouait
+  select array_agg(id) into enfants from children
+   where household_id = 'aaaaaaaa-0000-0000-0000-000000000001' and deleted_at is null;
+
+  -- Les suites précédentes occupent le calendrier : on libère la fenêtre,
+  -- ces tests ne portant pas sur le chevauchement.
+  perform public.test_liberer_fenetre('aaaaaaaa-0000-0000-0000-000000000001',
+    (current_date + 24)::date, (current_date + 36)::date);
+
+  perform public.test_importer_vacances(format('[
+    {"country_code":"FR","label":"Toussaint SU","zone":"B","school_year":"%s",
+     "starts_on":"%s","ends_on":"%s"}]',
+     public.test_annee_scolaire(), (current_date + 25)::text, (current_date + 35)::text)::jsonb);
+  select id into hid from school_holidays
+   where label = 'Toussaint SU' and source = 'officiel' limit 1;
+
+  select x into eid from public.create_custody_exception(
+    'aaaaaaaa-0000-0000-0000-000000000001', 'holiday', enfants,
+    '00000000-0000-0000-0000-00000000000a',
+    (current_date + 26)::timestamptz, (current_date + 30)::timestamptz,
+    'Toussaint SU', null, public.test_annee_scolaire(), hid) x;
+
+  n := public.supprimer_segment_vacances(eid);
+  if n < array_length(enfants, 1) then
+    raise exception 'ÉCHEC SU1 : % exception(s) retirée(s) pour % enfant(s)',
+      n, array_length(enfants, 1);
+  end if;
+
+  select count(*) into n from public.propositions_vacances('aaaaaaaa-0000-0000-0000-000000000001')
+   where libelle = 'Toussaint SU' and exception_id is not null;
+  if n <> 0 then
+    raise exception 'ÉCHEC SU1b : % segment(s) subsistent après retrait', n;
+  end if;
+  raise notice 'SU1 OK — segment entier retiré, tous enfants compris';
+end $$;
+
+-- ============ SU2 : la période redevient libre ============
+do $$
+declare p record;
+begin
+  select * into p from public.propositions_vacances('aaaaaaaa-0000-0000-0000-000000000001')
+   where libelle = 'Toussaint SU';
+  if p.holiday_id is null then
+    raise exception 'ÉCHEC SU2 : la période a disparu au lieu de redevenir libre';
+  end if;
+  if p.exception_id is not null then
+    raise exception 'ÉCHEC SU2b : une décision subsiste';
+  end if;
+  if p.segments_total <> 0 then
+    raise exception 'ÉCHEC SU2c : % segment(s) annoncé(s)', p.segments_total;
+  end if;
+  raise notice 'SU2 OK — la période réapparaît avec ses dates officielles';
+end $$;
+
+-- ============ SU3 : les segments voisins sont préservés ============
+do $$
+declare hid uuid; e1 uuid; e2 uuid; n int; enfants uuid[];
+begin
+  select array_agg(id) into enfants from children
+   where household_id = 'aaaaaaaa-0000-0000-0000-000000000001' and deleted_at is null;
+  select id into hid from school_holidays
+   where label = 'Toussaint SU' and source = 'officiel' limit 1;
+
+  select x into e1 from public.create_custody_exception(
+    'aaaaaaaa-0000-0000-0000-000000000001', 'holiday', enfants,
+    '00000000-0000-0000-0000-00000000000a',
+    (current_date + 25)::timestamptz, (current_date + 29)::timestamptz,
+    'Toussaint SU', null, public.test_annee_scolaire(), hid) x;
+  select x into e2 from public.create_custody_exception(
+    'aaaaaaaa-0000-0000-0000-000000000001', 'holiday', enfants,
+    '00000000-0000-0000-0000-00000000000b',
+    (current_date + 30)::timestamptz, (current_date + 35)::timestamptz,
+    'Toussaint SU', null, public.test_annee_scolaire(), hid) x;
+
+  perform public.supprimer_segment_vacances(e1);
+
+  select count(*) into n from public.propositions_vacances('aaaaaaaa-0000-0000-0000-000000000001')
+   where libelle = 'Toussaint SU' and exception_id is not null;
+  if n <> 1 then
+    raise exception 'ÉCHEC SU3 : % segment(s) restant(s) au lieu d''un — le voisin a été emporté', n;
+  end if;
+  raise notice 'SU3 OK — seul le segment visé est retiré';
+end $$;
+
+-- ============ SU4 : un tiers ne peut rien retirer ============
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000c', false);
+do $$
+declare eid uuid;
+begin
+  select exception_id into eid from public.test_segment_quelconque(
+    'aaaaaaaa-0000-0000-0000-000000000001', 'Toussaint SU');
+  begin
+    perform public.supprimer_segment_vacances(eid);
+    raise exception 'ÉCHEC SU4 : un tiers a retiré une période';
+  exception when others then
+    if sqlerrm like 'ÉCHEC%' then raise; end if;
+  end;
+  raise notice 'SU4 OK — le retrait reste réservé aux membres du foyer';
+end $$;
+
+select 'TESTS DU RETRAIT DE SEGMENT PASSÉS' as resultat;

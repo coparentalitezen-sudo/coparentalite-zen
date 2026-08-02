@@ -404,3 +404,25 @@ begin
     (d + 14)::timestamptz, (d + 21)::timestamptz, p_libelle, null, null, hid);
 end $$;
 grant execute on function public.test_segmenter_vacances(uuid, text) to authenticated;
+
+/** Identifiant d'un segment, hors RLS, pour les tests d'isolation. */
+create or replace function public.test_segment_quelconque(p_household uuid, p_libelle text)
+returns table (exception_id uuid)
+language sql security definer set search_path = public as $$
+  select ce.id from custody_exceptions ce
+  where ce.household_id = p_household and ce.deleted_at is null
+    and ce.title = p_libelle
+  limit 1
+$$;
+grant execute on function public.test_segment_quelconque(uuid, text) to authenticated;
+
+/** Libère une fenêtre de dates, pour isoler un test du chevauchement. */
+create or replace function public.test_liberer_fenetre(p_household uuid, p_du date, p_au date)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  update custody_exceptions set deleted_at = now()
+   where household_id = p_household and deleted_at is null
+     and starts_at < (p_au + 1)::timestamptz
+     and ends_at   > p_du::timestamptz;
+end $$;
+grant execute on function public.test_liberer_fenetre(uuid, date, date) to authenticated;

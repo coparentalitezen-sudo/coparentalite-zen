@@ -7,7 +7,8 @@ import { Chargement, Erreur, SansFoyer, Vide } from '@/components/etats';
 import { Icone } from '@/components/icons';
 import { useContexte } from '@/lib/use-contexte';
 import {
-  listerPropositionsVacances, creerException, modifierException, supprimerException,
+  listerPropositionsVacances, creerException, modifierException,
+  supprimerSegmentVacances,
   type PropositionVacances,
 } from '@/lib/actions';
 
@@ -151,10 +152,22 @@ function ContenuVacances() {
 
   async function retirer(p: PropositionVacances) {
     if (!p.exceptionId) return;
-    if (!confirm(`Retirer la décision pour ${p.libelle} ? Le rythme habituel reprendra sur ces dates.`)) return;
-    const r = await supprimerException(p.exceptionId);
-    if (r.status === 'ok') { setMsg(`${p.libelle} : retour au rythme habituel.`); charger(); }
-    else if (r.status === 'error') setErreur(r.message);
+    const precision = p.segmentsTotal > 1
+      ? ` (période ${p.segment} sur ${p.segmentsTotal})`
+      : '';
+    if (!confirm(
+      `Retirer ${p.libelle}${precision} ?\n\n`
+      + 'Le rythme habituel reprendra sur ces dates.',
+    )) return;
+
+    // Le segment part en entier : une exception par enfant, toutes ensemble.
+    const r = await supprimerSegmentVacances(p.exceptionId);
+    if (r.status === 'ok') {
+      setMsg(`${p.libelle} : retour au rythme habituel sur ces dates.`);
+      setOuvert(null); setNouveauSegment(null); charger();
+    } else if (r.status === 'error') {
+      setErreur(r.details ? `${r.message} — ${r.details}` : r.message);
+    }
   }
 
   return (
@@ -332,7 +345,9 @@ function ContenuVacances() {
                           {decide && (
                             <button type="button" className="text-[13px] font-bold text-err underline"
                                     onClick={() => retirer(p)}>
-                              Retirer cette décision
+                              {p.segmentsTotal > 1
+                                ? `Retirer cette période (${p.segment} sur ${p.segmentsTotal})`
+                                : 'Retirer cette décision'}
                             </button>
                           )}
                         </div>
