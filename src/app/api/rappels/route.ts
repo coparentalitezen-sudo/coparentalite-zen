@@ -49,6 +49,7 @@ interface Foyer {
   starting_parent: string;
   config: { parent2?: string; custom_cycle?: ('P1' | 'P2')[] } | null;
   handover_time: string | null;
+  handover_day: number | null;
 }
 
 /**
@@ -115,7 +116,7 @@ export async function GET(requete: Request) {
       // ---- Changements de garde : calculés par le moteur de planning ----
       const { data: regles } = await service
         .from('custody_rules')
-        .select('id, pattern, start_date, starting_parent, config, handover_time')
+        .select('id, pattern, start_date, starting_parent, config, handover_time, handover_day')
         .eq('household_id', hid).is('deleted_at', null)
         .order('created_at', { ascending: false }).limit(1);
 
@@ -149,6 +150,7 @@ export async function GET(requete: Request) {
           startDate: regle.start_date,
           parent1: regle.starting_parent,
           parent2,
+          changeoverDay: regle.handover_day ?? null,
           customCycle: regle.config?.custom_cycle,
         },
         regle.start_date < debut ? regle.start_date : debut,

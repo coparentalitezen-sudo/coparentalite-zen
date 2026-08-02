@@ -487,6 +487,62 @@ begin
   raise notice 'R4 OK — les rythmes prédéfinis restent utilisables sans cycle';
 end $$;
 
+-- ============ R5 : le jour du changement est enregistré ============
+do $$
+declare jour smallint;
+begin
+  perform public.set_custody_rule('aaaaaaaa-0000-0000-0000-000000000001',
+    'alternating_weeks'::custody_pattern, current_date - 7,
+    '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000b',
+    null, null, null, 5::smallint);
+
+  select handover_day into jour from custody_rules
+   where household_id = 'aaaaaaaa-0000-0000-0000-000000000001' and deleted_at is null;
+  if jour is distinct from 5 then
+    raise exception 'ÉCHEC R5 : jour du changement % au lieu de 5 (vendredi)', jour;
+  end if;
+  raise notice 'R5 OK — changement le vendredi conservé';
+end $$;
+
+-- ============ R6 : un jour hors semaine est refusé ============
+do $$
+declare bloques int := 0;
+begin
+  begin
+    perform public.set_custody_rule('aaaaaaaa-0000-0000-0000-000000000001',
+      'alternating_weeks'::custody_pattern, current_date,
+      '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000b',
+      null, null, null, 7::smallint);
+  exception when others then bloques := bloques + 1;
+  end;
+  begin
+    perform public.set_custody_rule('aaaaaaaa-0000-0000-0000-000000000001',
+      'alternating_weeks'::custody_pattern, current_date,
+      '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000b',
+      null, null, null, (-1)::smallint);
+  exception when others then bloques := bloques + 1;
+  end;
+  if bloques <> 2 then
+    raise exception 'ÉCHEC R6 : %/2 jours invalides refusés', bloques;
+  end if;
+  raise notice 'R6 OK — les jours hors semaine sont refusés';
+end $$;
+
+-- ============ R7 : sans précision, aucun jour n'est imposé ============
+do $$
+declare jour smallint;
+begin
+  perform public.set_custody_rule('aaaaaaaa-0000-0000-0000-000000000001',
+    'alternating_weeks'::custody_pattern, current_date - 7,
+    '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000b');
+  select handover_day into jour from custody_rules
+   where household_id = 'aaaaaaaa-0000-0000-0000-000000000001' and deleted_at is null;
+  if jour is not null then
+    raise exception 'ÉCHEC R7 : jour % imposé alors qu''aucun n''était demandé', jour;
+  end if;
+  raise notice 'R7 OK — les règles sans jour précisé restent au lundi';
+end $$;
+
 select 'TESTS DES RYTHMES PASSÉS' as resultat;
 
 -- ============================================================

@@ -110,6 +110,7 @@ function ContenuPlanning() {
         {
           pattern: regle.pattern, startDate: regle.startDate,
           parent1: regle.parent1, parent2: regle.parent2,
+          changeoverDay: regle.handoverDay,
           customCycle: regle.customCycle ?? undefined,
         },
         regle.startDate < premierJour ? regle.startDate : premierJour,

@@ -334,6 +334,10 @@ export default function Accueil() {
           startDate: regle.startDate,
           parent1: regle.parent1,
           parent2: regle.parent2,
+          changeoverDay: regle.handoverDay,
+          // Sans le cycle, un rythme personnalisé faisait échouer le calcul
+          // et l'accueil restait muet sur « où sont les enfants aujourd'hui ».
+          customCycle: regle.customCycle ?? undefined,
         },
         debut,
         fin,

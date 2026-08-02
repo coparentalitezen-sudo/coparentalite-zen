@@ -436,3 +436,102 @@ describe('heures particulières — une période peut imposer son horaire', () =
     expect(p.get('2026-07-20')!.apresMidi).toBe('p1');
   });
 });
+
+describe('jour du changement', () => {
+  // Toutes les familles ne basculent pas le lundi : le vendredi est courant,
+  // les enfants partant après l'école pour la semaine de garde qui s'ouvre.
+  const vendredi = 5;
+
+  it('une semaine sur deux bascule le jour choisi, et lui seul', () => {
+    const regle: CustodyRule = { ...base, changeoverDay: vendredi };
+    const jours = assignDays(regle, '2026-01-05', '2026-02-01');
+    const carte = new Map(jours.map((j) => [j.date, j.parentId]));
+
+    // 2026-01-09 est un vendredi : c'est là que le parent change.
+    expect(carte.get('2026-01-08')).toBe(carte.get('2026-01-05'));
+    expect(carte.get('2026-01-09')).not.toBe(carte.get('2026-01-08'));
+    // et pas avant le vendredi suivant
+    expect(carte.get('2026-01-15')).toBe(carte.get('2026-01-09'));
+    expect(carte.get('2026-01-16')).not.toBe(carte.get('2026-01-15'));
+  });
+
+  it('les changements tombent tous le même jour de la semaine', () => {
+    const carte = buildDayMap(
+      { ...base, changeoverDay: vendredi }, '2026-01-05', '2026-06-30',
+    );
+    const dates = [...carte.keys()].sort();
+    for (let i = 1; i < dates.length; i += 1) {
+      if (carte.get(dates[i])!.parentId !== carte.get(dates[i - 1])!.parentId) {
+        expect(new Date(`${dates[i]}T12:00:00Z`).getUTCDay(), dates[i]).toBe(vendredi);
+      }
+    }
+  });
+
+  it('semaines paires et impaires : la tranche court d’un vendredi à l’autre', () => {
+    const carte = buildDayMap(
+      { ...base, pattern: 'even_weeks', changeoverDay: vendredi },
+      '2026-01-05', '2026-03-01',
+    );
+    // Du vendredi au jeudi suivant, un seul et même parent.
+    const tranche = ['2026-01-09', '2026-01-10', '2026-01-11', '2026-01-12',
+                     '2026-01-13', '2026-01-14', '2026-01-15'];
+    for (const d of tranche) {
+      expect(carte.get(d)!.parentId, d).toBe(carte.get('2026-01-09')!.parentId);
+    }
+    expect(carte.get('2026-01-16')!.parentId).not.toBe(carte.get('2026-01-15')!.parentId);
+  });
+
+  it('sans jour précisé, le planning est identique à l’ancien', () => {
+    for (const pattern of ['alternating_weeks', 'even_weeks', 'odd_weeks'] as const) {
+      const avant = buildDayMap({ ...base, pattern }, '2026-01-05', '2026-04-30');
+      const apres = buildDayMap(
+        { ...base, pattern, changeoverDay: null }, '2026-01-05', '2026-04-30',
+      );
+      for (const [date, a] of avant) {
+        expect(apres.get(date)!.parentId, `${pattern} ${date}`).toBe(a.parentId);
+      }
+    }
+  });
+
+  it('le lundi choisi explicitement ne change rien non plus', () => {
+    const avant = buildDayMap({ ...base, pattern: 'even_weeks' }, '2026-01-05', '2026-04-30');
+    const apres = buildDayMap(
+      { ...base, pattern: 'even_weeks', changeoverDay: 1 }, '2026-01-05', '2026-04-30',
+    );
+    for (const [date, a] of avant) {
+      expect(apres.get(date)!.parentId, date).toBe(a.parentId);
+    }
+  });
+
+  it('chaque parent garde la moitié du temps, quel que soit le jour', () => {
+    for (let jour = 0; jour <= 6; jour += 1) {
+      const carte = buildDayMap(
+        { ...base, changeoverDay: jour }, '2026-01-09', '2026-12-31',
+      );
+      const total = carte.size;
+      const chezP1 = [...carte.values()].filter((d) => d.parentId === P1).length;
+      // Une année entière : l'écart ne peut venir que des bornes.
+      expect(Math.abs(chezP1 - total / 2), `jour ${jour}`).toBeLessThanOrEqual(7);
+    }
+  });
+
+  it('le rythme personnalisé reste ancré sur les vrais jours de la semaine', () => {
+    // Le jour de changement ne s'applique pas aux motifs qui nomment déjà
+    // chaque journée : la grille dessinée doit rester intacte.
+    const cycle: ('P1' | 'P2')[] = [
+      'P1', 'P1', 'P1', 'P2', 'P2', 'P2', 'P2',
+      'P2', 'P2', 'P2', 'P1', 'P1', 'P1', 'P1',
+    ];
+    const avec = buildDayMap(
+      { ...base, pattern: 'custom', customCycle: cycle, changeoverDay: vendredi },
+      '2026-01-05', '2026-02-15',
+    );
+    const sans = buildDayMap(
+      { ...base, pattern: 'custom', customCycle: cycle },
+      '2026-01-05', '2026-02-15',
+    );
+    for (const [date, a] of sans) {
+      expect(avec.get(date)!.parentId, date).toBe(a.parentId);
+    }
+  });
+});

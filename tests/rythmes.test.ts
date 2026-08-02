@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   MODELES, modele, schemaDeuxSemaines, repartition,
   cycleParDefaut, validerCyclePersonnalise,
+  accepteJourChangement, JOURS_CHANGEMENT, nomDuJour,
 } from '../src/lib/rythmes';
 import { buildDayMap, journeesPartagees } from '../src/lib/custody';
 
@@ -246,5 +247,45 @@ describe('semaines paires et impaires', () => {
     for (const [date, x] of b) {
       expect(a.get(date)!.parentId, date).toBe(x.parentId);
     }
+  });
+});
+
+describe('schéma et jour du changement', () => {
+  it('le schéma montre la bascule au jour choisi', () => {
+    // Grille lue du lundi au dimanche : avec un changement le vendredi, les
+    // quatre premières cases restent chez un parent, les trois suivantes non.
+    const s = schemaDeuxSemaines('alternating_weeks', 5);
+    expect(s.slice(0, 4)).toEqual(['P1', 'P1', 'P1', 'P1']);
+    expect(s.slice(4, 7)).toEqual(['P2', 'P2', 'P2']);
+    expect(s.slice(7, 11)).toEqual(['P2', 'P2', 'P2', 'P2']);
+    expect(s.slice(11, 14)).toEqual(['P1', 'P1', 'P1']);
+  });
+
+  it('sans jour précisé, les schémas sont inchangés', () => {
+    for (const m of MODELES) {
+      expect(schemaDeuxSemaines(m.pattern), m.pattern).toEqual(m.schema);
+    }
+  });
+
+  it('le jour ne se choisit que pour les rythmes hebdomadaires', () => {
+    expect(accepteJourChangement('alternating_weeks')).toBe(true);
+    expect(accepteJourChangement('even_weeks')).toBe(true);
+    expect(accepteJourChangement('odd_weeks')).toBe(true);
+    for (const p of ['p2233', 'p2255', 'p3443', 'custom', 'alternating_weekends'] as const) {
+      expect(accepteJourChangement(p), p).toBe(false);
+    }
+  });
+
+  it('un jour choisi sur un rythme qui ne le prend pas reste sans effet', () => {
+    for (const p of ['p2233', 'p2255', 'p3443', 'alternating_weekends'] as const) {
+      expect(schemaDeuxSemaines(p, 5), p).toEqual(schemaDeuxSemaines(p));
+    }
+  });
+
+  it('chaque jour de la semaine est proposé une seule fois', () => {
+    expect(JOURS_CHANGEMENT).toHaveLength(7);
+    expect(new Set(JOURS_CHANGEMENT.map((j) => j.valeur)).size).toBe(7);
+    expect(nomDuJour(5)).toBe('vendredi');
+    expect(nomDuJour(null)).toBe('lundi');
   });
 });

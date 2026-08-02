@@ -34,6 +34,11 @@ export interface RegleGarde {
   customCycle: ('P1' | 'P2')[] | null;
   /** Heure du passage d'un parent à l'autre, format HH:MM ; null si au lever. */
   handoverTime: string | null;
+  /**
+   * Jour de la semaine où le changement a lieu, 0 = dimanche … 6 = samedi.
+   * null : le lundi, comme les règles enregistrées avant ce réglage.
+   */
+  handoverDay: number | null;
   /** Lieu convenu du passage, affiché aux deux parents. */
   handoverPlace: string | null;
 }

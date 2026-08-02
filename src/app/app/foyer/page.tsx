@@ -15,6 +15,7 @@ import {
 } from '@/lib/partage-invitation';
 import {
   MODELES, modele, cycleParDefaut, repartition, validerCyclePersonnalise,
+  schemaDeuxSemaines, accepteJourChangement, JOURS_CHANGEMENT, nomDuJour,
 } from '@/lib/rythmes';
 import { useContexte } from '@/lib/use-contexte';
 import {
@@ -60,6 +61,8 @@ export default function Foyer() {
   const [msgInvitation, setMsgInvitation] =
     useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [heurePassage, setHeurePassage] = useState('');
+  /** Jour du changement, 0 = dimanche … 6 = samedi. Le lundi par défaut. */
+  const [jourChangement, setJourChangement] = useState<number>(1);
   const [lieuPassage, setLieuPassage] = useState('');
   const [debut, setDebut] = useState(() => new Date().toISOString().slice(0, 10));
   const [regleActuelle, setRegleActuelle] = useState<RegleGarde | null>(null);
@@ -92,6 +95,7 @@ export default function Foyer() {
         setDebut(r.data.startDate);
         if (r.data.customCycle?.length) setCyclePerso(r.data.customCycle);
         setHeurePassage(r.data.handoverTime ?? '');
+        setJourChangement(r.data.handoverDay ?? 1);
         setLieuPassage(r.data.handoverPlace ?? '');
       }
     });
@@ -249,13 +253,18 @@ export default function Foyer() {
 
   async function enregistrerRythme(householdId: string, p1: string, p2: string) {
     setMsg(null); setBusy(true);
+    // Un jour de changement n'a de sens que pour les rythmes hebdomadaires :
+    // l'enregistrer ailleurs laisserait croire qu'il agit.
+    const jour = accepteJourChangement(rythme) ? jourChangement : null;
     const r = await setRegleGarde(householdId, rythme, debut, p1, p2,
-      rythme === 'custom' ? cyclePerso : null, heurePassage || null, lieuPassage || null);
+      rythme === 'custom' ? cyclePerso : null, heurePassage || null, lieuPassage || null,
+      jour);
     setBusy(false);
     if (r.status === 'ok') {
       setRegleActuelle({ pattern: rythme, startDate: debut, parent1: p1, parent2: p2,
         customCycle: rythme === 'custom' ? cyclePerso : null,
-        handoverTime: heurePassage || null, handoverPlace: lieuPassage || null });
+        handoverTime: heurePassage || null, handoverDay: jour,
+        handoverPlace: lieuPassage || null });
       setMsg({ kind: 'ok', text: 'Rythme de garde enregistré. Le planning est à jour.' });
     } else if (r.status === 'error') setMsg({ kind: 'err', text: r.message });
   }
@@ -426,6 +435,8 @@ export default function Foyer() {
                   <p className="rounded-xl bg-muted px-3 py-2 text-[13px] leading-snug">
                     Rythme actuel : <strong>{modele(regleActuelle.pattern)?.nom ?? regleActuelle.pattern}</strong>,
                     depuis le {new Date(regleActuelle.startDate + 'T12:00:00').toLocaleDateString('fr-FR')}.
+                    {accepteJourChangement(regleActuelle.pattern)
+                      && ` Changement le ${nomDuJour(regleActuelle.handoverDay ?? 1)}.`}
                   </p>
                 )}
 
@@ -473,9 +484,14 @@ export default function Foyer() {
                           {!m.personnalisable && (
                             <div className="mt-2.5">
                               <SchemaRythme
-                                schema={m.pattern === 'even_weeks' && rythme === 'odd_weeks'
-                                  ? m.schema.map((j) => (j === 'P1' ? 'P2' : 'P1'))
-                                  : m.schema}
+                                schema={(() => {
+                                  // Le schéma montre le rythme tel qu'il sera
+                                  // appliqué, jour de changement compris.
+                                  const s = schemaDeuxSemaines(m.pattern, jourChangement);
+                                  return m.pattern === 'even_weeks' && rythme === 'odd_weeks'
+                                    ? s.map((j) => (j === 'P1' ? 'P2' : 'P1'))
+                                    : s;
+                                })()}
                                 parent1={{ nom: p1.nom, initiale: p1.initiale, couleur: p1.couleur }}
                                 parent2={{ nom: p2.nom, initiale: p2.initiale, couleur: p2.couleur }}
                               />
@@ -492,6 +508,33 @@ export default function Foyer() {
                     );
                   })}
                 </ul>
+
+                {accepteJourChangement(rythme) && (
+                  <div className="space-y-2 rounded-2xl bg-muted p-3">
+                    <p className="text-sm font-bold">Quel jour a lieu le changement ?</p>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {JOURS_CHANGEMENT.map((j) => (
+                        <button key={j.valeur} type="button"
+                          aria-pressed={jourChangement === j.valeur}
+                          aria-label={`Changement le ${j.nom}`}
+                          onClick={() => setJourChangement(j.valeur)}
+                          className={`btn px-0 text-[13px] ${
+                            jourChangement === j.valeur ? 'btn-primary' : 'btn-ghost'}`}>
+                          {j.court}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[12px] leading-snug text-soft">
+                      Les enfants changent de parent chaque {nomDuJour(jourChangement)}.
+                      Le schéma ci-dessus se met à jour : la bascule s’y lit à la
+                      colonne correspondante.
+                      {jourChangement !== 1
+                        && ' Une semaine de garde va donc d’un '
+                          + nomDuJour(jourChangement) + ' au ' + nomDuJour(jourChangement)
+                          + ' suivant.'}
+                    </p>
+                  </div>
+                )}
 
                 {(rythme === 'even_weeks' || rythme === 'odd_weeks') && (
                   <div className="space-y-2 rounded-2xl bg-muted p-3">
@@ -611,7 +654,9 @@ export default function Foyer() {
                   <span className="mt-1 block text-xs leading-snug text-soft">
                     {rythme === 'custom'
                       ? 'Le planning appliquera à cette date le parent prévu pour ce vrai jour de la semaine. La grille reste ancrée du lundi au dimanche.'
-                      : `Le cycle démarre chez ${p1.nom} à cette date.`}
+                      : accepteJourChangement(rythme)
+                        ? `Le rythme s’applique à partir de cette date, et le changement a lieu chaque ${nomDuJour(jourChangement)}.`
+                        : `Le cycle démarre chez ${p1.nom} à cette date.`}
                   </span>
                 </label>
 

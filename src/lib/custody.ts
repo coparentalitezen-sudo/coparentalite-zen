@@ -28,6 +28,13 @@ export interface CustodyRule {
   handoverTime?: string | null;
   pattern: CustodyPattern;
   startDate: string;          // 'YYYY-MM-DD' — ancre du cycle
+  /**
+   * Jour de la semaine où les enfants changent de parent, 0 = dimanche …
+   * 6 = samedi. Ne concerne que les rythmes qui raisonnent en semaines
+   * entières : les autres nomment déjà chaque jour dans leur motif.
+   * Absent : le lundi, comportement historique.
+   */
+  changeoverDay?: number | null;
   endDate?: string;
   parent1: ParentId;          // parent "de départ" (starting_parent)
   parent2: ParentId;
@@ -96,6 +103,45 @@ export function isoWeek(d: string): number {
   return 1 + Math.round((t.getTime() - firstThursday.getTime()) / (7 * DAY));
 }
 
+/** Jour de la semaine d'une date : 0 = dimanche … 6 = samedi. */
+export function jourSemaine(d: string): number { return new Date(toUTC(d)).getUTCDay(); }
+
+/** Recule une date jusqu'au jour de bascule le plus proche, celui-ci inclus. */
+export function reculerAuJour(d: string, jour: number): string {
+  return addDays(d, -(((jourSemaine(d) - jour) + 7) % 7));
+}
+
+/**
+ * Numéro de semaine servant à trancher entre semaines paires et impaires,
+ * quand le changement n'a pas lieu le lundi.
+ *
+ * La garde court du jour de bascule au même jour la semaine suivante. Cette
+ * tranche de sept jours contient exactement un lundi : c'est le numéro de
+ * semaine de ce lundi qui la désigne. Un changement le vendredi rattache donc
+ * vendredi, samedi et dimanche à la semaine civile qui commence le surlendemain
+ * — ce que fait déjà tout parent qui « part en week-end pour sa semaine ».
+ *
+ * Sans jour de bascule, le résultat est celui du calendrier : les deux
+ * définitions coïncident, le lundi ouvrant la semaine ISO.
+ */
+export function semaineDeReference(date: string, jourBascule?: number | null): number {
+  if (jourBascule === null || jourBascule === undefined) return isoWeek(date);
+  const debutTranche = reculerAuJour(date, jourBascule);
+  const lundi = addDays(debutTranche, ((1 - jourSemaine(debutTranche)) + 7) % 7);
+  return isoWeek(lundi);
+}
+
+/**
+ * Ancre d'un cycle hebdomadaire : la date de début, ramenée au jour de
+ * bascule qui la précède. Sans jour de bascule, la date de début fait foi —
+ * c'est elle qui portait jusqu'ici le jour du changement.
+ */
+export function ancreHebdomadaire(rule: CustodyRule): string {
+  return rule.changeoverDay === null || rule.changeoverDay === undefined
+    ? rule.startDate
+    : reculerAuJour(rule.startDate, rule.changeoverDay);
+}
+
 export const CYCLES: Record<string, ('P1' | 'P2')[]> = {
   // 2-2-3 : cycle de 14 jours — P1 2j, P2 2j, P1 3j, puis inversé
   p2233: ['P1','P1','P2','P2','P1','P1','P1','P2','P2','P1','P1','P2','P2','P2'],
@@ -121,15 +167,15 @@ export function assignDays(rule: CustodyRule, from: string, to: string): DayAssi
 
     switch (rule.pattern) {
       case 'alternating_weeks': {
-        const weeks = Math.floor(daysBetween(rule.startDate, date) / 7);
+        const weeks = Math.floor(daysBetween(ancreHebdomadaire(rule), date) / 7);
         who = weeks % 2 === 0 ? 'P1' : 'P2';
         break;
       }
       case 'even_weeks':
-        who = isoWeek(date) % 2 === 0 ? 'P1' : 'P2';
+        who = semaineDeReference(date, rule.changeoverDay) % 2 === 0 ? 'P1' : 'P2';
         break;
       case 'odd_weeks':
-        who = isoWeek(date) % 2 === 1 ? 'P1' : 'P2';
+        who = semaineDeReference(date, rule.changeoverDay) % 2 === 1 ? 'P1' : 'P2';
         break;
       case 'alternating_weekends': {
         // Résidence principale chez P1 ; P2 un week-end (sam+dim) sur deux

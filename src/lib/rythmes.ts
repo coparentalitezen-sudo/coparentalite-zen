@@ -8,7 +8,7 @@
  *
  * Fonctions pures, sans dépendance : testables et réutilisables partout.
  */
-import { CYCLES, type CustodyPattern } from './custody';
+import { CYCLES, addDays, assignDays, type CustodyPattern } from './custody';
 
 export interface ModeleRythme {
   pattern: CustodyPattern;
@@ -30,25 +30,73 @@ export interface ModeleRythme {
 /** Jours de la semaine, du lundi au dimanche, pour l'affichage des schémas. */
 export const JOURS_COURTS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'] as const;
 
-/** Répartition d'un rythme sur quatorze jours, à partir d'un lundi. */
-export function schemaDeuxSemaines(pattern: CustodyPattern): ('P1' | 'P2')[] {
-  const cycle = CYCLES[pattern];
-  if (cycle && cycle.length > 0) {
-    return Array.from({ length: 14 }, (_, i) => cycle[i % cycle.length]);
+/**
+ * Jours proposés comme jour de changement, dans l'ordre où on les lit.
+ * La valeur suit la convention du moteur et de la base : 0 = dimanche.
+ */
+export const JOURS_CHANGEMENT = [
+  { valeur: 1, nom: 'lundi', court: 'Lun' },
+  { valeur: 2, nom: 'mardi', court: 'Mar' },
+  { valeur: 3, nom: 'mercredi', court: 'Mer' },
+  { valeur: 4, nom: 'jeudi', court: 'Jeu' },
+  { valeur: 5, nom: 'vendredi', court: 'Ven' },
+  { valeur: 6, nom: 'samedi', court: 'Sam' },
+  { valeur: 0, nom: 'dimanche', court: 'Dim' },
+] as const;
+
+export function nomDuJour(valeur: number | null | undefined): string {
+  return JOURS_CHANGEMENT.find((j) => j.valeur === valeur)?.nom ?? 'lundi';
+}
+
+/**
+ * Rythmes pour lesquels le jour du changement se choisit.
+ *
+ * Ceux qui raisonnent en semaines entières basculent une fois par semaine :
+ * ce jour-là leur appartient. Les motifs 2-2-3, 2-2-5-5 ou 3-4-4-3 nomment au
+ * contraire chaque journée du cycle — il y a plusieurs changements par
+ * semaine, et le rythme personnalisé se dessine jour par jour.
+ */
+export function accepteJourChangement(pattern: CustodyPattern): boolean {
+  return pattern === 'alternating_weeks'
+    || pattern === 'even_weeks'
+    || pattern === 'odd_weeks';
+}
+
+/**
+ * Lundi de référence des schémas : semaine ISO 2 de 2024, donc paire, pour que
+ * « semaines paires » commence bien chez le premier parent.
+ */
+const LUNDI_REFERENCE = '2024-01-08';
+
+/**
+ * Répartition d'un rythme sur quatorze jours, à partir d'un lundi.
+ *
+ * Le schéma est produit par le moteur lui-même, et non redécrit à la main :
+ * ce que le parent voit à l'écran est exactement ce que le planning
+ * appliquera, jour de changement compris.
+ */
+export function schemaDeuxSemaines(
+  pattern: CustodyPattern,
+  jourChangement?: number | null,
+): ('P1' | 'P2')[] {
+  // Le rythme personnalisé n'a pas de schéma type : il se dessine.
+  if (pattern === 'custom') {
+    const cycle = CYCLES[pattern];
+    return cycle && cycle.length > 0
+      ? Array.from({ length: 14 }, (_, i) => cycle[i % cycle.length])
+      : Array.from({ length: 14 }, () => 'P1');
   }
-  switch (pattern) {
-    case 'alternating_weeks':
-    case 'even_weeks':
-    case 'odd_weeks':
-      // Une semaine entière chez l'un, la suivante chez l'autre
-      return Array.from({ length: 14 }, (_, i) => (i < 7 ? 'P1' : 'P2'));
-    case 'alternating_weekends':
-      // Résidence principale chez P1 ; P2 un week-end sur deux (samedi, dimanche)
-      return Array.from({ length: 14 }, (_, i) =>
-        (i === 5 || i === 6) ? 'P2' : 'P1');
-    default:
-      return Array.from({ length: 14 }, () => 'P1');
-  }
+  return assignDays(
+    {
+      pattern,
+      startDate: LUNDI_REFERENCE,
+      changeoverDay: accepteJourChangement(pattern) ? jourChangement ?? null : null,
+      parent1: 'P1',
+      parent2: 'P2',
+    },
+    LUNDI_REFERENCE,
+    addDays(LUNDI_REFERENCE, 13),
+  ).map((j) => j.parentId as 'P1' | 'P2');
 }
 
 export const MODELES: ModeleRythme[] = [
