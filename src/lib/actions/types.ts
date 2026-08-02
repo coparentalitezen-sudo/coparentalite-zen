@@ -71,6 +71,9 @@ export interface PropositionVacances {
   finRetenue: string | null;
   enfantsCouverts: number;
   enfantsTotal: number;
+  /** Rang de ce segment dans sa période, et nombre total de segments. */
+  segment: number;
+  segmentsTotal: number;
 }
 
 export interface ExceptionGarde {

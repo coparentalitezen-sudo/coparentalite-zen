@@ -368,3 +368,39 @@ insert into profiles (id, email, display_name) values
   ('00000000-0000-0000-0000-0000000000f5', 'destinataire1@test.fr', 'Destinataire 1'),
   ('00000000-0000-0000-0000-0000000000f6', 'destinataire2@test.fr', 'Destinataire 2')
 on conflict (id) do nothing;
+
+/**
+ * Découpe une période en trois segments alternés, pour les tests.
+ *
+ * Les dates sont choisies dans une fenêtre libre : les suites précédentes
+ * occupent le calendrier, et la contrainte d'exclusion refuserait tout
+ * recouvrement.
+ */
+create or replace function public.test_segmenter_vacances(p_household uuid, p_libelle text)
+returns void language plpgsql security definer set search_path = public as $$
+declare hid uuid; d date;
+begin
+  select id, starts_on into hid, d from school_holidays
+   where label = p_libelle and source = 'officiel' and deleted_at is null limit 1;
+
+  -- On libère la fenêtre visée : ces tests ne portent pas sur le chevauchement
+  update custody_exceptions set deleted_at = now()
+   where household_id = p_household and deleted_at is null
+     and kind = 'holiday'
+     and starts_at < (d + 22)::timestamptz
+     and ends_at   > d::timestamptz;
+
+  perform public.create_custody_exception(p_household, 'holiday',
+    array['cccccccc-0000-0000-0000-000000000001']::uuid[],
+    '00000000-0000-0000-0000-00000000000a',
+    d::timestamptz, (d + 6)::timestamptz, p_libelle, null, null, hid);
+  perform public.create_custody_exception(p_household, 'holiday',
+    array['cccccccc-0000-0000-0000-000000000001']::uuid[],
+    '00000000-0000-0000-0000-00000000000b',
+    (d + 7)::timestamptz, (d + 13)::timestamptz, p_libelle, null, null, hid);
+  perform public.create_custody_exception(p_household, 'holiday',
+    array['cccccccc-0000-0000-0000-000000000001']::uuid[],
+    '00000000-0000-0000-0000-00000000000a',
+    (d + 14)::timestamptz, (d + 21)::timestamptz, p_libelle, null, null, hid);
+end $$;
+grant execute on function public.test_segmenter_vacances(uuid, text) to authenticated;

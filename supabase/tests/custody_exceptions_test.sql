@@ -609,3 +609,130 @@ begin
 end $$;
 
 select 'TESTS DES PROPOSITIONS DE VACANCES PASSÉS' as resultat;
+
+-- ============================================================
+-- S1 à S5 — PARTAGE D'UNE PÉRIODE DE VACANCES
+--
+-- Le partage est le cas normal : huit jours chez l'un, huit chez l'autre.
+-- Une seule décision par période rendait le planning faux — la période entière
+-- s'affichait au nom du premier parent.
+-- ============================================================
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
+
+-- ============ S1 : une période sans décision apparaît une fois ============
+do $$
+declare hid uuid; n int; p record;
+begin
+  perform public.set_household_location('aaaaaaaa-0000-0000-0000-000000000001', 'FR', 'B');
+  perform public.test_importer_vacances(format('[
+    {"country_code":"FR","label":"Toussaint S","zone":"B","school_year":"%s",
+     "starts_on":"%s","ends_on":"%s"}]',
+     public.test_annee_scolaire(), (current_date + 40)::text, (current_date + 56)::text)::jsonb);
+
+  select count(*) into n from public.propositions_vacances('aaaaaaaa-0000-0000-0000-000000000001')
+   where libelle = 'Toussaint S';
+  if n <> 1 then raise exception 'ÉCHEC S1 : % ligne(s) pour une période non décidée', n; end if;
+
+  select * into p from public.propositions_vacances('aaaaaaaa-0000-0000-0000-000000000001')
+   where libelle = 'Toussaint S';
+  if p.segments_total <> 0 then
+    raise exception 'ÉCHEC S1b : % segment(s) annoncé(s) sans décision', p.segments_total;
+  end if;
+  perform set_config('app.hid_s', p.holiday_id::text, false);
+  raise notice 'S1 OK — période libre : une seule ligne, aucun segment';
+end $$;
+
+-- ============ S2 : deux segments, deux parents, deux lignes ============
+do $$
+declare n int;
+begin
+  -- Première moitié chez le premier parent
+  perform public.create_custody_exception(
+    'aaaaaaaa-0000-0000-0000-000000000001', 'holiday',
+    array['cccccccc-0000-0000-0000-000000000001']::uuid[],
+    '00000000-0000-0000-0000-00000000000a',
+    (current_date + 40)::timestamptz, (current_date + 47)::timestamptz,
+    'Toussaint S', null, public.test_annee_scolaire(),
+    current_setting('app.hid_s')::uuid);
+
+  -- Seconde moitié chez l'autre
+  perform public.create_custody_exception(
+    'aaaaaaaa-0000-0000-0000-000000000001', 'holiday',
+    array['cccccccc-0000-0000-0000-000000000001']::uuid[],
+    '00000000-0000-0000-0000-00000000000b',
+    (current_date + 48)::timestamptz, (current_date + 56)::timestamptz,
+    'Toussaint S', null, public.test_annee_scolaire(),
+    current_setting('app.hid_s')::uuid);
+
+  select count(*) into n from public.propositions_vacances('aaaaaaaa-0000-0000-0000-000000000001')
+   where libelle = 'Toussaint S';
+  if n <> 2 then
+    raise exception 'ÉCHEC S2 : % ligne(s) pour deux segments — la période est agrégée', n;
+  end if;
+  raise notice 'S2 OK — deux segments, deux lignes distinctes';
+end $$;
+
+-- ============ S3 : chaque segment garde SON parent et SES dates ============
+do $$
+declare premier record; second record;
+begin
+  select * into premier from public.propositions_vacances('aaaaaaaa-0000-0000-0000-000000000001')
+   where libelle = 'Toussaint S' and segment = 1;
+  select * into second from public.propositions_vacances('aaaaaaaa-0000-0000-0000-000000000001')
+   where libelle = 'Toussaint S' and segment = 2;
+
+  if premier.parent_id = second.parent_id then
+    raise exception 'ÉCHEC S3 : les deux segments désignent le même parent';
+  end if;
+  if premier.parent_id <> '00000000-0000-0000-0000-00000000000a' then
+    raise exception 'ÉCHEC S3b : premier segment attribué au mauvais parent';
+  end if;
+  if premier.fin_retenue >= second.debut_retenu then
+    raise exception 'ÉCHEC S3c : les segments se recouvrent';
+  end if;
+  if premier.segments_total <> 2 or second.segments_total <> 2 then
+    raise exception 'ÉCHEC S3d : le nombre total de segments est incorrect';
+  end if;
+  raise notice 'S3 OK — segment 1 chez le premier parent, segment 2 chez le second';
+end $$;
+
+-- ============ S4 : le chevauchement reste refusé ============
+do $$
+begin
+  begin
+    perform public.create_custody_exception(
+      'aaaaaaaa-0000-0000-0000-000000000001', 'holiday',
+      array['cccccccc-0000-0000-0000-000000000001']::uuid[],
+      '00000000-0000-0000-0000-00000000000a',
+      (current_date + 45)::timestamptz, (current_date + 50)::timestamptz,
+      'Toussaint S', null, public.test_annee_scolaire(),
+      current_setting('app.hid_s')::uuid);
+    raise exception 'ÉCHEC S4 : un segment chevauchant a été accepté';
+  exception when others then
+    if sqlerrm like 'ÉCHEC%' then raise; end if;
+    if sqlerrm not like '%existe déjà%' then
+      raise exception 'ÉCHEC S4b : motif inattendu (%)', sqlerrm;
+    end if;
+  end;
+  raise notice 'S4 OK — deux segments ne peuvent pas se recouvrir';
+end $$;
+
+-- ============ S5 : trois segments restent possibles ============
+do $$
+declare n int;
+begin
+  -- Rien n'impose de couper en deux : certaines familles alternent par semaine
+  perform public.test_importer_vacances(format('[
+    {"country_code":"FR","label":"Ete S","zone":"B","school_year":"%s",
+     "starts_on":"%s","ends_on":"%s"}]',
+     public.test_annee_scolaire(), (current_date + 60)::text, (current_date + 82)::text)::jsonb);
+
+  perform public.test_segmenter_vacances('aaaaaaaa-0000-0000-0000-000000000001', 'Ete S');
+
+  select count(*) into n from public.propositions_vacances('aaaaaaaa-0000-0000-0000-000000000001')
+   where libelle = 'Ete S';
+  if n <> 3 then raise exception 'ÉCHEC S5 : % segment(s) au lieu de 3', n; end if;
+  raise notice 'S5 OK — un découpage en trois segments est possible';
+end $$;
+
+select 'TESTS DU PARTAGE DES VACANCES PASSÉS' as resultat;

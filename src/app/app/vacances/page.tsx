@@ -53,6 +53,7 @@ function ContenuVacances() {
   const [msg, setMsg] = useState<string | null>(null);
 
   const [ouvert, setOuvert] = useState<string | null>(null);
+  const [nouveauSegment, setNouveauSegment] = useState<PropositionVacances | null>(null);
   const [parentId, setParentId] = useState('');
   const [debut, setDebut] = useState('');
   const [fin, setFin] = useState('');
@@ -78,14 +79,35 @@ function ContenuVacances() {
   }, [ctx]);
   useEffect(charger, [charger]);
 
+  /** Un segment se distingue de ses voisins par son rang dans la période. */
+  const cleDe = (p: PropositionVacances) => `${p.holidayId}#${p.exceptionId ?? 'libre'}`;
+
   function ouvrir(p: PropositionVacances) {
-    setOuvert(p.holidayId);
+    setOuvert(cleDe(p));
     setParentId(p.parentId ?? membres[0]?.profileId ?? '');
     // Les dates officielles ne sont qu'une proposition : elles s'affichent
     // pré-remplies, et restent entièrement modifiables.
     setDebut(versChampDateHeure(p.debutRetenu ?? p.debutOfficiel, '00:00'));
     setFin(versChampDateHeure(p.finRetenue ?? p.finOfficielle, '23:59'));
     setErreurForm(null);
+  }
+
+  /**
+   * Prépare un segment supplémentaire : il démarre le lendemain du précédent
+   * et court jusqu'à la fin officielle, chez l'autre parent. Ce sont des
+   * propositions, ajustables comme le reste.
+   */
+  function ajouterSegment(p: PropositionVacances) {
+    const finPrecedente = p.finRetenue ? new Date(p.finRetenue) : new Date(p.finOfficielle);
+    const lendemain = new Date(finPrecedente.getTime() + 86400000);
+    const autre = membres.find((m) => m.profileId !== p.parentId) ?? membres[0];
+
+    setOuvert(`${p.holidayId}#nouveau`);
+    setParentId(autre?.profileId ?? '');
+    setDebut(versChampDateHeure(lendemain.toISOString(), '00:00'));
+    setFin(versChampDateHeure(`${p.finOfficielle}T23:59:00.000Z`, '23:59'));
+    setErreurForm(null);
+    setNouveauSegment(p);
   }
 
   async function enregistrer(p: PropositionVacances, householdId: string) {
@@ -98,7 +120,8 @@ function ContenuVacances() {
     if (enfants.length === 0) { setErreurForm('Ajoutez d’abord un enfant.'); return; }
 
     setBusy(true);
-    const r = p.exceptionId
+    const creation = nouveauSegment !== null;
+    const r = (p.exceptionId && !creation)
       ? await modifierException({
           id: p.exceptionId, parentId,
           debut: horodatage(debut), fin: horodatage(fin),
@@ -117,7 +140,7 @@ function ContenuVacances() {
       setMsg(h
         ? `${p.libelle} : chez ${nom(parentId)} à partir de ${h}.`
         : `${p.libelle} : les enfants sont chez ${nom(parentId)}.`);
-      setOuvert(null); charger();
+      setOuvert(null); setNouveauSegment(null); charger();
     } else if (r.status === 'error') {
       // Le détail technique accompagne le message : sans lui, un refus dû à
       // l'horizon de l'offre est indiscernable d'une erreur de saisie.
@@ -177,10 +200,10 @@ function ContenuVacances() {
                   const parent = membres.find((m) => m.profileId === p.parentId);
 
                   return (
-                    <li key={p.holidayId} className="py-3">
+                    <li key={cleDe(p)} className="py-3">
                       <button type="button"
-                        onClick={() => (ouvert === p.holidayId ? setOuvert(null) : ouvrir(p))}
-                        aria-expanded={ouvert === p.holidayId}
+                        onClick={() => (ouvert === cleDe(p) ? setOuvert(null) : ouvrir(p))}
+                        aria-expanded={ouvert === cleDe(p)}
                         className="flex w-full items-center gap-3 text-left">
                         <span aria-hidden
                           className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[15px] ${
@@ -188,7 +211,14 @@ function ContenuVacances() {
                           🌴
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate font-bold leading-snug">{p.libelle}</span>
+                          <span className="block truncate font-bold leading-snug">
+                            {p.libelle}
+                            {p.segmentsTotal > 1 && (
+                              <span className="ml-1.5 text-[12px] font-semibold text-soft/85">
+                                {p.segment} sur {p.segmentsTotal}
+                              </span>
+                            )}
+                          </span>
                           <span className="block text-[13px] leading-snug text-soft/85">
                             {decide
                               ? `Chez ${nom(p.parentId)} · du ${jourFr(p.debutRetenu!)}${
@@ -209,7 +239,7 @@ function ContenuVacances() {
                           </span>
                         )}
                         <span aria-hidden className={`shrink-0 text-soft/60 transition-transform ${
-                          ouvert === p.holidayId ? 'rotate-90' : ''}`}>
+                          ouvert === cleDe(p) ? 'rotate-90' : ''}`}>
                           <Icone nom="chevron" taille={16} />
                         </span>
                       </button>
@@ -220,7 +250,21 @@ function ContenuVacances() {
                         </p>
                       )}
 
-                      {ouvert === p.holidayId && (
+                      {/* Partager une période est le cas normal : huit jours
+                          chez l'un, huit chez l'autre. Ce bouton n'apparaît
+                          que sur le dernier segment, pour ne pas multiplier
+                          les points d'entrée. */}
+                      {decide && p.segment === p.segmentsTotal && (
+                        <button type="button"
+                          className="mt-2 text-[13px] font-bold text-navy-text underline"
+                          onClick={() => ajouterSegment(p)}>
+                          Partager cette période avec l’autre parent
+                        </button>
+                      )}
+
+                      {(ouvert === cleDe(p)
+                        || (ouvert === `${p.holidayId}#nouveau` && nouveauSegment?.holidayId === p.holidayId
+                            && p.segment === p.segmentsTotal)) && (
                         <div className="mt-3 space-y-3">
                           <fieldset>
                             <legend className="mb-1.5 text-sm font-bold">Chez quel parent ?</legend>
@@ -274,8 +318,17 @@ function ContenuVacances() {
 
                           <button className="btn btn-primary w-full" disabled={busy}
                             onClick={() => enregistrer(p, ctx.contexte.foyer.id)}>
-                            {busy ? 'Enregistrement…' : decide ? 'Mettre à jour' : 'Valider cette période'}
+                            {busy ? 'Enregistrement…'
+                              : nouveauSegment ? 'Ajouter cette seconde période'
+                              : decide ? 'Mettre à jour' : 'Valider cette période'}
                           </button>
+                          {nouveauSegment && (
+                            <button type="button"
+                              className="text-[13px] font-bold text-soft underline"
+                              onClick={() => { setNouveauSegment(null); setOuvert(null); }}>
+                              Annuler l’ajout
+                            </button>
+                          )}
                           {decide && (
                             <button type="button" className="text-[13px] font-bold text-err underline"
                                     onClick={() => retirer(p)}>

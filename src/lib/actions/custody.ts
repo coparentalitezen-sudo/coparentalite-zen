@@ -175,5 +175,7 @@ export async function listerPropositionsVacances(
     finRetenue: (v.fin_retenue as string) ?? null,
     enfantsCouverts: Number(v.enfants_couverts ?? 0),
     enfantsTotal: Number(v.enfants_total ?? 0),
+    segment: Number(v.segment ?? 1),
+    segmentsTotal: Number(v.segments_total ?? 0),
   })));
 }
