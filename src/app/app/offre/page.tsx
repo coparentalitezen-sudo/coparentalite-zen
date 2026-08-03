@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { BottomNav } from '@/components/ui';
@@ -38,8 +38,14 @@ function ContenuOffre() {
   const [msg, setMsg] = useState<string | null>(null);
   const [enCours, setEnCours] = useState<string | null>(null);
   const [periodicite, setPeriodicite] = useState<'month' | 'year'>('year');
+  /**
+   * Suivi de la confirmation après un retour de Stripe.
+   * 'attente' tant que le webhook n'a pas crédité, 'lent' s'il tarde.
+   */
+  const [confirmation, setConfirmation] = useState<'attente' | 'ok' | 'lent' | null>(null);
 
   const retourPaiement = parametres.get('paiement');
+  const typeAchat = parametres.get('type');
 
   const charger = useCallback(() => {
     if (ctx.etat !== 'pret') return;
@@ -54,17 +60,58 @@ function ContenuOffre() {
 
   useEffect(charger, [charger]);
 
-  // Retour de Stripe : le webhook peut arriver après la redirection, on le dit.
+  /**
+   * Retour de Stripe.
+   *
+   * Le paiement est encaissé côté Stripe, mais le droit ne s'ouvre qu'à
+   * l'arrivée du webhook, quelques secondes plus tard. Une seule tentative de
+   * rechargement ne suffisait pas : passé ce délai, l'écran continuait
+   * d'annoncer l'offre gratuite alors que l'abonnement était bien payé.
+   *
+   * On interroge donc l'offre jusqu'à ce que le droit apparaisse, une trentaine
+   * de secondes durant. Le reste de l'application est prévenu au passage, pour
+   * que les bandeaux d'horizon disparaissent eux aussi.
+   */
+  const contexteRecharge = useRef(recharger);
+  contexteRecharge.current = recharger;
+
   useEffect(() => {
-    if (retourPaiement === 'reussi') {
-      setMsg('Paiement reçu. Vos mois sont crédités dans les secondes qui suivent — actualisez si l’affichage tarde.');
-      const t = setTimeout(charger, 2500);
-      return () => clearTimeout(t);
-    }
     if (retourPaiement === 'annule') {
       setMsg('Paiement annulé. Rien ne vous a été facturé.');
+      return undefined;
     }
-  }, [retourPaiement, charger]);
+    if (retourPaiement !== 'reussi' || ctx.etat !== 'pret') return undefined;
+
+    const hid = ctx.contexte.foyer.id;
+    let vivant = true;
+    let minuteur: ReturnType<typeof setTimeout> | undefined;
+    let reference: number | null = null;   // mois crédités avant le paiement
+    setConfirmation('attente');
+
+    const attendreCredit = async (essai: number) => {
+      if (!vivant) return;
+      const r = await getOffre(hid);
+      if (!vivant) return;
+      if (r.status === 'ok') {
+        setOffre(r.data);
+        if (reference === null) reference = r.data.moisAjoutes;
+        const credite = typeAchat === 'extension'
+          ? r.data.moisAjoutes > reference
+          : r.data.illimite;
+        if (credite) {
+          setConfirmation('ok');
+          listerAchats(hid).then((a) => { if (a.status === 'ok' && vivant) setAchats(a.data); });
+          contexteRecharge.current();     // bandeaux et pastilles suivent
+          return;
+        }
+      }
+      if (essai >= 15) { setConfirmation('lent'); return; }
+      minuteur = setTimeout(() => { void attendreCredit(essai + 1); }, 2000);
+    };
+
+    void attendreCredit(0);
+    return () => { vivant = false; if (minuteur) clearTimeout(minuteur); };
+  }, [retourPaiement, typeAchat, ctx]);
 
   const estProprietaire = ctx.etat === 'pret'
     && (ctx.contexte.foyer.role === 'owner' || ctx.contexte.foyer.role === 'admin');
@@ -98,6 +145,11 @@ function ContenuOffre() {
         <PastilleOffre offre={offre} />
       </div>
 
+      {confirmation === 'ok' && (
+        <p role="status" className="rounded-xl bg-ok-bg px-3 py-2 text-sm font-bold text-ok">
+          Paiement confirmé. Votre offre est à jour.
+        </p>
+      )}
       {msg && (
         <p role="status" className="rounded-xl bg-ok-bg px-3 py-2 text-sm font-bold text-ok">{msg}</p>
       )}
@@ -111,7 +163,30 @@ function ContenuOffre() {
         <>
           {/* État actuel */}
           <section className="card px-4 py-5">
-            {offre.illimite ? (
+            {!offre.illimite && (confirmation === 'attente' || confirmation === 'lent') ? (
+              <>
+                <p className="font-display text-[17px] font-semibold tracking-tight">
+                  {confirmation === 'attente' ? 'Activation en cours…' : 'Activation plus longue que prévu'}
+                </p>
+                <p className="mt-1.5 text-[13px] leading-snug text-soft">
+                  Votre paiement a bien été reçu. L’ouverture des droits est
+                  confirmée par notre prestataire de paiement, ce qui prend
+                  généralement quelques secondes.
+                  {confirmation === 'lent'
+                    && ' La confirmation tarde ; rien n’est perdu, votre paiement est enregistré.'}
+                </p>
+                <button className="btn btn-ghost mt-3 w-full" onClick={charger}>
+                  Actualiser
+                </button>
+                {confirmation === 'lent' && (
+                  <p className="mt-2 text-[12px] leading-snug text-soft">
+                    Si l’offre n’apparaît toujours pas d’ici quelques minutes,
+                    écrivez-nous : le paiement est tracé de notre côté et sera
+                    honoré sans nouvelle démarche de votre part.
+                  </p>
+                )}
+              </>
+            ) : offre.illimite ? (
               <>
                 <p className="flex items-center gap-2 font-display text-[17px] font-semibold tracking-tight">
                   <span className="text-[#1F7A45]"><Icone nom="check" taille={18} /></span>

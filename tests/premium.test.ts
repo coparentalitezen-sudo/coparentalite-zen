@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { dansHorizon } from '../src/lib/premium-horizon';
+import { finDePeriode } from '../src/lib/stripe';
 import type { Offre } from '../src/lib/actions/premium';
 
 const gratuite = (horizon: string, joursRestants = 10): Offre => ({
@@ -56,5 +57,26 @@ describe('dansHorizon — garde d’affichage de l’offre', () => {
     expect(dansHorizon(echue, '2026-02-01')).toBe(false);
     // le passé reste consultable : la limite ne porte que sur l'avenir
     expect(dansHorizon(echue, '2026-01-15')).toBe(true);
+  });
+});
+
+describe('fin de la période payée', () => {
+  it('lit la date sur l’abonnement, ancien emplacement', () => {
+    expect(finDePeriode({ current_period_end: 1798761600 }))
+      .toBe(new Date(1798761600 * 1000).toISOString());
+  });
+
+  it('lit la date sur la ligne d’abonnement, emplacement actuel', () => {
+    // Stripe a déplacé la date : sans cette lecture, un abonnement annuel
+    // n'affichait aucune échéance de renouvellement.
+    expect(finDePeriode({ items: { data: [{ current_period_end: 1798761600 }] } }))
+      .toBe(new Date(1798761600 * 1000).toISOString());
+  });
+
+  it('rend null plutôt qu’une date fantaisiste', () => {
+    expect(finDePeriode({})).toBeNull();
+    expect(finDePeriode({ items: { data: [] } })).toBeNull();
+    expect(finDePeriode({ current_period_end: 0 })).toBeNull();
+    expect(finDePeriode({ current_period_end: 'demain' })).toBeNull();
   });
 });

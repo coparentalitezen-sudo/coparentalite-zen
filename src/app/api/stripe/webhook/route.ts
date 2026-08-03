@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseService } from '@/lib/supabase/server';
-import { configStripe, signatureValide, lireAbonnement } from '@/lib/stripe';
+import { configStripe, signatureValide, lireAbonnement, finDePeriode } from '@/lib/stripe';
 
 /**
  * Réception des événements Stripe.
@@ -134,9 +134,7 @@ export async function POST(requete: Request) {
           const abo = await lireAbonnement(config, idAbo);
           statut = statutSupabase(String(abo.status ?? 'active'));
           annulationProgrammee = Boolean(abo.cancel_at_period_end);
-          if (abo.current_period_end) {
-            finPeriode = new Date(Number(abo.current_period_end) * 1000).toISOString();
-          }
+          finPeriode = finDePeriode(abo);
           if (abo.trial_end) {
             essaiFin = new Date(Number(abo.trial_end) * 1000).toISOString();
           }
@@ -211,8 +209,7 @@ export async function POST(requete: Request) {
         p_customer: (objet.customer as string) ?? null,
         p_subscription: (objet.id as string) ?? null,
         p_price: items?.data?.[0]?.price?.id ?? null,
-        p_period_end: objet.current_period_end
-          ? new Date(Number(objet.current_period_end) * 1000).toISOString() : null,
+        p_period_end: finDePeriode(objet),
         p_cancel_at_period_end: Boolean(objet.cancel_at_period_end),
         p_trial_end: objet.trial_end
           ? new Date(Number(objet.trial_end) * 1000).toISOString() : null,

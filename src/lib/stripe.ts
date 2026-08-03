@@ -79,7 +79,7 @@ export async function creerSessionExtension(params: {
   const champs: Record<string, string> = {
     mode: 'payment',
     'payment_method_types[0]': 'card',
-    success_url: `${config.origine}/app/offre?paiement=reussi`,
+    success_url: `${config.origine}/app/offre?paiement=reussi&type=extension`,
     cancel_url: `${config.origine}/app/offre?paiement=annule`,
     locale: 'fr',
     billing_address_collection: 'auto',
@@ -127,7 +127,7 @@ export async function creerSessionAbonnement(params: {
     mode: 'subscription',
     'line_items[0][price]': params.tarifStripe,
     'line_items[0][quantity]': '1',
-    success_url: `${config.origine}/app/offre?paiement=reussi`,
+    success_url: `${config.origine}/app/offre?paiement=reussi&type=abonnement`,
     cancel_url: `${config.origine}/app/offre?paiement=annule`,
     locale: 'fr',
     billing_address_collection: 'auto',
@@ -156,6 +156,22 @@ export async function creerSessionPortail(params: {
 
 export async function lireAbonnement(config: ConfigStripe, id: string): Promise<Record<string, unknown>> {
   return appel<Record<string, unknown>>(config.cleSecrete, `/subscriptions/${id}`, 'GET');
+}
+
+/**
+ * Fin de la période payée, en ISO.
+ *
+ * Stripe a déplacé cette date : elle figurait sur l'abonnement, elle vit
+ * désormais sur chacune de ses lignes. Les deux emplacements sont lus, faute
+ * de quoi un abonnement annuel n'affiche aucune date de renouvellement — le
+ * seul repère qui distingue justement l'annuel du mensuel.
+ */
+export function finDePeriode(abo: Record<string, unknown>): string | null {
+  const lignes = abo.items as { data?: { current_period_end?: number }[] } | undefined;
+  const brut = (abo.current_period_end as number | undefined)
+    ?? lignes?.data?.[0]?.current_period_end;
+  if (!brut || !Number.isFinite(Number(brut))) return null;
+  return new Date(Number(brut) * 1000).toISOString();
 }
 
 /**
