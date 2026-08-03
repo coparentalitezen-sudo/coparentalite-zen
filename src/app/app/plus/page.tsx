@@ -13,7 +13,7 @@ const rubriques: [string, string, string | null][] = [
   ['Changements et exceptions', 'Échanges, voyages, absences ponctuelles', '/app/exceptions'],
   ['Notifications', 'Choisir ce dont vous voulez être prévenu', '/app/notifications/reglages'],
   ['Votre offre', 'Durée du planning, Zen Plus, factures', '/app/offre'],
-  ['Confidentialité', 'Export de vos données, droits RGPD', '/app/foyer'],
+  ['Confidentialité', 'Export de vos données, droits RGPD', '/app/confidentialite'],
   ['Documents', 'Justificatifs et attestations', null],
   ['Messages', 'Échanges liés au planning et aux dépenses', null],
   ['Rapports', 'PDF mensuel et annuel, CSV, ICS', null],
