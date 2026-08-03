@@ -76,7 +76,7 @@ export async function GET() {
   }
   const { data: membre } = await supabase
     .from('household_members').select('household_id')
-    .eq('profile_id', user.id).is('deleted_at', null).limit(1);
+    .eq('profile_id', user.id).is('deleted_at', null);
   if (!membre || membre.length === 0) {
     return reponseJSON({ message: 'Accès réservé aux membres d’un foyer.' }, 403);
   }
@@ -103,11 +103,36 @@ export async function GET() {
 
   const roleService = roleDeLaCle(process.env.SUPABASE_SERVICE_ROLE_KEY);
 
+  /**
+   * Ce que le serveur calcule réellement comme offre, foyer par foyer.
+   *
+   * Quand la base porte un abonnement actif et que l'écran continue d'annoncer
+   * l'offre gratuite, seul ce relevé départage les deux hypothèses : un droit
+   * mal calculé, ou un droit rattaché à un autre foyer que celui consulté. Un
+   * compte appartenant à plusieurs foyers rend la seconde très facile.
+   */
+  const foyers: Record<string, unknown>[] = [];
+  for (const m of membre) {
+    const hid = m.household_id as string;
+    const { data, error } = await supabase.rpc('household_entitlement', { p_household: hid });
+    const ligne = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | undefined;
+    foyers.push({
+      foyer: hid.slice(0, 8),
+      offre: error ? `erreur : ${error.message}`
+        : ligne?.illimite ? 'Zen Plus' : 'gratuite',
+      periodicite: ligne?.periodicite_active ?? null,
+      abonnement_actif: ligne?.abonnement_actif ?? null,
+      horizon: ligne?.horizon ?? null,
+    });
+  }
+
   return reponseJSON({
     version: process.env.NEXT_PUBLIC_VERSION
       ?? process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? 'local',
     variables,
     role_de_la_cle_service: roleService,
+    // Un compte peut appartenir à plusieurs foyers : le droit se lit par foyer.
+    vos_foyers: foyers,
     // Ce que chaque manque empêche concrètement
     consequences: [
       !variables.supabase_cle_service
