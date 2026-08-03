@@ -179,8 +179,7 @@ export async function POST(requete: Request) {
             p_customer: (abo.customer as string) ?? (objet.customer as string) ?? null,
             p_subscription: idAbo,
             p_price: items?.data?.[0]?.price?.id ?? null,
-            p_period_end: abo.current_period_end
-              ? new Date(Number(abo.current_period_end) * 1000).toISOString() : null,
+            p_period_end: finDePeriode(abo),
             p_cancel_at_period_end: Boolean(abo.cancel_at_period_end),
             p_trial_end: abo.trial_end
               ? new Date(Number(abo.trial_end) * 1000).toISOString() : null,
