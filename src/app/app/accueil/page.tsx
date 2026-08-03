@@ -311,8 +311,17 @@ export default function Accueil() {
    * Quand Stripe et les droits seront ajoutés, cette date devra provenir
    * du foyer ou de l’abonnement enregistré dans la base.
    */
-  const limitePlanification = obtenirLimitePlanificationGratuite(today);
-  const joursPlanifiables = Math.max(0, joursAvant(limitePlanification));
+  /**
+   * Horizon de planification.
+   *
+   * Il vient de l'offre du foyer : date d'ouverture, plus les mois offerts et
+   * ceux qui ont été ajoutés. Le calcul local « aujourd'hui plus trois mois »
+   * datait d'avant le branchement de l'offre ; il repoussait la limite chaque
+   * jour et ignorait purement et simplement un abonnement en cours.
+   */
+  const limitePlanification = offre?.horizon ?? obtenirLimitePlanificationGratuite(today);
+  const joursPlanifiables = offre?.joursRestants
+    ?? Math.max(0, joursAvant(limitePlanification));
 
   const nom = (id: string) =>
     membres.find((m) => m.profileId === id)?.nom ?? 'Parent';
@@ -553,7 +562,39 @@ export default function Accueil() {
 
           <InstallAppCard />
 
-          {/* Limite de planification gratuite */}
+          {/* Zen Plus : plus aucune limite à annoncer */}
+          {offre?.illimite && (
+            <section
+              className="overflow-hidden rounded-[24px] border border-[#CFE6D9] bg-[#EEF5F0]"
+              aria-labelledby="titre-horizon"
+            >
+              <div className="flex items-start gap-3 px-4 py-4">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white text-[#1F7A45] shadow-sm">
+                  <Icone nom="check" taille={21} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p
+                    id="titre-horizon"
+                    className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#1F7A45]"
+                  >
+                    Zen Plus
+                    {offre.periodiciteActive === 'year' && ' · formule annuelle'}
+                    {offre.periodiciteActive === 'month' && ' · formule mensuelle'}
+                  </p>
+                  <p className="mt-1.5 text-[15px] font-extrabold leading-snug text-navy-text">
+                    Planification sans limite de durée
+                  </p>
+                  <p className="mt-1 text-[12px] leading-relaxed text-soft">
+                    Organisez aussi loin que nécessaire, autant d’années que vous
+                    le souhaitez.
+                  </p>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* Limite de planification gratuite — masquée pour un abonné */}
+          {offre && !offre.illimite && (
           <section
             className="overflow-hidden rounded-[24px] border border-[#D9E2EF] bg-[#F4F7FB]"
             aria-labelledby="titre-horizon"
@@ -625,6 +666,7 @@ export default function Accueil() {
               </p>
             </div>
           </section>
+          )}
 
           {/* Carte principale : solde, sérénité, prochain changement */}
           <section
