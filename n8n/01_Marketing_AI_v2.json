@@ -1,0 +1,372 @@
+{
+  "name": "Coparentalité Zen — Marketing IA v2",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "14731cf5-b0d0-4785-ba00-5b1120629a16",
+      "name": "Déclenchement manuel",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -980,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "68f10148-ef90-4b94-a963-446baea9051f",
+              "name": "product_name",
+              "value": "Planning de garde alternée 2027",
+              "type": "string"
+            },
+            {
+              "id": "b06525f2-c217-4b8c-b04b-66559426c336",
+              "name": "product_type",
+              "value": "PDF + Excel",
+              "type": "string"
+            },
+            {
+              "id": "eb6f0d2d-38ff-4181-84c2-0fc785485df5",
+              "name": "target_customer",
+              "value": "Parents séparés ou divorcés avec enfants en garde alternée",
+              "type": "string"
+            },
+            {
+              "id": "d6412e0f-7a7b-4421-9433-99040071e47d",
+              "name": "main_problem",
+              "value": "Les parents ne savent plus rapidement chez qui sont les enfants et risquent des malentendus",
+              "type": "string"
+            },
+            {
+              "id": "0720761d-04fb-45b9-8f68-ebfb33c44ad9",
+              "name": "main_benefit",
+              "value": "Visualiser immédiatement l'organisation de garde et réduire les conflits",
+              "type": "string"
+            },
+            {
+              "id": "645ba2b3-f040-4660-a4f3-475ab073a218",
+              "name": "features",
+              "value": "Planning annuel, couleurs par parent, vacances scolaires, week-ends, version imprimable et modifiable",
+              "type": "string"
+            },
+            {
+              "id": "05a37550-4da6-496d-b191-3eca40f77a2a",
+              "name": "price_eur",
+              "value": 9.9,
+              "type": "number"
+            },
+            {
+              "id": "a345ca2d-4835-4d9e-abb9-b989ab7c8172",
+              "name": "brand",
+              "value": "Coparentalité Zen",
+              "type": "string"
+            },
+            {
+              "id": "e9b3ffb7-8073-4c4f-9201-e95bcf111dc8",
+              "name": "language",
+              "value": "fr-FR",
+              "type": "string"
+            },
+            {
+              "id": "4f2e1713-e721-48d7-9b36-6f330c255efb",
+              "name": "tone",
+              "value": "rassurant, concret, familial, professionnel, sans promesse exagérée",
+              "type": "string"
+            },
+            {
+              "id": "73a594ac-bccb-42d4-9951-bacab3749169",
+              "name": "etsy_category_hint",
+              "value": "Calendriers et planners numériques",
+              "type": "string"
+            },
+            {
+              "id": "5239ca12-2f80-4c83-8d12-1dc51bd4c770",
+              "name": "included_files",
+              "value": "PDF imprimable et fichier Excel modifiable",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8311e7c1-e14c-404a-ad5c-5466d7998cdb",
+      "name": "Produit à commercialiser",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -740,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Tu es le directeur marketing de la marque {{$json.brand}}.\n\nCrée un kit commercial complet pour ce produit :\n- Nom : {{$json.product_name}}\n- Type : {{$json.product_type}}\n- Cible : {{$json.target_customer}}\n- Problème principal : {{$json.main_problem}}\n- Bénéfice principal : {{$json.main_benefit}}\n- Fonctionnalités : {{$json.features}}\n- Fichiers inclus : {{$json.included_files}}\n- Catégorie Etsy indicative : {{$json.etsy_category_hint}}\n- Prix actuel : {{$json.price_eur}} €\n- Langue : {{$json.language}}\n- Ton : {{$json.tone}}\n\nRÈGLES STRICTES\n1. Réponds uniquement avec un objet JSON valide, sans Markdown.\n2. N'invente aucune fonctionnalité ou garantie.\n3. Pas de promesse médicale, juridique ou financière.\n4. Titre Etsy <= 140 caractères.\n5. Exactement 13 tags Etsy, chacun <= 20 caractères.\n6. Prévois au moins 5 épingles Pinterest.\n7. Prévois exactement 7 slides Instagram.\n8. Prévois un script TikTok de 25 à 35 secondes.\n9. Les hashtags n'ont pas d'espaces.\n10. Le ton ne doit jamais culpabiliser les parents.\n11. Chaque canal doit avoir un appel à l'action adapté.\n12. Une validation humaine reste obligatoire.\n\nSCHÉMA JSON OBLIGATOIRE\n{\n  \"product\": {\n    \"name\": \"string\",\n    \"price_eur\": 0,\n    \"audience\": \"string\",\n    \"problem\": \"string\",\n    \"positioning\": \"string\",\n    \"unique_value_proposition\": \"string\"\n  },\n  \"etsy\": {\n    \"title\": \"string\",\n    \"description\": \"string\",\n    \"tags\": [\"13 chaînes exactement\"],\n    \"materials\": [\"chaînes\"],\n    \"short_benefits\": [\"4 chaînes exactement\"],\n    \"faq\": [\n      {\"question\": \"string\", \"answer\": \"string\"}\n    ],\n    \"suggested_price_eur\": 0,\n    \"launch_promo\": \"string\",\n    \"image_alt_texts\": [\"7 chaînes exactement\"]\n  },\n  \"instagram\": {\n    \"caption\": \"string\",\n    \"carousel_slides\": [\"7 chaînes exactement\"],\n    \"reel_hook\": \"string\",\n    \"reel_caption\": \"string\",\n    \"hashtags\": [\"10 à 15 chaînes\"],\n    \"cta\": \"string\"\n  },\n  \"facebook\": {\n    \"post\": \"string\",\n    \"short_post\": \"string\",\n    \"cta\": \"string\"\n  },\n  \"pinterest\": {\n    \"pins\": [\n      {\"title\": \"string\", \"description\": \"string\", \"visual_hook\": \"string\", \"cta\": \"string\"}\n    ]\n  },\n  \"tiktok\": {\n    \"hook\": \"string\",\n    \"script_30s\": \"string\",\n    \"shots\": [\"6 chaînes exactement\"],\n    \"caption\": \"string\",\n    \"hashtags\": [\"5 à 8 chaînes\"],\n    \"cta\": \"string\"\n  },\n  \"email\": {\n    \"subject\": \"string\",\n    \"preheader\": \"string\",\n    \"body\": \"string\",\n    \"cta\": \"string\"\n  },\n  \"visuals\": {\n    \"etsy_image_texts\": [\"7 chaînes exactement\"],\n    \"instagram_visual_prompts\": [\"3 chaînes exactement\"],\n    \"pinterest_visual_prompts\": [\"3 chaînes exactement\"],\n    \"tiktok_broll_prompts\": [\"3 chaînes exactement\"]\n  },\n  \"seo\": {\n    \"primary_keyword\": \"string\",\n    \"secondary_keywords\": [\"5 à 10 chaînes\"],\n    \"buyer_intent_terms\": [\"3 à 5 chaînes\"]\n  },\n  \"quality_control\": {\n    \"claims_to_verify\": [\"chaînes\"],\n    \"missing_information\": [\"chaînes\"],\n    \"human_validation_required\": true\n  }\n}",
+        "options": {
+          "systemMessage": "Tu produis des contenus commerciaux fiables, concrets et conformes aux données fournies. Tu réponds exclusivement en JSON valide."
+        }
+      },
+      "id": "a0107ff9-431f-45c3-bbc6-e07bc0412fcc",
+      "name": "Agent Marketing IA",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "gpt-5-mini",
+        "options": {
+          "temperature": 0.35
+        }
+      },
+      "id": "65cd17e6-0f36-446b-96a1-6f11106f98d4",
+      "name": "OpenAI gpt-5-mini",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -460,
+        220
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "",
+          "name": "À sélectionner après import"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $json.output ?? $json.text ?? $json.response ?? '';\n\nfunction stripCodeFence(value) {\n  return String(value)\n    .trim()\n    .replace(/^```(?:json)?\\s*/i, '')\n    .replace(/\\s*```$/i, '')\n    .trim();\n}\n\nlet parsed;\ntry {\n  parsed = JSON.parse(stripCodeFence(raw));\n} catch (error) {\n  throw new Error('Réponse IA non JSON : ' + error.message);\n}\n\nconst errors = [];\nconst warnings = [];\n\nconst requireObject = (obj, key) => {\n  if (!obj[key] || typeof obj[key] !== 'object' || Array.isArray(obj[key])) {\n    errors.push(`Section absente ou invalide : ${key}`);\n  }\n};\n\n['product','etsy','instagram','facebook','pinterest','tiktok','email','visuals','seo','quality_control']\n  .forEach(key => requireObject(parsed, key));\n\nif (!parsed.etsy?.title || parsed.etsy.title.length > 140) {\n  errors.push('Titre Etsy absent ou supérieur à 140 caractères.');\n}\n\nif (!Array.isArray(parsed.etsy?.tags) || parsed.etsy.tags.length !== 13) {\n  errors.push('Il faut exactement 13 tags Etsy.');\n} else {\n  parsed.etsy.tags.forEach((tag, i) => {\n    if (typeof tag !== 'string' || tag.length > 20) {\n      errors.push(`Tag Etsy ${i + 1} invalide ou supérieur à 20 caractères.`);\n    }\n  });\n}\n\nif (!Array.isArray(parsed.instagram?.carousel_slides) || parsed.instagram.carousel_slides.length !== 7) {\n  errors.push('Il faut exactement 7 slides Instagram.');\n}\n\nif (!Array.isArray(parsed.pinterest?.pins) || parsed.pinterest.pins.length < 5) {\n  errors.push('Il faut au moins 5 épingles Pinterest.');\n}\n\nif (!Array.isArray(parsed.tiktok?.shots) || parsed.tiktok.shots.length !== 6) {\n  errors.push('Il faut exactement 6 plans TikTok.');\n}\n\nif (parsed.quality_control?.human_validation_required !== true) {\n  errors.push('La validation humaine doit rester obligatoire.');\n}\n\nconst forbiddenClaims = /(garanti|sans conflit|résout tous|100% efficace|juridiquement conforme)/i;\nconst corpus = JSON.stringify(parsed);\nif (forbiddenClaims.test(corpus)) {\n  warnings.push('Une formulation potentiellement excessive a été détectée.');\n}\n\nreturn [{\n  json: {\n    status: errors.length === 0 ? 'READY_FOR_HUMAN_REVIEW' : 'NEEDS_CORRECTION',\n    validation_errors: errors,\n    validation_warnings: warnings,\n    generated_at: new Date().toISOString(),\n    marketing_package: parsed\n  }\n}];"
+      },
+      "id": "ad4db09b-0b9c-4a3c-8d6a-e611b03f68dd",
+      "name": "Valider et normaliser",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -120,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "203c3201-24cb-46d9-99e0-32695dae12c8",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "READY_FOR_HUMAN_REVIEW",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1d1e407f-afd1-414c-974d-adf301438828",
+      "name": "Kit valide ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        140,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3131f234-20e4-4455-8588-2f97acacfe53",
+              "name": "status",
+              "value": "={{ $json.status }}",
+              "type": "string"
+            },
+            {
+              "id": "271d314e-984e-46a9-b929-3b40fc74627d",
+              "name": "generated_at",
+              "value": "={{ $json.generated_at }}",
+              "type": "string"
+            },
+            {
+              "id": "084a1671-7ae9-48f5-8a4a-15ebe12ff567",
+              "name": "validation_warnings",
+              "value": "={{ $json.validation_warnings }}",
+              "type": "array"
+            },
+            {
+              "id": "0a03670c-019f-4ef1-8982-51bf05d1f2fb",
+              "name": "marketing_package",
+              "value": "={{ $json.marketing_package }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "48a96c0b-79f1-4068-805f-bf73bd8b37ee",
+      "name": "Livrable marketing prêt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        430,
+        -110
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4c343cd9-5605-4532-8caa-a05fd9b6286b",
+              "name": "status",
+              "value": "NEEDS_CORRECTION",
+              "type": "string"
+            },
+            {
+              "id": "5c2e36b1-24ce-48d8-8488-b417474da093",
+              "name": "validation_errors",
+              "value": "={{ $json.validation_errors }}",
+              "type": "array"
+            },
+            {
+              "id": "c5f93c28-eedf-4117-bb5e-23813314cfe3",
+              "name": "validation_warnings",
+              "value": "={{ $json.validation_warnings }}",
+              "type": "array"
+            },
+            {
+              "id": "4d63fe19-fd71-41f3-b106-82123f5f119a",
+              "name": "raw_package",
+              "value": "={{ $json.marketing_package }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d36a23e8-6a85-4c56-bca1-829b41b72a6d",
+      "name": "Rapport de correction",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        430,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Marketing IA v2\n\n1. Modifiez les données dans **Produit à commercialiser**.\n2. Sélectionnez votre credential dans **OpenAI gpt-5-mini**.\n3. Exécutez le workflow.\n4. Utilisez la sortie **Livrable marketing prêt**.\n\nAucune publication automatique n'est effectuée.",
+        "height": 280,
+        "width": 420
+      },
+      "id": "5091c8fd-78ad-4c68-9090-61a0271fe08e",
+      "name": "Mode d’emploi",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -980,
+        -380
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Déclenchement manuel": {
+      "main": [
+        [
+          {
+            "node": "Produit à commercialiser",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Produit à commercialiser": {
+      "main": [
+        [
+          {
+            "node": "Agent Marketing IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI gpt-5-mini": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agent Marketing IA",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent Marketing IA": {
+      "main": [
+        [
+          {
+            "node": "Valider et normaliser",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valider et normaliser": {
+      "main": [
+        [
+          {
+            "node": "Kit valide ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kit valide ?": {
+      "main": [
+        [
+          {
+            "node": "Livrable marketing prêt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rapport de correction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "fd69022f-40ed-4b89-bd15-eb48d823259f",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
