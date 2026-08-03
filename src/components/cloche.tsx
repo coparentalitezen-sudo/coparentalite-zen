@@ -8,6 +8,29 @@
  * un changement de garde imminent.
  */
 import { useCallback, useEffect, useState } from 'react';
+
+/**
+ * Acheminement opportuniste des notifications poussées.
+ *
+ * Le plan d'hébergement ne concède qu'un passage planifié par jour : une
+ * notification programmée à neuf heures du matin n'atteignait le téléphone que
+ * le lendemain à trois heures. Chaque ouverture de l'application déclenche
+ * donc l'acheminement des messages en attente — les siens comme ceux de
+ * l'autre parent, chaque appareil ne recevant jamais que ce qui lui est
+ * destiné.
+ *
+ * L'appel est espacé de dix minutes et silencieux : un échec ne doit ni
+ * ralentir l'écran, ni s'y afficher.
+ */
+let dernierAcheminement = 0;
+function acheminerPush() {
+  if (typeof window === 'undefined') return;
+  if (Notification?.permission !== 'granted') return;
+  const maintenant = Date.now();
+  if (maintenant - dernierAcheminement < 600_000) return;
+  dernierAcheminement = maintenant;
+  void fetch('/api/push/envoyer').catch(() => {});
+}
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { compterNonLues } from '@/lib/actions';
@@ -45,10 +68,13 @@ export function Cloche() {
   useEffect(() => {
     if (!hid) return;
     rafraichir();
+    acheminerPush();
 
     // Trois occasions de se mettre à jour, en plus du rythme régulier :
     // une lecture signalée, un changement d'écran, un retour dans l'onglet.
-    const surRetour = () => { if (!document.hidden) rafraichir(); };
+    const surRetour = () => {
+      if (!document.hidden) { rafraichir(); acheminerPush(); }
+    };
     window.addEventListener(EVENEMENT_LECTURE, rafraichir);
     document.addEventListener('visibilitychange', surRetour);
     const minuterie = setInterval(rafraichir, 120_000);

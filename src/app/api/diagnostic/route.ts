@@ -111,6 +111,28 @@ export async function GET() {
    * mal calculé, ou un droit rattaché à un autre foyer que celui consulté. Un
    * compte appartenant à plusieurs foyers rend la seconde très facile.
    */
+  /**
+   * Notifications poussées : un appareil doit s'être inscrit pour en recevoir.
+   * Sans inscription, aucune bannière n'arrivera jamais, quelle que soit la
+   * qualité du reste de la chaîne — et c'est invisible depuis l'écran.
+   */
+  const { count: appareils } = await supabase
+    .from('push_subscriptions')
+    .select('id', { count: 'exact', head: true })
+    .eq('profile_id', user.id);
+
+  // Une notification est « en attente » tant qu'aucun acheminement n'a été
+  // tracé pour le canal push.
+  const { count: notifications } = await supabase
+    .from('notifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('profile_id', user.id);
+
+  const { count: deja } = await supabase
+    .from('notification_deliveries')
+    .select('notification_id', { count: 'exact', head: true })
+    .eq('channel_code', 'push');
+
   const foyers: Record<string, unknown>[] = [];
   for (const m of membre) {
     const hid = m.household_id as string;
@@ -133,6 +155,12 @@ export async function GET() {
     role_de_la_cle_service: roleService,
     // Un compte peut appartenir à plusieurs foyers : le droit se lit par foyer.
     vos_foyers: foyers,
+    // Notifications poussées : sans appareil inscrit, rien ne peut arriver.
+    push: {
+      appareils_inscrits: appareils,
+      vos_notifications: notifications,
+      envois_traces: deja,
+    },
     // Ce que chaque manque empêche concrètement
     consequences: [
       !variables.supabase_cle_service

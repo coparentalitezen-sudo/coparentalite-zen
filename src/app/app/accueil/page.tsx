@@ -16,6 +16,8 @@ import {
   listerDepenses,
   listerRemboursements,
   getRegleGarde,
+  listerExceptions,
+  type ExceptionGarde,
   getSolde,
   soldeLocalTransitoire,
   type DepenseListe,
@@ -24,7 +26,8 @@ import {
   type Solde,
 } from '@/lib/actions';
 import { formatCents } from '@/lib/money';
-import { buildSchedule, whereToday } from '@/lib/custody';
+import { buildDayMap, addDays, dernierJourTenu,
+  type ExceptionOverride } from '@/lib/custody';
 import { calculerSerenite } from '@/lib/serenite';
 import { BandeauHorizon } from '@/components/premium';
 import { ProgressionCompacte } from '@/components/progression';
@@ -244,6 +247,15 @@ export default function Accueil() {
   const [remboursements, setRemboursements] = useState<Remboursement[]>([]);
   const [erreur, setErreur] = useState<string | null>(null);
   const [offre, setOffre] = useState<Offre | null>(null);
+  /**
+   * Vacances et changements ponctuels des quatre prochains mois.
+   *
+   * L'accueil annonce le prochain changement de garde : sans ces périodes, il
+   * annonçait celui du rythme régulier et contredisait le planning, qui les
+   * applique. Deux dates différentes pour un même événement, c'est la
+   * confiance dans l'application qui s'en va.
+   */
+  const [exceptions, setExceptions] = useState<ExceptionGarde[]>([]);
   const [solde, setSolde] = useState<Solde | null>(null);
 
   useEffect(() => {
@@ -295,6 +307,13 @@ export default function Accueil() {
         setErreur(r.message);
       }
     });
+
+    // Un échec ici ne doit rien casser : le rythme régulier reste calculable.
+    const debutFenetre = new Date().toISOString().slice(0, 10);
+    const finFenetre = new Date(Date.now() + 120 * 86400000).toISOString().slice(0, 10);
+    listerExceptions(hid, debutFenetre, finFenetre).then((r) => {
+      if (r.status === 'ok') setExceptions(r.data);
+    });
   }, [ctx]);
 
   const membres = ctx.etat === 'pret' ? ctx.contexte.membres : [];
@@ -326,7 +345,12 @@ export default function Accueil() {
   const nom = (id: string) =>
     membres.find((m) => m.profileId === id)?.nom ?? 'Parent';
 
-  // Garde du jour et prochain changement.
+  /**
+   * Garde du jour et prochain changement.
+   *
+   * Mêmes ingrédients que le planning — rythme, vacances, changements
+   * ponctuels — pour que les deux écrans annoncent forcément la même date.
+   */
   const garde = useMemo(() => {
     if (!regle || regle === 'inconnu' || !regle.parent2) return null;
 
@@ -337,7 +361,18 @@ export default function Accueil() {
 
       const debut = regle.startDate < today ? regle.startDate : today;
 
-      const periodes = buildSchedule(
+      const jourDe = (iso: string) => new Date(iso).toISOString().slice(0, 10);
+      const heureDe = (iso: string) => new Date(iso).toISOString().slice(11, 16);
+
+      const ponctuels: ExceptionOverride[] = exceptions.map((e) => ({
+        startsOn: jourDe(e.debut),
+        endsOn: dernierJourTenu(jourDe(e.debut), jourDe(e.fin), heureDe(e.fin)),
+        parentId: e.parentId,
+        source: e.type,
+        priorite: e.priorite,
+      }));
+
+      const carte = buildDayMap(
         {
           pattern: regle.pattern,
           startDate: regle.startDate,
@@ -348,23 +383,23 @@ export default function Accueil() {
           // et l'accueil restait muet sur « où sont les enfants aujourd'hui ».
           customCycle: regle.customCycle ?? undefined,
         },
-        debut,
-        fin,
+        debut, fin, [], ponctuels,
       );
 
-      const t = whereToday(periodes, today);
+      const parentDuJour = carte.get(today)?.parentId;
+      if (!parentDuJour) return null;
 
-      return t
-        ? {
-            parent: t.parentId,
-            prochain: t.nextChange,
-            prochainParent: t.nextParent,
-          }
-        : null;
+      for (let d = addDays(today, 1); d <= fin; d = addDays(d, 1)) {
+        const p = carte.get(d)?.parentId;
+        if (p && p !== parentDuJour) {
+          return { parent: parentDuJour, prochain: d, prochainParent: p };
+        }
+      }
+      return { parent: parentDuJour, prochain: null, prochainParent: null };
     } catch {
       return null;
     }
-  }, [regle, today]);
+  }, [regle, exceptions, today]);
 
   /**
    * Montant net pour l’utilisateur :
