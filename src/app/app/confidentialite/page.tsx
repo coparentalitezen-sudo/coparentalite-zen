@@ -14,6 +14,28 @@ import { legal } from '@/lib/legal';
  */
 export default function Confidentialite() {
   const [enCours, setEnCours] = useState(false);
+  /** Suppression : deux temps, parce qu'elle est irréversible. */
+  const [confirme, setConfirme] = useState(false);
+  const [saisie, setSaisie] = useState('');
+  const [suppression, setSuppression] = useState<string | null>(null);
+  const [efface, setEfface] = useState(false);
+
+  async function supprimer() {
+    setSuppression(null);
+    setEnCours(true);
+    try {
+      const r = await fetch('/api/supprimer-compte', { method: 'POST' });
+      const corps = await r.json().catch(() => ({}));
+      if (!r.ok) { setSuppression(corps.message ?? 'La suppression a échoué.'); return; }
+      setEfface(true);
+      // Laisser le message se lire avant de quitter l'application.
+      setTimeout(() => { window.location.href = '/'; }, 4000);
+    } catch {
+      setSuppression('La suppression a échoué. Vérifiez votre connexion.');
+    } finally {
+      setEnCours(false);
+    }
+  }
 
   async function telecharger() {
     setEnCours(true);
@@ -86,6 +108,63 @@ export default function Confidentialite() {
         <p className="text-[13px] font-bold">
           {legal.email}
         </p>
+      </section>
+
+      <section className="card space-y-3 px-4 py-5">
+        <h2 className="font-display text-[17px] font-semibold tracking-tight">
+          Supprimer mon compte
+        </h2>
+        {efface ? (
+          <p role="status" className="rounded-xl bg-ok-bg px-3 py-2 text-sm font-bold text-ok">
+            Votre compte est supprimé. Vous allez être déconnecté.
+          </p>
+        ) : (
+          <>
+            <p className="text-[13px] leading-snug text-soft">
+              Votre nom, votre adresse, vos réglages, vos appareils et vos
+              notifications sont effacés. Un éventuel abonnement est résilié
+              avant toute chose, pour qu’aucun prélèvement ne survive à votre
+              compte.
+            </p>
+            <p className="text-[13px] leading-snug text-soft">
+              Le planning d’un foyer partagé demeure : l’autre parent y organise
+              ses propres enfants et peut avoir à produire les justificatifs de
+              dépenses. Vos écritures y apparaîtront sous la mention
+              « Compte supprimé ». Un foyer où vous étiez seul est fermé avec
+              vous.
+            </p>
+            <p className="text-[13px] font-bold">Cette action est irréversible.</p>
+
+            {!confirme ? (
+              <button className="btn btn-ghost w-full text-err"
+                      onClick={() => setConfirme(true)}>
+                Supprimer mon compte
+              </button>
+            ) : (
+              <div className="space-y-2">
+                <label htmlFor="confirmation" className="block text-[13px] font-bold">
+                  Écrivez SUPPRIMER pour confirmer
+                </label>
+                <input id="confirmation" className="w-full" value={saisie}
+                       autoCapitalize="characters" autoCorrect="off"
+                       onChange={(e) => setSaisie(e.target.value)} />
+                <button className="btn btn-primary w-full"
+                        disabled={enCours || saisie.trim().toUpperCase() !== 'SUPPRIMER'}
+                        onClick={supprimer}>
+                  {enCours ? 'Suppression…' : 'Confirmer la suppression'}
+                </button>
+                <button className="btn btn-ghost w-full" onClick={() => setConfirme(false)}>
+                  Annuler
+                </button>
+              </div>
+            )}
+            {suppression && (
+              <p role="alert" className="rounded-xl bg-err-bg px-3 py-2 text-sm font-bold text-err">
+                {suppression}
+              </p>
+            )}
+          </>
+        )}
       </section>
 
       <Link href="/app/plus" className="btn btn-ghost w-full">
