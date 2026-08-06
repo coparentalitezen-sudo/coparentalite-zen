@@ -26,6 +26,19 @@ function premiere(...noms: string[]): string | null {
   return null;
 }
 
+/**
+ * Une valeur d'attente recopiée à la place d'une vraie.
+ *
+ * Le cas s'est produit : la consigne « ton adresse e-mail de contact » s'est
+ * retrouvée dans la variable, prête à s'afficher sur des mentions légales
+ * publiques. Un texte descriptif n'est pas une adresse, et il vaut mieux
+ * afficher « À compléter » qu'une phrase qui trahit l'inachèvement.
+ */
+function estUneAdresse(valeur: string | null): boolean {
+  if (!valeur) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(valeur);
+}
+
 export const legal = {
   nom: premiere('LEGAL_PUBLISHER_NAME', 'NEXT_PUBLIC_LEGAL_NAME')
     ?? 'Coparentalité Zen',
@@ -37,15 +50,37 @@ export const legal = {
     ?? 'À compléter',
   responsable: premiere('LEGAL_PUBLISHER_DIRECTOR', 'LEGAL_DIRECTOR',
     'NEXT_PUBLIC_LEGAL_DIRECTOR', 'LEGAL_PUBLISHER_NAME') ?? 'À compléter',
-  email: premiere('LEGAL_CONTACT_EMAIL', 'SUPPORT_EMAIL', 'NEXT_PUBLIC_SUPPORT_EMAIL')
-    ?? 'contact@coparentalitezen.fr',
+  email: [
+    premiere('LEGAL_CONTACT_EMAIL'),
+    premiere('SUPPORT_EMAIL'),
+    premiere('NEXT_PUBLIC_SUPPORT_EMAIL'),
+  ].find(estUneAdresse) ?? 'contact@coparentalitezen.fr',
   mediation: premiere('LEGAL_MEDIATOR', 'NEXT_PUBLIC_MEDIATOR')
     ?? 'À compléter avant commercialisation publique',
 };
 
+/** Un SIREN français : neuf chiffres, espaces tolérés à la saisie. */
+function sirenPlausible(valeur: string): boolean {
+  return /^\d{9}$/.test(valeur.replace(/\s/g, ''));
+}
+
 /** Vrai lorsque l'identité suffit à une vente publique. */
 export function identiteComplete(): boolean {
   return legal.nom !== 'Coparentalité Zen'
-    && legal.siren !== 'À compléter'
-    && legal.adresse !== 'À compléter';
+    && sirenPlausible(legal.siren)
+    && legal.adresse !== 'À compléter'
+    && legal.adresse.length > 10;
+}
+
+/** Détail de ce qui manque, pour le point de diagnostic. */
+export function etatIdentite() {
+  return {
+    editeur: legal.nom !== 'Coparentalité Zen' ? 'renseigné' : 'manquant',
+    siren: sirenPlausible(legal.siren) ? 'renseigné'
+      : legal.siren !== 'À compléter' ? 'valeur invalide' : 'manquant',
+    adresse: legal.adresse !== 'À compléter'
+      ? (legal.adresse.length > 10 ? 'renseigné' : 'valeur trop courte')
+      : 'manquant',
+    contact: legal.email,
+  };
 }

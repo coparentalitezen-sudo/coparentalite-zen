@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
-import { legal, identiteComplete } from '@/lib/legal';
+import { identiteComplete, etatIdentite } from '@/lib/legal';
 
 /**
  * Réponse JSON avec encodage déclaré.
@@ -96,12 +96,7 @@ export async function GET() {
     // variable : plusieurs noms sont acceptés, et vérifier le mauvais donnait
     // « incomplet » alors que tout était renseigné.
     mentions_legales: identiteComplete(),
-    identite: {
-      editeur: legal.nom !== 'Coparentalité Zen' ? 'renseigné' : 'manquant',
-      siren: legal.siren !== 'À compléter' ? 'renseigné' : 'manquant',
-      adresse: legal.adresse !== 'À compléter' ? 'renseigné' : 'manquant',
-      contact: legal.email,
-    },
+    identite: etatIdentite(),
     // Notifications poussées : la clé publique atteint le navigateur, la
     // privée signe les envois. Les deux sont nécessaires.
     push_cle_publique: presente('NEXT_PUBLIC_VAPID_PUBLIC_KEY'),
