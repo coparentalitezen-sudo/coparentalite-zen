@@ -25,7 +25,12 @@ import { useCallback, useEffect, useState } from 'react';
 let dernierAcheminement = 0;
 function acheminerPush() {
   if (typeof window === 'undefined') return;
-  if (Notification?.permission !== 'granted') return;
+  // `Notification?.permission` ne protège de rien : l'opérateur ne couvre
+  // qu'une valeur nulle, pas un nom absent. Sur un iPhone dont le navigateur
+  // ne connaît pas les notifications, lire ce nom lève une erreur et emporte
+  // toute l'application. Seul `typeof` interroge un nom sans le déclarer.
+  if (typeof Notification === 'undefined') return;
+  if (Notification.permission !== 'granted') return;
   const maintenant = Date.now();
   if (maintenant - dernierAcheminement < 600_000) return;
   dernierAcheminement = maintenant;
