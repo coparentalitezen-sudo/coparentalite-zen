@@ -206,6 +206,25 @@ export async function GET(requete: Request) {
       soucis.push(`acheminement · ${e instanceof Error ? e.message : String(e)}`);
     }
 
+    // Le courriel emprunte le même chemin que la notification poussée : il
+    // atteint le parent qui n'a pas installé l'application, ou qui a refusé
+    // les autorisations.
+    let courriels = 0;
+    try {
+      const origine = process.env.NEXT_PUBLIC_SITE_URL
+        ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
+      const secret = process.env.CRON_SECRET;
+      if (origine && secret) {
+        const r = await fetch(`${origine}/api/email/envoyer`, {
+          headers: { Authorization: `Bearer ${secret}` },
+        });
+        const c = (await r.json()) as { envoyes?: number };
+        courriels = Number(c.envoyes ?? 0);
+      }
+    } catch (e) {
+      soucis.push(`courriel · ${e instanceof Error ? e.message : String(e)}`);
+    }
+
     // La sauvegarde suit le même chemin, et pour la même raison : le plan
     // d'hébergement ne concède qu'un passage planifié par jour.
     let sauvegarde: string | null = null;
@@ -227,6 +246,7 @@ export async function GET(requete: Request) {
     return reponseJSON({
       ...bilan,
       pousses,
+      courriels,
       sauvegarde,
       ...(soucis.length > 0 ? { soucis: soucis.slice(0, 10) } : {}),
     });

@@ -29,15 +29,15 @@ begin
   select count(*), count(*) filter (where active) into total, actifs
     from notification_channels;
   if total <> 3 then raise exception 'ÉCHEC N2 : % canaux au lieu de 3', total; end if;
-  -- Application et Push actifs ; le courriel reste préparé sans être branché.
-  if actifs <> 2 then raise exception 'ÉCHEC N2b : % canaux actifs au lieu de 2', actifs; end if;
+  -- Les trois canaux sont désormais branchés : application, push, courriel.
+  if actifs <> 3 then raise exception 'ÉCHEC N2b : % canaux actifs au lieu de 3', actifs; end if;
   if not exists (select 1 from notification_channels where code = 'push' and active) then
     raise exception 'ÉCHEC N2c : le canal Push n''est pas actif';
   end if;
-  if not exists (select 1 from notification_channels where code = 'email') then
-    raise exception 'ÉCHEC N2d : le canal courriel n''est pas préparé';
+  if not exists (select 1 from notification_channels where code = 'email' and active) then
+    raise exception 'ÉCHEC N2d : le canal courriel n''est pas actif';
   end if;
-  raise notice 'N2 OK — application et Push actifs, courriel préparé';
+  raise notice 'N2 OK — les trois canaux sont actifs';
 end $$;
 
 -- ============ N3 : une action notifie l'autre parent, jamais son auteur ============

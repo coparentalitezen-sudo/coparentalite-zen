@@ -87,6 +87,7 @@ export async function GET() {
     supabase_cle_service: presente('SUPABASE_SERVICE_ROLE_KEY'),
     cron_secret: presente('CRON_SECRET'),
     stripe_cle: presente('STRIPE_SECRET_KEY'),
+    courriel: presente('RESEND_API_KEY'),
     stripe_webhook: presente('STRIPE_WEBHOOK_SECRET'),
     stripe_mode: process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_') ? 'live'
       : process.env.STRIPE_SECRET_KEY?.startsWith('sk_test_') ? 'test' : 'inconnu',
