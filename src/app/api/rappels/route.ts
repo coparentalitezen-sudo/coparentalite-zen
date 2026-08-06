@@ -206,9 +206,28 @@ export async function GET(requete: Request) {
       soucis.push(`acheminement · ${e instanceof Error ? e.message : String(e)}`);
     }
 
+    // La sauvegarde suit le même chemin, et pour la même raison : le plan
+    // d'hébergement ne concède qu'un passage planifié par jour.
+    let sauvegarde: string | null = null;
+    try {
+      const origine = process.env.NEXT_PUBLIC_SITE_URL
+        ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
+      const secret = process.env.CRON_SECRET;
+      if (origine && secret) {
+        const r = await fetch(`${origine}/api/sauvegarde`, {
+          headers: { Authorization: `Bearer ${secret}` },
+        });
+        const c = (await r.json()) as { fichier?: string; message?: string };
+        sauvegarde = c.fichier ?? c.message ?? null;
+      }
+    } catch (e) {
+      soucis.push(`sauvegarde · ${e instanceof Error ? e.message : String(e)}`);
+    }
+
     return reponseJSON({
       ...bilan,
       pousses,
+      sauvegarde,
       ...(soucis.length > 0 ? { soucis: soucis.slice(0, 10) } : {}),
     });
   } catch (e) {

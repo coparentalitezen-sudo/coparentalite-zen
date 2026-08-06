@@ -110,7 +110,10 @@ echo "Migrations"
 for fichier in "$MIGRATIONS"/*.sql; do
   nom="$(basename "$fichier" .sql)"
   # 00005 crée des policies sur storage.objects : schéma absent hors Supabase
-  case "$nom" in *_storage_policies) echo "  – $nom (ignorée : propre à Supabase)"; continue;; esac
+  case "$nom" in
+    *_storage_policies|*_seau_sauvegardes)
+      echo "  – $nom (ignorée : propre à Supabase)"; continue;;
+  esac
   if admin -d "$GABARIT" -f "$fichier" > /dev/null 2>&1; then
     echo "  ✓ $nom"
   else
