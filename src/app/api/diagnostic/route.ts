@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
+import { legal, identiteComplete } from '@/lib/legal';
 
 /**
  * Réponse JSON avec encodage déclaré.
@@ -91,10 +92,16 @@ export async function GET() {
     stripe_webhook: presente('STRIPE_WEBHOOK_SECRET'),
     stripe_mode: process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_') ? 'live'
       : process.env.STRIPE_SECRET_KEY?.startsWith('sk_test_') ? 'test' : 'inconnu',
-    mentions_legales: presente('NEXT_PUBLIC_LEGAL_NAME')
-      && presente('NEXT_PUBLIC_LEGAL_SIREN')
-      && presente('NEXT_PUBLIC_LEGAL_ADDRESS')
-      && presente('NEXT_PUBLIC_SUPPORT_EMAIL'),
+    // Le contrôle interroge la valeur effectivement retenue, et non un nom de
+    // variable : plusieurs noms sont acceptés, et vérifier le mauvais donnait
+    // « incomplet » alors que tout était renseigné.
+    mentions_legales: identiteComplete(),
+    identite: {
+      editeur: legal.nom !== 'Coparentalité Zen' ? 'renseigné' : 'manquant',
+      siren: legal.siren !== 'À compléter' ? 'renseigné' : 'manquant',
+      adresse: legal.adresse !== 'À compléter' ? 'renseigné' : 'manquant',
+      contact: legal.email,
+    },
     // Notifications poussées : la clé publique atteint le navigateur, la
     // privée signe les envois. Les deux sont nécessaires.
     push_cle_publique: presente('NEXT_PUBLIC_VAPID_PUBLIC_KEY'),
@@ -173,7 +180,7 @@ export async function GET() {
       variables.stripe_mode !== 'live'
         && 'Stripe n’est pas en mode live : aucun paiement réel ne sera encaissé.',
       !variables.mentions_legales
-        && 'Identité légale incomplète : renseignez les variables NEXT_PUBLIC_LEGAL_* avant vente publique.',
+        && 'Identité légale incomplète : voir la rubrique identite ci-dessus, avant vente publique.',
       (!variables.push_cle_publique || !variables.push_cle_privee)
         && 'Notifications poussées inactives (clés VAPID manquantes) : '
            + 'les alertes restent consultables dans l’application.',
