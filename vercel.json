@@ -13,5 +13,11 @@
       "path": "/api/push/envoyer",
       "schedule": "30 3 * * *"
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/coparentalitezen/confidentialite",
+      "destination": "/app/confidentialite"
+    }
   ]
 }
