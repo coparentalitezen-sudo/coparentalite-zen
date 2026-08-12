@@ -1,4 +1,4 @@
-mport { LegalPage, SectionJuridique } from '@/components/legal-page';
+import { LegalPage, SectionJuridique } from '@/components/legal-page';
 import { legal, LEGAL_VERSION } from '@/lib/legal';
 
 /**
