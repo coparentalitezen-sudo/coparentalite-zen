@@ -3,8 +3,10 @@ import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
 import { ServiceWorker } from '@/components/service-worker';
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://coparentalitezen.fr';
+
 export const metadata: Metadata = {
-  metadataBase: new URL('https://coparentalite-zen-yvtn.vercel.app'),
+  metadataBase: new URL(SITE_URL),
   title: 'Coparentalité Zen — planning de garde et budget partagé',
   description:
     'Le planning de garde et le budget partagé des parents séparés, réunis dans une seule application simple et apaisante.',
