@@ -994,17 +994,44 @@ export default function Foyer() {
                                     return;
                                   } catch { /* partage annulé */ }
                                 }
-                                navigator.clipboard?.writeText(texte);
-                                setMsg({ kind: 'ok', text: 'Message copié.' });
+                                try {
+                                  await navigator.clipboard.writeText(texte);
+                                  setMsg({ kind: 'ok', text: 'Message copié.' });
+                                } catch {
+                                  setMsg({
+                                    kind: 'err',
+                                    text: 'Partage indisponible. Appuyez longuement sur le lien ci-dessus pour le copier.',
+                                  });
+                                }
                               }}>
                         Autre moyen
                       </button>
                     </div>
 
+                    {/* Recours toujours disponible. Les liens « mailto: » et le
+                        partage natif échouent silencieusement sur certains
+                        appareils : la copie, elle, ne dépend d'aucune
+                        application tierce. */}
+                    <button type="button" className="btn btn-ghost w-full"
+                            onClick={async () => {
+                              try {
+                                await navigator.clipboard.writeText(texte);
+                                setMsg({ kind: 'ok', text: 'Message copié. Collez-le où vous voulez.' });
+                              } catch {
+                                setMsg({
+                                  kind: 'err',
+                                  text: 'Copie impossible. Appuyez longuement sur le lien ci-dessus pour le sélectionner.',
+                                });
+                              }
+                            }}>
+                      Copier le message
+                    </button>
+
                     <p className="text-[11px] leading-snug text-soft/85">
                       Le message s’ouvrira dans votre messagerie, prêt à envoyer.
                       Nous n’écrivons jamais à sa place : il reconnaîtra ainsi
-                      votre numéro.
+                      votre numéro. Si votre messagerie ne s’ouvre pas, copiez le
+                      message et collez-le dans l’application de votre choix.
                     </p>
                   </div>
                 );
