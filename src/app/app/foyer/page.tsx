@@ -11,7 +11,7 @@ import { ProgressionDetaillee } from '@/components/progression';
 import { InstallAppCard } from '@/components/install-app-card';
 import { invitationPrematuree, type EtatConfiguration } from '@/lib/configuration';
 import {
-  normaliserTelephone, formaterTelephone, messageInvitation, lienSMS, lienCourriel,
+  normaliserTelephone, formaterTelephone, messageInvitation, lienSMS,
 } from '@/lib/partage-invitation';
 import {
   MODELES, modele, cycleParDefaut, repartition, validerCyclePersonnalise,
@@ -978,10 +978,7 @@ export default function Foyer() {
                       {tel ? `Envoyer par SMS au ${formaterTelephone(tel)}` : 'Envoyer par SMS'}
                     </a>
 
-                    <div className="grid grid-cols-2 gap-2">
-                      <a href={lienCourriel(email, texte)} className="btn btn-ghost">
-                        Par e-mail
-                      </a>
+                    <div className="grid grid-cols-1 gap-2">
                       <button type="button" className="btn btn-ghost"
                               onClick={async () => {
                                 // Le partage natif propose WhatsApp, Signal,
@@ -1028,9 +1025,9 @@ export default function Foyer() {
                     </button>
 
                     <p className="text-[11px] leading-snug text-soft/85">
-                      Le message s’ouvrira dans votre messagerie, prêt à envoyer.
-                      Nous n’écrivons jamais à sa place : il reconnaîtra ainsi
-                      votre numéro. Si votre messagerie ne s’ouvre pas, copiez le
+                      Le message part depuis votre téléphone : votre coparent
+                      reconnaîtra ainsi votre numéro, là où un envoi automatique
+                      passerait pour du démarchage. Si rien ne s’ouvre, copiez le
                       message et collez-le dans l’application de votre choix.
                     </p>
                   </div>
