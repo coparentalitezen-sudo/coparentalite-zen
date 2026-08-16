@@ -883,7 +883,20 @@ export default function Foyer() {
               )}
 
               <p className="text-[12px] leading-snug text-soft/85">
-                Renseignez au moins l’un des deux.
+                Renseignez au moins l’un des deux. Le mode de protection en
+                dépend, et il est indiqué ci-dessous.
+              </p>
+
+              {/* Les deux modes s'excluent : avec une adresse, c'est le compte
+                  destinataire qui fait foi ; sans adresse, c'est un code à six
+                  chiffres. Ne pas l'annoncer laisse chercher un code qui
+                  n'existe pas. */}
+              <p className="rounded-xl bg-muted px-3 py-2 text-[12px] leading-snug text-soft">
+                {email.trim()
+                  ? 'Avec une adresse e-mail : aucun code ne sera généré. L’invitation ne pourra être acceptée que depuis le compte utilisant exactement cette adresse.'
+                  : normaliserTelephone(telSecond)
+                    ? 'Sans adresse e-mail : un code à six chiffres sera généré. Il vous faudra le transmettre séparément du lien.'
+                    : 'Avec une adresse e-mail, l’invitation se verrouille sur le compte correspondant. Avec le seul numéro, elle se protège par un code à six chiffres.'}
               </p>
 
               <label className="block">
