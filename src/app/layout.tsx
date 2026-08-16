@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
 import { ServiceWorker } from '@/components/service-worker';
 
@@ -70,6 +71,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-dvh bg-cream text-ink antialiased">
         {children}
         <ServiceWorker />
+        <Analytics />
       </body>
     </html>
   );

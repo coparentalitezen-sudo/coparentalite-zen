@@ -48,8 +48,26 @@ export default function ConfidentialiteCoparentaliteZen() {
       <SectionJuridique title="Sous-traitants et services tiers">
         <p>
           Supabase peut être utilisé pour la base de données et le stockage, Vercel pour l’hébergement
-          applicatif, Stripe pour les paiements, ainsi qu’Etsy et Pinterest pour les usages décrits
-          ci-dessus. Les données bancaires ne sont jamais stockées par Coparentalité Zen.
+          applicatif et la mesure d’audience, Stripe pour les paiements, Resend pour l’envoi des e-mails,
+          ainsi qu’Etsy et Pinterest pour les usages décrits ci-dessus. Les données bancaires ne sont
+          jamais stockées par Coparentalité Zen.
+        </p>
+      </SectionJuridique>
+
+      <SectionJuridique title="Mesure d’audience">
+        <p>
+          Coparentalité Zen utilise Vercel Web Analytics pour mesurer la fréquentation du service. Cette
+          mesure ne dépose aucun cookie, ne suit pas les visiteurs d’un site à l’autre et ne permet pas
+          de vous identifier : les visites sont comptabilisées de façon agrégée à partir d’un identifiant
+          technique non réversible, renouvelé chaque jour. Sont également comptabilisés, sous la même
+          forme anonyme, les événements liés à l’installation de l’application sur l’écran d’accueil,
+          afin d’améliorer le parcours d’installation.
+        </p>
+        <p>
+          Ce traitement repose sur l’intérêt légitime de l’éditeur à mesurer l’audience de son service.
+          Conformément aux recommandations de la CNIL relatives aux solutions de mesure d’audience
+          exemptées de consentement, aucune information n’est lue ni écrite sur votre appareil à des fins
+          publicitaires.
         </p>
       </SectionJuridique>
 

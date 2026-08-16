@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { track } from '@vercel/analytics';
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -28,6 +29,20 @@ function estInstallee(): boolean {
   return standalone || iosStandalone;
 }
 
+const CLE_INSTALLATION_MESUREE = 'cz.installation.mesuree';
+
+// iOS Safari ne déclenche jamais « appinstalled ». On mesure donc la première
+// ouverture en mode autonome, ce qui reste le seul signal fiable d'installation.
+function mesurerPremiereOuvertureAutonome(plateforme: Plateforme) {
+  try {
+    if (window.localStorage.getItem(CLE_INSTALLATION_MESUREE)) return;
+    window.localStorage.setItem(CLE_INSTALLATION_MESUREE, new Date().toISOString());
+  } catch {
+    return;
+  }
+  track('pwa_premiere_ouverture_autonome', { plateforme });
+}
+
 export function InstallAppCard({ permanent = false }: { permanent?: boolean }) {
   const [installee, setInstallee] = useState(false);
   const [plateforme, setPlateforme] = useState<Plateforme>('autre');
@@ -36,19 +51,31 @@ export function InstallAppCard({ permanent = false }: { permanent?: boolean }) {
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    setInstallee(estInstallee());
-    setPlateforme(detecterPlateforme());
+    const plateformeDetectee = detecterPlateforme();
+    const dejaInstallee = estInstallee();
+    setInstallee(dejaInstallee);
+    setPlateforme(plateformeDetectee);
+
+    if (dejaInstallee) {
+      mesurerPremiereOuvertureAutonome(plateformeDetectee);
+    }
 
     const media = window.matchMedia('(display-mode: standalone)');
-    const verifierInstallation = () => setInstallee(estInstallee());
+    const verifierInstallation = () => {
+      const autonome = estInstallee();
+      setInstallee(autonome);
+      if (autonome) mesurerPremiereOuvertureAutonome(plateformeDetectee);
+    };
     const capterInvitation = (event: Event) => {
       event.preventDefault();
       setInvite(event as BeforeInstallPromptEvent);
+      track('pwa_invite_disponible', { plateforme: plateformeDetectee });
     };
     const confirmerInstallation = () => {
       setInstallee(true);
       setInvite(null);
       setMessage('Application installée.');
+      track('pwa_installee', { plateforme: plateformeDetectee });
     };
 
     media.addEventListener?.('change', verifierInstallation);
@@ -65,6 +92,7 @@ export function InstallAppCard({ permanent = false }: { permanent?: boolean }) {
   async function installerAndroid() {
     if (!invite) {
       setGuideOuvert(true);
+      track('pwa_guide_ouvert', { plateforme });
       return;
     }
 
@@ -74,9 +102,17 @@ export function InstallAppCard({ permanent = false }: { permanent?: boolean }) {
 
     if (choix.outcome === 'accepted') {
       setMessage('Installation lancée.');
+      track('pwa_invite_acceptee', { plateforme });
     } else {
       setMessage('Installation annulée. Vous pourrez recommencer plus tard.');
+      track('pwa_invite_refusee', { plateforme });
     }
+  }
+
+  function basculerGuide() {
+    const ouvrir = !guideOuvert;
+    setGuideOuvert(ouvrir);
+    if (ouvrir) track('pwa_guide_ouvert', { plateforme });
   }
 
   if (installee && !permanent) return null;
@@ -125,7 +161,7 @@ export function InstallAppCard({ permanent = false }: { permanent?: boolean }) {
               <button
                 type="button"
                 className="btn btn-primary w-full"
-                onClick={() => setGuideOuvert((ouvert) => !ouvert)}
+                onClick={basculerGuide}
                 aria-expanded={guideOuvert}
               >
                 Voir comment installer sur iPhone
@@ -136,7 +172,7 @@ export function InstallAppCard({ permanent = false }: { permanent?: boolean }) {
               <button
                 type="button"
                 className="btn btn-primary w-full"
-                onClick={() => setGuideOuvert((ouvert) => !ouvert)}
+                onClick={basculerGuide}
                 aria-expanded={guideOuvert}
               >
                 Voir les instructions d’installation
