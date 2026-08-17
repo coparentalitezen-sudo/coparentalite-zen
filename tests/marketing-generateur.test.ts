@@ -188,7 +188,7 @@ describe('mise en page des visuels', () => {
   it('agrandit les couvertures et les pose sur fond marine', () => {
     const c = planifierVisuel({ texte: 'Chez qui sont les enfants ?', couverture: true }, 'carre');
     expect(c.taille).toBeGreaterThan(planifierVisuel({ texte: 'Chez qui sont les enfants ?' }, 'carre').taille);
-    expect(c.fond).toBe('#2B4257');
+    expect(c.fond).toBe('#4E6381');
     expect(c.couleurTexte).toBe('#FFFFFF');
   });
 
@@ -209,6 +209,22 @@ describe('mise en page des visuels', () => {
         expect(plan.texte.length).toBeGreaterThan(0);
         expect(plan.taille).toBeGreaterThanOrEqual(44);
       }
+    }
+  });
+});
+
+describe('cohérence de marque', () => {
+  it('reprend exactement les couleurs déclarées dans la feuille de style', async () => {
+    const css = await (await import('node:fs/promises'))
+      .readFile('src/app/globals.css', 'utf8');
+    const { COULEURS } = await import('../src/lib/marketing/visuel');
+    for (const [jeton, valeur] of [
+      ['--color-cream', COULEURS.fond],
+      ['--color-ink', COULEURS.encre],
+      ['--color-navy', COULEURS.marine],
+      ['--color-soft', COULEURS.doux],
+    ] as const) {
+      expect(css).toContain(`${jeton}: ${valeur};`);
     }
   });
 });

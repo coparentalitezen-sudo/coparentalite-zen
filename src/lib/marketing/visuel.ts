@@ -16,12 +16,16 @@
  *     règle la question du droit à l'image avant qu'elle ne se pose.
  */
 
+// Reprises telles quelles de globals.css, où elles ont été mesurées sur le
+// logo officiel. Les redéfinir ici « à peu près » produirait des visuels
+// légèrement décalés de l'application, ce qui se voit dès qu'on les met côte
+// à côte.
 export const COULEURS = {
-  fond: '#FCF9F6',
-  encre: '#1B2B3A',
-  marine: '#2B4257',
-  doux: '#7A8794',
-  carte: '#FFFFFF',
+  fond: '#FCF9F6',    // --color-cream
+  encre: '#101B2C',   // --color-ink
+  marine: '#4E6381',  // --color-navy
+  doux: '#4A5568',    // --color-soft
+  carte: '#FFFFFF',   // --color-card
 };
 
 /** Les deux seuls formats publiés. */
