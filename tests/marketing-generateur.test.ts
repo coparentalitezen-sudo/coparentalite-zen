@@ -1,0 +1,174 @@
+import { describe, it, expect } from 'vitest';
+import { genererSemaine, semaineIso, sujetsDeLaSemaine, CADENCE, APPEL_ACTION } from '../src/lib/marketing/generateur';
+import { BANQUE } from '../src/lib/marketing/banque';
+
+const BASE = 'https://coparentalitezen.fr';
+const LUNDI = new Date('2026-08-17T10:00:00Z');
+
+describe('numéro de semaine', () => {
+  it('compte selon la norme ISO', () => {
+    expect(semaineIso(new Date('2026-01-01T12:00:00Z'))).toBe(1);
+    expect(semaineIso(new Date('2026-08-17T12:00:00Z'))).toBe(34);
+  });
+});
+
+describe('génération d’une semaine', () => {
+  const semaine = genererSemaine(LUNDI, BASE);
+
+  it('produit sept contenus', () => {
+    expect(semaine).toHaveLength(7);
+  });
+
+  it('respecte la cadence : trois Reels, deux carrousels, deux publications', () => {
+    const compte = (f: string) => semaine.filter((c) => c.format === f).length;
+    expect(compte('reel')).toBe(3);
+    expect(compte('carrousel')).toBe(2);
+    expect(compte('publication')).toBe(2);
+  });
+
+  it('attribue à chaque jour le format prévu par la cadence', () => {
+    for (const c of semaine) expect(c.format).toBe(CADENCE[c.jour]);
+  });
+
+  it('couvre les sept jours sans doublon', () => {
+    expect(new Set(semaine.map((c) => c.jour)).size).toBe(7);
+  });
+
+  it('est reproductible : deux appels donnent le même résultat', () => {
+    expect(genererSemaine(LUNDI, BASE)).toEqual(semaine);
+  });
+
+  it('donne le même résultat pour deux jours de la même semaine', () => {
+    const jeudi = new Date('2026-08-20T18:00:00Z');
+    expect(genererSemaine(jeudi, BASE)).toEqual(semaine);
+  });
+
+  it('change d’une semaine à l’autre', () => {
+    const suivante = genererSemaine(new Date('2026-08-24T10:00:00Z'), BASE);
+    expect(suivante.map((c) => c.reference)).not.toEqual(semaine.map((c) => c.reference));
+  });
+
+  it('donne à chaque contenu une référence unique et lisible', () => {
+    const refs = semaine.map((c) => c.reference);
+    expect(new Set(refs).size).toBe(7);
+    for (const r of refs) expect(r).toMatch(/^2026s34-(reel|carrousel|publication)-[1-7]$/);
+  });
+});
+
+describe('exigences éditoriales de chaque contenu', () => {
+  const semaine = genererSemaine(LUNDI, BASE);
+
+  it('porte une accroche non vide', () => {
+    for (const c of semaine) expect(c.accroche.length).toBeGreaterThan(10);
+  });
+
+  it('porte un texte alternatif, jamais facultatif', () => {
+    for (const c of semaine) expect(c.texteAlternatif.length).toBeGreaterThan(20);
+  });
+
+  it('compte trois à cinq mots-dièse', () => {
+    for (const c of semaine) {
+      expect(c.hashtags.length).toBeGreaterThanOrEqual(3);
+      expect(c.hashtags.length).toBeLessThanOrEqual(5);
+    }
+  });
+
+  it('n’expose qu’un seul appel à l’action sur Instagram', () => {
+    for (const c of semaine) {
+      const occurrences = c.legendeInstagram.split('Lien dans la bio').length - 1;
+      expect(occurrences).toBe(1);
+    }
+  });
+
+  it('reprend l’appel à l’action exigé', () => {
+    for (const c of semaine) expect(c.legendeInstagram).toContain(APPEL_ACTION);
+  });
+
+  it('ne renvoie jamais vers la bio sur Facebook, où le lien peut figurer', () => {
+    for (const c of semaine) {
+      expect(c.legendeFacebook).not.toContain('Lien dans la bio');
+      expect(c.legendeFacebook).toContain('utm_source=facebook');
+      expect(c.legendeFacebook).toContain(`utm_content=${c.reference}`);
+    }
+  });
+
+  it('distingue les deux plateformes plutôt que de recopier le même texte', () => {
+    for (const c of semaine) expect(c.legendeInstagram).not.toBe(c.legendeFacebook);
+  });
+
+  it('tient la durée annoncée pour les Reels : vingt à trente-cinq secondes', () => {
+    for (const c of semaine.filter((x) => x.format === 'reel')) {
+      const total = c.pages.reduce((s, p) => s + (p.secondes ?? 0), 0);
+      expect(total).toBeGreaterThanOrEqual(20);
+      expect(total).toBeLessThanOrEqual(35);
+    }
+  });
+
+  it('donne aux carrousels cinq à sept planches', () => {
+    for (const c of semaine.filter((x) => x.format === 'carrousel')) {
+      expect(c.pages.length).toBeGreaterThanOrEqual(5);
+      expect(c.pages.length).toBeLessThanOrEqual(7);
+    }
+  });
+});
+
+describe('répartition éditoriale sur quatre semaines', () => {
+  it('approche 40 / 25 / 20 / 10 / 5 sur le cycle complet', () => {
+    const contenus = [0, 1, 2, 3].flatMap((n) =>
+      genererSemaine(new Date(2026, 0, 5 + n * 7), BASE));
+    const part = (c: string) =>
+      (contenus.filter((x) => x.categorie === c).length / contenus.length) * 100;
+
+    expect(part('conseil')).toBeGreaterThanOrEqual(35);
+    expect(part('conseil')).toBeLessThanOrEqual(45);
+    expect(part('quotidien')).toBeGreaterThanOrEqual(20);
+    expect(part('demonstration')).toBeGreaterThanOrEqual(15);
+    expect(part('marque')).toBeLessThanOrEqual(8);
+  });
+});
+
+describe('choix des sujets', () => {
+  it('fait remonter les sujets de saison', () => {
+    const novembre = sujetsDeLaSemaine(11, 42);
+    const position = novembre.findIndex((s) => s.niche === 'vacances-scolaires');
+    expect(position).toBeLessThan(5);
+  });
+
+  it('conserve les quinze sujets', () => {
+    expect(sujetsDeLaSemaine(3, 7)).toHaveLength(BANQUE.length);
+    expect(BANQUE).toHaveLength(15);
+  });
+});
+
+describe('garde-fous de la banque', () => {
+  it('ne contient aucun chiffre présenté comme une statistique', () => {
+    const texte = JSON.stringify(BANQUE);
+    expect(texte).not.toMatch(/\d+\s?% des parents/);
+  });
+
+  it('donne à chaque sujet trois étapes et plusieurs accroches', () => {
+    for (const s of BANQUE) {
+      expect(s.etapes).toHaveLength(3);
+      expect(s.accroches.length).toBeGreaterThanOrEqual(2);
+      expect(s.modele.length).toBeGreaterThanOrEqual(4);
+      expect(s.hashtags.length).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it('rattache chaque sujet à une micro-niche distincte', () => {
+    expect(new Set(BANQUE.map((s) => s.niche)).size).toBe(BANQUE.length);
+  });
+});
+
+describe('qualité rédactionnelle', () => {
+  const semaine = genererSemaine(LUNDI, BASE);
+
+  it('ne répète jamais deux fois la même phrase dans une légende', () => {
+    for (const c of semaine) {
+      for (const legende of [c.legendeInstagram, c.legendeFacebook]) {
+        const phrases = legende.split('\n\n').map((p) => p.trim()).filter(Boolean);
+        expect(new Set(phrases).size).toBe(phrases.length);
+      }
+    }
+  });
+});
