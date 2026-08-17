@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabase/client';
+import { origineMemorisee } from '@/components/suivi-origine';
 
 export default function Inscription() {
   const router = useRouter();
@@ -42,6 +43,10 @@ export default function Inscription() {
           terms_version: '2026-08-02',
           privacy_accepted: true,
           privacy_version: '2026-08-02',
+          // Le contenu qui a fait connaître l'application, s'il est connu.
+          // Lu au moment de l'envoi : une inscription ne doit jamais échouer
+          // parce que cette information manque.
+          ...origineMemorisee(),
         },
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       },

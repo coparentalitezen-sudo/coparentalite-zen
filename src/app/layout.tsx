@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
 import { ServiceWorker } from '@/components/service-worker';
+import { SuiviOrigine } from '@/components/suivi-origine';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://coparentalitezen.fr';
 
@@ -73,6 +74,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-dvh bg-cream text-ink antialiased">
         {children}
         <ServiceWorker />
+        <SuiviOrigine />
         <Analytics />
       </body>
     </html>
