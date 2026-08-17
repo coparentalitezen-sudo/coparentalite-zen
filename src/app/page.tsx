@@ -597,6 +597,7 @@ export default async function Landing() {
             <Link href="/confidentialite" className="underline">Politique de confidentialité</Link>
             <Link href="/cgu" className="underline">Conditions générales</Link>
             <Link href="/mentions-legales" className="underline">Mentions légales</Link>
+            <Link href="/aide" className="underline">Aide</Link>
             <Link href="/contact" className="underline">Contact</Link>
           </div>
 
