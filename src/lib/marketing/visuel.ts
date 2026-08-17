@@ -1,0 +1,94 @@
+/**
+ * Gabarits visuels.
+ *
+ * Rendus avec ImageResponse, inclus dans Next.js : aucune dépendance à
+ * installer, aucun service à payer, et un rendu identique d'une machine à
+ * l'autre puisqu'il ne dépend d'aucun navigateur.
+ *
+ * Les modèles sont séparés des textes, qui viennent du générateur : produire
+ * une nouvelle variation ne demande donc pas de toucher au dessin.
+ *
+ * Trois contraintes tiennent lieu de charte :
+ *   * le texte doit rester lisible sur un écran de téléphone tenu à bout de
+ *     bras — d'où des corps de 44 pixels et plus sur 1080 de large ;
+ *   * les couleurs sont celles de l'application, pas celles d'une campagne ;
+ *   * aucune photographie d'enfant. Le dessin s'en passe entièrement, ce qui
+ *     règle la question du droit à l'image avant qu'elle ne se pose.
+ */
+
+export const COULEURS = {
+  fond: '#FCF9F6',
+  encre: '#1B2B3A',
+  marine: '#2B4257',
+  doux: '#7A8794',
+  carte: '#FFFFFF',
+};
+
+/** Les deux seuls formats publiés. */
+export const FORMATS = {
+  /** Publications et carrousels. */
+  carre: { largeur: 1080, hauteur: 1350 },
+  /** Reels et stories. */
+  vertical: { largeur: 1080, hauteur: 1920 },
+} as const;
+
+export type NomFormat = keyof typeof FORMATS;
+
+export interface Planche {
+  /** Le texte principal, seul élément que l'œil doit accrocher. */
+  texte: string;
+  /** Mention discrète en haut : le sujet, ou le numéro de planche. */
+  surtitre?: string;
+  /** Rang et total, pour les carrousels : « 3 / 6 ». */
+  rang?: { position: number; total: number };
+  /** Une couverture s'affiche plus grand et sur fond marine. */
+  couverture?: boolean;
+}
+
+/**
+ * Taille de police adaptée à la longueur du texte.
+ *
+ * Une taille fixe produit soit des titres minuscules, soit des paragraphes qui
+ * débordent. Le calcul reste volontairement grossier : au-delà de trois
+ * paliers, on gagne en finesse ce qu'on perd en prévisibilité.
+ */
+export function tailleTexte(texte: string, couverture: boolean): number {
+  const n = texte.length;
+  if (couverture) return n < 60 ? 84 : n < 120 ? 64 : 52;
+  return n < 90 ? 62 : n < 180 ? 50 : 44;
+}
+
+/**
+ * Description du visuel, indépendante du moteur de rendu.
+ *
+ * Cette séparation permet de tester la mise en page — tailles, découpage,
+ * mentions — sans produire d'image, donc sans rien qui dépende d'une police
+ * ou d'un système de fichiers.
+ */
+export interface PlanVisuel {
+  largeur: number;
+  hauteur: number;
+  fond: string;
+  couleurTexte: string;
+  taille: number;
+  surtitre: string | null;
+  texte: string;
+  pagination: string | null;
+  signature: string;
+}
+
+export function planifierVisuel(planche: Planche, format: NomFormat): PlanVisuel {
+  const { largeur, hauteur } = FORMATS[format];
+  const couverture = planche.couverture ?? false;
+  return {
+    largeur,
+    hauteur,
+    fond: couverture ? COULEURS.marine : COULEURS.fond,
+    couleurTexte: couverture ? '#FFFFFF' : COULEURS.encre,
+    taille: tailleTexte(planche.texte, couverture),
+    surtitre: planche.surtitre ?? null,
+    texte: planche.texte,
+    pagination: planche.rang ? `${planche.rang.position} / ${planche.rang.total}` : null,
+    signature: 'coparentalitezen.fr',
+  };
+}

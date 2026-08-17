@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { genererSemaine, semaineIso, sujetsDeLaSemaine, CADENCE, APPEL_ACTION } from '../src/lib/marketing/generateur';
 import { BANQUE } from '../src/lib/marketing/banque';
+import { planifierVisuel } from '../src/lib/marketing/visuel';
 
 const BASE = 'https://coparentalitezen.fr';
 const LUNDI = new Date('2026-08-17T10:00:00Z');
@@ -168,6 +169,45 @@ describe('qualité rédactionnelle', () => {
       for (const legende of [c.legendeInstagram, c.legendeFacebook]) {
         const phrases = legende.split('\n\n').map((p) => p.trim()).filter(Boolean);
         expect(new Set(phrases).size).toBe(phrases.length);
+      }
+    }
+  });
+});
+
+describe('mise en page des visuels', () => {
+  it('choisit les deux seuls formats publiés', () => {
+    expect(planifierVisuel({ texte: 'x' }, 'carre')).toMatchObject({ largeur: 1080, hauteur: 1350 });
+    expect(planifierVisuel({ texte: 'x' }, 'vertical')).toMatchObject({ largeur: 1080, hauteur: 1920 });
+  });
+
+  it('garde un corps lisible sur téléphone, même pour un texte long', () => {
+    const long = 'a'.repeat(400);
+    expect(planifierVisuel({ texte: long }, 'carre').taille).toBeGreaterThanOrEqual(44);
+  });
+
+  it('agrandit les couvertures et les pose sur fond marine', () => {
+    const c = planifierVisuel({ texte: 'Chez qui sont les enfants ?', couverture: true }, 'carre');
+    expect(c.taille).toBeGreaterThan(planifierVisuel({ texte: 'Chez qui sont les enfants ?' }, 'carre').taille);
+    expect(c.fond).toBe('#2B4257');
+    expect(c.couleurTexte).toBe('#FFFFFF');
+  });
+
+  it('numérote les planches d’un carrousel', () => {
+    expect(planifierVisuel({ texte: 'x', rang: { position: 3, total: 6 } }, 'carre').pagination)
+      .toBe('3 / 6');
+  });
+
+  it('n’affiche pas de pagination hors carrousel', () => {
+    expect(planifierVisuel({ texte: 'x' }, 'vertical').pagination).toBeNull();
+  });
+
+  it('donne un plan à chaque planche produite cette semaine', () => {
+    for (const c of genererSemaine(LUNDI, BASE)) {
+      const format = c.format === 'reel' ? 'vertical' : 'carre';
+      for (const p of c.pages) {
+        const plan = planifierVisuel({ texte: p.texte }, format);
+        expect(plan.texte.length).toBeGreaterThan(0);
+        expect(plan.taille).toBeGreaterThanOrEqual(44);
       }
     }
   });
