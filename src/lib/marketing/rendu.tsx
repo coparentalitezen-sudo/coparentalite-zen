@@ -1,5 +1,3 @@
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
 import { ImageResponse } from 'next/og';
 import { genererSemaine, type Contenu } from '@/lib/marketing/generateur';
 import { planifierVisuel, COULEURS, type Planche, type NomFormat } from '@/lib/marketing/visuel';
@@ -17,28 +15,30 @@ import { planifierVisuel, COULEURS, type Planche, type NomFormat } from '@/lib/m
  * Polices embarquées.
  *
  * Sans elles, la graisse demandée est ignorée en silence : la police par
- * défaut d'ImageResponse ne comporte pas de gras, et tout le visuel sort dans
- * la même épaisseur — un titre qui ne se distingue plus de son texte.
+ * défaut d'ImageResponse ne comporte pas de gras, et le titre sort à la même
+ * épaisseur que son texte.
+ *
+ * Les polices viennent d'un module encodé en base64, et non d'un fichier lu
+ * depuis node_modules. Un chemin construit à l'exécution est invisible au
+ * moment de l'empaquetage : Vercel n'embarque que ce qu'il détecte comme
+ * utilisé, le fichier restait à terre, et la route échouait en production sur
+ * un ENOENT alors qu'elle fonctionnait partout ailleurs.
  *
  * Le format woff est retenu parce que le moteur de rendu ne sait pas lire le
- * woff2. Les fichiers sont lus une fois et conservés pour les rendus suivants.
+ * woff2.
  */
+import { INTER_NORMALE, INTER_GRASSE } from '@/polices/inter';
+
 let policesEnCache: { name: string; data: Buffer; weight: 400 | 700; style: 'normal' }[] | null = null;
 
 async function polices() {
   if (policesEnCache) return policesEnCache;
-  const dossier = path.join(process.cwd(), 'node_modules/@fontsource/inter/files');
-  const [normale, grasse] = await Promise.all([
-    readFile(path.join(dossier, 'inter-latin-400-normal.woff')),
-    readFile(path.join(dossier, 'inter-latin-700-normal.woff')),
-  ]);
   policesEnCache = [
-    { name: 'Inter', data: normale, weight: 400, style: 'normal' },
-    { name: 'Inter', data: grasse, weight: 700, style: 'normal' },
+    { name: 'Inter', data: Buffer.from(INTER_NORMALE, 'base64'), weight: 400, style: 'normal' },
+    { name: 'Inter', data: Buffer.from(INTER_GRASSE, 'base64'), weight: 700, style: 'normal' },
   ];
   return policesEnCache;
 }
-
 
 /** Contenu de la semaine correspondant à une référence, ou null. */
 export function contenuDeReference(reference: string, base: string): Contenu | null {

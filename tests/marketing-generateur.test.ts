@@ -248,3 +248,31 @@ describe('influence des poids', () => {
       .toEqual(genererSemaine(LUNDI, BASE, { pension: 2 }));
   });
 });
+
+describe('polices embarquées', () => {
+  it('vit dans un module, jamais lu depuis node_modules à l’exécution', async () => {
+    // Vercel n'embarque que ce qu'il détecte comme utilisé : un chemin
+    // construit à l'exécution laisse le fichier à terre, et la route échoue
+    // en production sur un ENOENT — nulle part ailleurs.
+    const fs = await import('node:fs/promises');
+    const source = await fs.readFile('src/lib/marketing/rendu.tsx', 'utf8');
+    // Les commentaires ont le droit de citer node_modules — c'est même là
+    // qu'on explique pourquoi il ne faut pas y toucher. Seul le code compte.
+    const code = source
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '');
+    expect(code).not.toContain('node_modules');
+    expect(code).not.toContain('readFile');
+    expect(code).toContain("from '@/polices/inter'");
+  });
+
+  it('fournit deux graisses réellement décodables', async () => {
+    const { INTER_NORMALE, INTER_GRASSE } = await import('../src/polices/inter');
+    for (const police of [INTER_NORMALE, INTER_GRASSE]) {
+      const octets = Buffer.from(police, 'base64');
+      expect(octets.length).toBeGreaterThan(10000);
+      // Signature du format woff, seul lisible par le moteur de rendu.
+      expect(octets.subarray(0, 4).toString('ascii')).toBe('wOFF');
+    }
+  });
+});
