@@ -19,6 +19,10 @@ const csp = [
 /** @type {import('next').NextConfig} */
 export default {
   reactStrictMode: true,
+  // sharp est une extension native : empaquetée par le compilateur, elle
+  // échoue à l'exécution sur Vercel. La déclarer externe la laisse chargée
+  // depuis node_modules, comme elle l'attend.
+  serverExternalPackages: ['sharp'],
   env: {
     NEXT_PUBLIC_VERSION: (process.env.VERCEL_GIT_COMMIT_SHA || 'local').slice(0, 7),
   },

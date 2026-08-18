@@ -6,6 +6,8 @@ import {
   quotaPublication, aptitudes, VERSION_GRAPH,
 } from '@/lib/marketing/meta';
 import { lireParametres } from '@/lib/marketing/depot';
+import { urlVisuelPublic } from '@/lib/marketing/signature';
+import { genererSemaine } from '@/lib/marketing/generateur';
 
 /**
  * État de la connexion Meta.
@@ -39,6 +41,14 @@ export async function GET() {
   const config = configurationMeta();
   const variables = etatConfiguration();
   const parametres = await lireParametres();
+
+  // Le visuel est le maillon le plus souvent en cause, et le seul que Meta
+  // décrit mal : ses refus parlent de « type de média » quand l'adresse est
+  // en réalité injoignable. On expose donc l'adresse exacte qu'il ira
+  // chercher, pour qu'elle puisse être ouverte à la main.
+  const base = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://coparentalitezen.fr';
+  const premier = genererSemaine(new Date(), base).find((c) => c.format === 'publication');
+  const urlVisuel = premier ? urlVisuelPublic(base, premier.reference, 0) : null;
 
   if (!config) {
     return NextResponse.json({
@@ -81,6 +91,10 @@ export async function GET() {
     peut_publier_instagram: capacites.instagram,
     peut_publier_facebook: capacites.facebook,
     quota_publications: quota.donnees ?? null,
+    // Sans CRON_SECRET, aucune adresse ne peut être signée : le lien serait
+    // vide et Meta n'aurait rien à récupérer.
+    visuel_signable: Boolean(urlVisuel),
+    visuel_url: urlVisuel,
     mode: parametres?.mode ?? 'validation',
     publication_active: parametres?.actif ?? false,
   });
