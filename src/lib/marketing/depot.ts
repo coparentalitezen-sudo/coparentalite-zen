@@ -62,8 +62,12 @@ export async function majParametres(champs: Partial<Parametres>): Promise<boolea
  * pas de la création.
  */
 export async function enregistrerSemaine(date: Date, base: string): Promise<Contenu[]> {
-  const contenus = genererSemaine(date, base);
   const service = supabaseService();
+  // Sans base, la génération reste possible : elle repart simplement de poids
+  // neutres. Un écran qui n'affiche rien serait pire qu'un écran qui affiche
+  // la production par défaut.
+  const poids = service ? await lirePoids() : {};
+  const contenus = genererSemaine(date, base, poids);
   if (!service) return contenus;
 
   const semaine = `${date.getFullYear()}s${String(semaineIso(date)).padStart(2, '0')}`;
@@ -196,4 +200,50 @@ export async function lireMesures() {
       .filter((o): o is string => typeof o === 'string'),
     abonnements: abonnements.data?.length ?? 0,
   };
+}
+
+/** Poids courants par niche, tels que la boucle d'amélioration les a laissés. */
+export async function lirePoids(): Promise<Record<string, number>> {
+  const service = supabaseService();
+  if (!service) return {};
+  const { data } = await service.from('marketing_niches').select('id, poids').eq('active', true);
+  const table: Record<string, number> = {};
+  for (const n of data ?? []) table[n.id] = Number(n.poids ?? 1);
+  return table;
+}
+
+/** Applique les ajustements décidés par la boucle d'amélioration. */
+export async function ecrirePoids(
+  ajustements: { niche: string; nouveau: number }[], jour: string,
+): Promise<number> {
+  const service = supabaseService();
+  if (!service) return 0;
+  let appliques = 0;
+  for (const a of ajustements) {
+    const { error } = await service.from('marketing_niches')
+      .update({ poids: a.nouveau, derniere_evaluation: jour })
+      .eq('id', a.niche);
+    if (!error) appliques += 1;
+  }
+  return appliques;
+}
+
+/** Enregistre le bilan d'une semaine, sans jamais en écraser un ancien. */
+export async function enregistrerBilan(
+  semaine: string, texte: string, details: unknown,
+): Promise<boolean> {
+  const service = supabaseService();
+  if (!service) return false;
+  const { error } = await service.from('marketing_bilans')
+    .upsert({ semaine, texte, details }, { onConflict: 'semaine', ignoreDuplicates: false });
+  return !error;
+}
+
+/** Derniers bilans, du plus récent au plus ancien. */
+export async function lireBilans(limite = 5) {
+  const service = supabaseService();
+  if (!service) return [];
+  const { data } = await service.from('marketing_bilans')
+    .select('semaine, texte, cree_le').order('cree_le', { ascending: false }).limit(limite);
+  return data ?? [];
 }

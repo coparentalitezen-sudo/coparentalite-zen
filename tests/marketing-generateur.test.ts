@@ -228,3 +228,23 @@ describe('cohérence de marque', () => {
     }
   });
 });
+
+describe('influence des poids', () => {
+  it('fait remonter une niche renforcée sans évincer les autres', () => {
+    const sans = sujetsDeLaSemaine(3, 99);
+    const avec = sujetsDeLaSemaine(3, 99, { pension: 3 });
+    const rang = (l: typeof sans) => l.findIndex((s) => s.niche === 'pension');
+    expect(rang(avec)).toBeLessThanOrEqual(rang(sans));
+    expect(avec).toHaveLength(sans.length);
+  });
+
+  it('conserve tous les sujets même très affaiblis', () => {
+    const poids = Object.fromEntries(BANQUE.map((s) => [s.niche, 0.25]));
+    expect(sujetsDeLaSemaine(3, 7, { ...poids, pension: 3 })).toHaveLength(BANQUE.length);
+  });
+
+  it('reste déterministe à poids constants', () => {
+    expect(genererSemaine(LUNDI, BASE, { pension: 2 }))
+      .toEqual(genererSemaine(LUNDI, BASE, { pension: 2 }));
+  });
+});

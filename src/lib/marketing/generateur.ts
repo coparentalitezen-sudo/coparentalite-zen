@@ -94,12 +94,18 @@ export function semaineIso(date: Date): number {
  * reste est mélangé de façon reproductible, pour ne pas traiter éternellement
  * les quinze niches dans l'ordre de la liste.
  */
-export function sujetsDeLaSemaine(mois: number, graine: number): Sujet[] {
+export function sujetsDeLaSemaine(
+  mois: number, graine: number, poids: Record<string, number> = {},
+): Sujet[] {
   const tirage = alea(graine);
   return [...BANQUE]
     .map((s) => ({
       sujet: s,
-      rang: (s.saison?.includes(mois) ? 0 : 1) + tirage(),
+      // Le poids divise le rang : un sujet qui obtient des inscriptions
+      // remonte, sans jamais évincer les autres — la part aléatoire subsiste,
+      // et le poids reste borné en base. Un sujet affaibli continue donc
+      // d'être tiré, donc d'être mesuré.
+      rang: ((s.saison?.includes(mois) ? 0 : 1) + tirage()) / (poids[s.niche] ?? 1),
     }))
     .sort((a, b) => a.rang - b.rang)
     .map((x) => x.sujet);
@@ -208,14 +214,17 @@ function contenuMarque(
 /**
  * Produit les sept contenus d'une semaine.
  *
- * @param date  un jour quelconque de la semaine visée
- * @param base  l'adresse publique du site, pour les liens Facebook
+ * @param date   un jour quelconque de la semaine visée
+ * @param base   l'adresse publique du site, pour les liens Facebook
+ * @param poids  influence de chaque niche, issue de la boucle d'amélioration
  */
-export function genererSemaine(date: Date, base: string): Contenu[] {
+export function genererSemaine(
+  date: Date, base: string, poids: Record<string, number> = {},
+): Contenu[] {
   const semaine = semaineIso(date);
   const annee = date.getFullYear();
   const tirage = alea(annee * 100 + semaine);
-  const sujets = sujetsDeLaSemaine(date.getMonth() + 1, annee * 100 + semaine);
+  const sujets = sujetsDeLaSemaine(date.getMonth() + 1, annee * 100 + semaine, poids);
 
   // Le cycle de vingt-huit créneaux avance de sept par semaine : la
   // répartition éditoriale tient sur quatre semaines, pas sur une seule.

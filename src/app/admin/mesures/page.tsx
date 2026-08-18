@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { supabaseServer } from '@/lib/supabase/server';
 import { estAdministrateur } from '@/lib/marketing/administration';
-import { lireMesures } from '@/lib/marketing/depot';
+import { lireMesures, lireBilans } from '@/lib/marketing/depot';
 import {
   performances, regrouper, entonnoir, meilleuresAccroches,
 } from '@/lib/marketing/mesures';
@@ -39,7 +39,7 @@ export default async function PageMesures() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!estAdministrateur(user?.email)) notFound();
 
-  const donnees = await lireMesures();
+  const [donnees, bilans] = await Promise.all([lireMesures(), lireBilans(3)]);
   if (!donnees) notFound();
 
   const lignes = performances(donnees.contenus, donnees.visites, donnees.originesInscrits);
@@ -135,6 +135,24 @@ export default async function PageMesures() {
               </li>
             ))}
           </ol>
+        )}
+      </section>
+
+      <section className="card space-y-3 p-4">
+        <h2 className="font-display text-lg font-semibold">Bilans hebdomadaires</h2>
+        {bilans.length === 0 ? (
+          <p className="text-sm text-soft">
+            Le premier bilan sera rédigé lundi matin, après la détection.
+          </p>
+        ) : (
+          <ul className="space-y-3">
+            {bilans.map((b) => (
+              <li key={b.semaine} className="rounded-xl bg-muted p-3">
+                <p className="text-xs font-bold uppercase text-soft">{b.semaine}</p>
+                <p className="mt-1 whitespace-pre-line text-sm">{b.texte}</p>
+              </li>
+            ))}
+          </ul>
         )}
       </section>
 
