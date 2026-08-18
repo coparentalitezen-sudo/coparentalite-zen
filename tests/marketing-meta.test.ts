@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   configurationMeta, etatConfiguration, expurger, appelGraph,
   verifierConnexion, permissions, publierImageInstagram, publierFacebook,
-  VERSION_GRAPH, type ConfigurationMeta,
+  natureDuJeton, aptitudes, VERSION_GRAPH, type ConfigurationMeta,
 } from '../src/lib/marketing/meta';
 
 const CONFIG: ConfigurationMeta = {
@@ -183,5 +183,46 @@ describe('publication Facebook', () => {
     const r = await publierFacebook(CONFIG, 'https://exemple.fr/i.png', 'Message', f.requete);
     expect(r.ok).toBe(true);
     expect(f.appels[0].url).toContain('/222/photos');
+  });
+});
+
+describe('aptitudes réelles plutôt que déclarées', () => {
+  it('reconnaît un jeton de page', async () => {
+    const f = faussaire([{ corps: { id: '222' } }]);
+    const r = await natureDuJeton(CONFIG, f.requete);
+    expect(r.donnees?.estJetonDePage).toBe(true);
+  });
+
+  it('signale un jeton d’utilisateur, qui ne publierait pas sur la page', async () => {
+    const f = faussaire([{ corps: { id: '999' } }]);
+    const r = await natureDuJeton(CONFIG, f.requete);
+    expect(r.donnees?.estJetonDePage).toBe(false);
+  });
+
+  it('conclut à Instagram opérationnel dès que le quota répond', async () => {
+    // Le quota exige instagram_basic et instagram_content_publish : l'obtenir
+    // prouve les autorisations mieux qu'une liste déclarative.
+    const f = faussaire([{ corps: { data: [{ quota_usage: 0, config: { quota_total: 100 } }] } }]);
+    const a = await aptitudes(CONFIG, f.requete);
+    expect(a.instagram).toBe(true);
+    expect(a.detailInstagram).toContain('Quota');
+  });
+
+  it('n’exige pas la liste des permissions, vide sur un jeton de page', async () => {
+    const f = faussaire([
+      { corps: { data: [{ quota_usage: 0, config: { quota_total: 100 } }] } },
+      { corps: { id: '222' } },
+      { corps: { data: [] } },
+    ]);
+    const a = await aptitudes(CONFIG, f.requete);
+    expect(a.instagram).toBe(true);
+    expect(a.facebook).toBe(true);
+  });
+
+  it('explique pourquoi Facebook échouerait, au lieu de dire seulement « non »', async () => {
+    const f = faussaire([{ statut: 400, corps: { error: { message: 'Jeton invalide' } } }]);
+    const a = await aptitudes(CONFIG, f.requete);
+    expect(a.facebook).toBe(false);
+    expect(a.detailFacebook.length).toBeGreaterThan(20);
   });
 });

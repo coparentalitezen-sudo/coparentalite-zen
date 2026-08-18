@@ -230,3 +230,67 @@ export async function quotaPublication(
     },
   };
 }
+
+/**
+ * Nature du jeton : de page, ou d'utilisateur ?
+ *
+ * La distinction commande tout le reste. Pour un jeton de page, « /me »
+ * désigne la page elle-même ; pour un jeton utilisateur, il désigne la
+ * personne. Publier sur une page exige le premier.
+ */
+export async function natureDuJeton(
+  config: ConfigurationMeta, requete?: Requete,
+): Promise<ResultatMeta<{ estJetonDePage: boolean; id: string }>> {
+  const r = await appelGraph<{ id: string }>('/me?fields=id', config, { requete });
+  if (!r.ok) return { ok: false, erreur: r.erreur };
+  return {
+    ok: true,
+    donnees: { estJetonDePage: r.donnees!.id === config.pageId, id: r.donnees!.id },
+  };
+}
+
+export interface Aptitudes {
+  instagram: boolean;
+  facebook: boolean;
+  detailInstagram: string;
+  detailFacebook: string;
+}
+
+/**
+ * Ce que le jeton permet réellement, constaté et non déclaré.
+ *
+ * Interroger la liste des permissions ne renseigne pas sur un jeton de page :
+ * l'API renvoie une liste vide, ce qui se lit à tort comme « aucun droit ».
+ * On essaie donc les opérations elles-mêmes, en lecture seule.
+ *
+ * Pour Instagram, le quota de publication fait office de test : l'obtenir
+ * suppose instagram_basic et instagram_content_publish. Pour Facebook, la
+ * lecture des publications de la page suppose un jeton de page valide, seul
+ * capable d'en écrire.
+ */
+export async function aptitudes(
+  config: ConfigurationMeta, requete?: Requete,
+): Promise<Aptitudes> {
+  const [quota, nature, publications] = await Promise.all([
+    quotaPublication(config, requete),
+    natureDuJeton(config, requete),
+    appelGraph<{ data?: unknown[] }>(`/${config.pageId}/feed?limit=1`, config, { requete }),
+  ]);
+
+  const facebook = nature.ok && nature.donnees!.estJetonDePage && publications.ok;
+
+  return {
+    instagram: quota.ok,
+    facebook,
+    detailInstagram: quota.ok
+      ? 'Quota de publication obtenu : les autorisations Instagram répondent.'
+      : `Quota inaccessible — ${quota.erreur ?? 'raison inconnue'}`,
+    detailFacebook: !nature.ok
+      ? `Jeton illisible — ${nature.erreur}`
+      : !nature.donnees!.estJetonDePage
+        ? 'Jeton d’utilisateur et non de page : la publication sur la page échouerait.'
+        : publications.ok
+          ? 'Jeton de page valide, publications de la page lisibles.'
+          : `Page illisible — ${publications.erreur}`,
+  };
+}
