@@ -34,6 +34,8 @@ export const FORMATS = {
   carre: { largeur: 1080, hauteur: 1350 },
   /** Reels et stories. */
   vertical: { largeur: 1080, hauteur: 1920 },
+  /** Épingle Pinterest — ratio recommandé 2:3. */
+  pinterest: { largeur: 1000, hauteur: 1500 },
 } as const;
 
 export type NomFormat = keyof typeof FORMATS;

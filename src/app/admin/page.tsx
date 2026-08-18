@@ -60,6 +60,10 @@ export default async function PageAdmin() {
       actif={parametres?.actif ?? false}
       mode={parametres?.mode ?? 'validation'}
       semaine={`semaine ${semaineIso(maintenant)}`}
+      pinterest={{
+        rssUrl: new URL('/pinterest.xml', base).toString(),
+        verificationConfiguree: Boolean(process.env.NEXT_PUBLIC_PINTEREST_DOMAIN_VERIFY?.trim()),
+      }}
     />
   );
 }

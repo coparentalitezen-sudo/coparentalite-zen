@@ -46,8 +46,12 @@ export function contenuDeReference(reference: string, base: string): Contenu | n
 }
 
 /** Dessine une planche et renvoie la réponse image. */
-export async function rendreVisuel(contenu: Contenu, page: number) {
-  const format: NomFormat = contenu.format === 'reel' ? 'vertical' : 'carre';
+export async function rendreVisuel(
+  contenu: Contenu,
+  page: number,
+  formatForce?: NomFormat,
+) {
+  const format: NomFormat = formatForce ?? (contenu.format === 'reel' ? 'vertical' : 'carre');
   const planche: Planche = {
     texte: contenu.pages[page].texte,
     surtitre: page === 0 ? undefined : contenu.pages[page].titre,

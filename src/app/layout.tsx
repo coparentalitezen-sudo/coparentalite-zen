@@ -5,6 +5,7 @@ import { ServiceWorker } from '@/components/service-worker';
 import { SuiviOrigine } from '@/components/suivi-origine';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://coparentalitezen.fr';
+const PINTEREST_VERIFICATION = process.env.NEXT_PUBLIC_PINTEREST_DOMAIN_VERIFY?.trim();
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -56,6 +57,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fr">
       <head>
+        {PINTEREST_VERIFICATION
+          ? <meta name="p:domain_verify" content={PINTEREST_VERIFICATION} />
+          : null}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <link rel="apple-touch-startup-image" href="/splash/1290x2796.png" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
         <link rel="apple-touch-startup-image" href="/splash/1179x2556.png" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />

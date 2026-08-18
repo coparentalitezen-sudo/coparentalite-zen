@@ -276,12 +276,13 @@ function Carte({ contenu }: { contenu: ContenuAffiche }) {
 }
 
 export function AdminSemaine({
-  contenus, actif, mode, semaine,
+  contenus, actif, mode, semaine, pinterest,
 }: {
   contenus: ContenuAffiche[];
   actif: boolean;
   mode: 'validation' | 'automatique';
   semaine: string;
+  pinterest: { rssUrl: string; verificationConfiguree: boolean };
 }) {
   const [enService, setEnService] = useState(actif);
   const [modeActuel, setModeActuel] = useState(mode);
@@ -306,6 +307,29 @@ export function AdminSemaine({
           {enAttente.length} contenu{enAttente.length > 1 ? 's' : ''} en attente sur {contenus.length}.
         </p>
       </header>
+
+      <section className="card space-y-3 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="font-bold">Pinterest automatique</p>
+            <p className="text-sm text-soft">
+              {pinterest.verificationConfiguree
+                ? 'Le domaine est prêt à être revendiqué dans Pinterest.'
+                : 'Ajoutez la clé de vérification Pinterest pour revendiquer le domaine.'}
+            </p>
+          </div>
+          <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-bold ${
+            pinterest.verificationConfiguree ? 'bg-navy text-white' : 'bg-muted text-soft'
+          }`}>
+            {pinterest.verificationConfiguree ? 'Prêt' : 'À connecter'}
+          </span>
+        </div>
+        <div className="rounded-xl bg-muted p-3">
+          <p className="text-xs font-bold uppercase text-soft">Flux RSS à connecter</p>
+          <p className="mt-1 break-all text-sm">{pinterest.rssUrl}</p>
+        </div>
+        <Copier texte={pinterest.rssUrl} libelle="Copier l’adresse du flux Pinterest" />
+      </section>
 
       <section className="card space-y-3 p-4">
         <div className="flex items-center justify-between gap-3">
