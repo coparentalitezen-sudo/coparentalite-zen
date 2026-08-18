@@ -3,6 +3,7 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { estAdministrateur } from '@/lib/marketing/administration';
 import { enregistrerSemaine, lireParametres, lireStatuts } from '@/lib/marketing/depot';
 import { semaineIso } from '@/lib/marketing/generateur';
+import { urlVisuelPublic } from '@/lib/marketing/signature';
 import { AdminSemaine, type ContenuAffiche } from '@/components/admin-semaine';
 
 /**
@@ -46,6 +47,10 @@ export default async function PageAdmin() {
     legendeFacebook: c.legendeFacebook,
     texteAlternatif: c.texteAlternatif,
     pages: c.pages,
+    // L'adresse signée, celle-là même que Meta ira chercher. Faire pointer le
+    // lien vers la version réservée à l'administrateur montrerait une image
+    // que Meta ne voit pas : l'essai ne prouverait rien.
+    urlsVisuels: c.pages.map((_, i) => urlVisuelPublic(base, c.reference, i) ?? ''),
     statut: statuts[c.reference]?.statut ?? 'en_attente',
   }));
 

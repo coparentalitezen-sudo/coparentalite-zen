@@ -30,6 +30,7 @@ export interface ContenuAffiche {
   legendeFacebook: string;
   texteAlternatif: string;
   pages: { titre: string; texte: string; secondes?: number }[];
+  urlsVisuels: string[];
   statut: string;
 }
 
@@ -188,7 +189,7 @@ function Carte({ contenu }: { contenu: ContenuAffiche }) {
                   <p className="mt-1">{p.texte}</p>
                   <a
                     className="mt-2 inline-block text-xs font-bold underline"
-                    href={`/api/marketing/visuel?ref=${encodeURIComponent(contenu.reference)}&page=${i}`}
+                    href={contenu.urlsVisuels[i] || '#'}
                     target="_blank" rel="noreferrer"
                   >
                     Ouvrir le visuel
