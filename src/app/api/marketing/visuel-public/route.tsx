@@ -1,25 +1,29 @@
 import { NextResponse } from 'next/server';
-import sharp from 'sharp';
+import { PNG } from 'pngjs';
+import jpeg from 'jpeg-js';
 import { verifierVisuel } from '@/lib/marketing/signature';
 import { contenuDeReference, rendreVisuel } from '@/lib/marketing/rendu';
 
 /**
  * Visuel accessible sans session, pour que Meta puisse le récupérer.
  *
- * POURQUOI DU JPEG ET NON DU PNG
+ * POURQUOI DU JPEG
  * L'API de publication Instagram n'accepte que le JPEG. Un PNG parfaitement
  * valide est refusé avec « Only photo or video can be accepted as media
- * type » — un message qui laisse croire que l'adresse ne renvoie pas une
- * image, alors qu'elle en renvoie une, dans le mauvais format. Le moteur de
- * rendu ne produisant que du PNG, la conversion se fait ici.
+ * type » — message qui laisse croire que l'adresse ne renvoie pas d'image,
+ * alors qu'elle en renvoie une, dans le mauvais format.
  *
- * L'adresse est publique mais signée. Sans signature, elle serait énumérable :
- * n'importe qui pourrait parcourir les références et lire les contenus avant
- * leur publication, y compris ceux qui ont été rejetés.
+ * POURQUOI PAS SHARP
+ * La conversion passait d'abord par sharp, une extension native. Ces
+ * extensions se construisent sans erreur puis échouent à l'exécution en
+ * environnement serverless, où le binaire attendu n'est pas celui présent.
+ * L'échec ne se manifeste donc qu'en production, ce qui est le pire moment.
+ * pngjs et jpeg-js font le même travail en JavaScript pur : environ 250 ms
+ * pour une planche, sans binaire à faire correspondre.
  *
- * Une signature invalide reçoit le même 404 qu'une référence inexistante. Deux
- * réponses distinctes indiqueraient qu'une référence existe, ce qui est déjà
- * une information.
+ * L'adresse est publique mais signée : sans signature, elle serait
+ * énumérable, et l'on pourrait lire les contenus avant publication, y compris
+ * ceux qui ont été rejetés.
  */
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -38,19 +42,30 @@ export async function GET(requete: Request) {
   const contenu = contenuDeReference(reference, base);
   if (!contenu || !contenu.pages[page]) return new NextResponse('Not found', { status: 404 });
 
-  const rendu = await rendreVisuel(contenu, page);
-  const png = Buffer.from(await rendu.arrayBuffer());
+  try {
+    const rendu = await rendreVisuel(contenu, page);
+    const brut = Buffer.from(await rendu.arrayBuffer());
+    const image = PNG.sync.read(brut);
+    const converti = jpeg.encode(
+      { data: image.data, width: image.width, height: image.height },
+      88,
+    );
 
-  // Qualité 88 : au-delà, le poids grimpe sans gain visible sur un aplat de
-  // couleur et du texte ; en deçà, des artefacts apparaissent sur les lettres.
-  const jpeg = await sharp(png).jpeg({ quality: 88, mozjpeg: true }).toBuffer();
-
-  return new NextResponse(new Uint8Array(jpeg), {
-    headers: {
-      'Content-Type': 'image/jpeg',
-      'Content-Length': String(jpeg.length),
-      // Meta peut récupérer la même image plusieurs fois lors d'un réessai.
-      'Cache-Control': 'public, max-age=3600, immutable',
-    },
-  });
+    return new NextResponse(new Uint8Array(converti.data), {
+      headers: {
+        'Content-Type': 'image/jpeg',
+        'Content-Length': String(converti.data.length),
+        // Meta récupère la même image à chaque réessai.
+        'Cache-Control': 'public, max-age=3600, immutable',
+      },
+    });
+  } catch (e) {
+    // La signature ayant déjà été vérifiée, l'appelant est légitime : lui
+    // rendre la cause vaut mieux qu'une page blanche, qui obligerait à
+    // deviner. Un échec muet ici a déjà coûté une soirée.
+    return new NextResponse(
+      `Rendu impossible : ${e instanceof Error ? e.message : String(e)}`,
+      { status: 500, headers: { 'Content-Type': 'text/plain; charset=utf-8' } },
+    );
+  }
 }
