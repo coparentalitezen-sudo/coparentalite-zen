@@ -26,10 +26,9 @@ export function contenuPinterest(reference: string, base: string): Contenu | nul
 }
 
 export function lienConseilPinterest(base: string, reference: string): string {
-  const url = new URL(`/conseils/${encodeURIComponent(reference)}`, base);
-  return construireLien(url.toString(), {
+  return construireLien(base, {
     source: 'pinterest', campagne: 'conseils', contenu: reference,
-  });
+  }, `/conseils/${encodeURIComponent(reference)}`);
 }
 
 export function lienImagePinterest(base: string, reference: string): string {
