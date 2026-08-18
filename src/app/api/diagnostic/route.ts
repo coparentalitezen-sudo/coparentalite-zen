@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
 import { identiteComplete, etatIdentite } from '@/lib/legal';
+import { administrateurs, estAdministrateur } from '@/lib/marketing/administration';
 
 /**
  * Réponse JSON avec encodage déclaré.
@@ -95,6 +96,14 @@ export async function GET() {
     // Le contrôle interroge la valeur effectivement retenue, et non un nom de
     // variable : plusieurs noms sont acceptés, et vérifier le mauvais donnait
     // « incomplet » alors que tout était renseigné.
+    // Administration du dispositif de publication. Trois mesures distinctes,
+    // parce qu'un « accès refusé » a trois causes possibles et qu'un seul
+    // booléen ne permettrait pas de les départager : la variable manque, elle
+    // est mal formée, ou l'adresse connectée n'y figure pas. Aucune adresse
+    // n'est renvoyée — seulement leur nombre.
+    admin_variable_presente: presente('ADMIN_EMAILS'),
+    admin_adresses_valides: administrateurs().length,
+    admin_vous_etes_reconnu: estAdministrateur(user.email),
     mentions_legales: identiteComplete(),
     identite: etatIdentite(),
     // Notifications poussées : la clé publique atteint le navigateur, la
