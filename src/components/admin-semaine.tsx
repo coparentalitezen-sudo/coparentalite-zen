@@ -220,9 +220,14 @@ export function AdminSemaine({
   return (
     <main className="mx-auto min-h-dvh max-w-2xl space-y-4 px-4 py-6">
       <header className="space-y-1">
-        <Link href="/app/accueil" className="text-sm font-bold text-navy-text underline">
-          ← Retour à l’application
-        </Link>
+        <div className="flex items-center justify-between gap-3">
+          <Link href="/app/accueil" className="text-sm font-bold text-navy-text underline">
+            ← Retour à l’application
+          </Link>
+          <Link href="/admin/mesures" className="text-sm font-bold text-navy-text underline">
+            Résultats →
+          </Link>
+        </div>
         <h1 className="font-display text-2xl font-semibold">Publications · {semaine}</h1>
         <p className="text-sm text-soft">
           {enAttente.length} contenu{enAttente.length > 1 ? 's' : ''} en attente sur {contenus.length}.

@@ -159,3 +159,41 @@ export async function corrigerLegende(
     .eq('reference', reference);
   return !error;
 }
+
+/**
+ * Données brutes du tableau de bord.
+ *
+ * Une seule fonction plutôt qu'une par mesure : les quatre requêtes partent
+ * ensemble, et l'écran n'attend qu'une fois. Séquentielles, elles ajouteraient
+ * trois allers-retours pour rien.
+ */
+export async function lireMesures() {
+  const service = supabaseService();
+  if (!service) return null;
+
+  const [contenus, visites, inscrits, abonnements] = await Promise.all([
+    service.from('marketing_contenus')
+      .select('reference, format, categorie, accroche, statut, marketing_opportunites(niche_id)'),
+    service.from('marketing_visites').select('contenu, source, clics'),
+    service.from('profiles').select('origine_contenu').not('origine_contenu', 'is', null),
+    service.from('subscriptions').select('status').in('status', ['active', 'trialing']),
+  ]);
+
+  return {
+    contenus: (contenus.data ?? []).map((c) => ({
+      reference: c.reference ?? '',
+      niche: (c.marketing_opportunites as unknown as { niche_id?: string } | null)?.niche_id ?? 'inconnue',
+      format: c.format,
+      categorie: c.categorie,
+      accroche: c.accroche,
+      statut: c.statut,
+    })),
+    visites: (visites.data ?? []).map((v) => ({
+      contenu: v.contenu, source: v.source, clics: v.clics ?? 0,
+    })),
+    originesInscrits: (inscrits.data ?? [])
+      .map((p) => p.origine_contenu)
+      .filter((o): o is string => typeof o === 'string'),
+    abonnements: abonnements.data?.length ?? 0,
+  };
+}
