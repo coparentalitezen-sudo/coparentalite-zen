@@ -107,3 +107,24 @@ describe('administrateur de la plateforme', () => {
     expect(administrateurs()).toEqual(['a@exemple.fr']);
   });
 });
+
+describe('leçon de la migration 00044', () => {
+  it('n’emploie plus d’index unique partiel comme cible d’un on conflict', async () => {
+    // PostgreSQL n'infère pas un index partiel pour un « on conflict (col) »
+    // sans en répéter la condition : toutes les écritures échouaient en
+    // silence. Une contrainte unique ordinaire autorise déjà plusieurs NULL.
+    const fs = await import('node:fs/promises');
+    const dossier = 'supabase/migrations';
+    const fichiers = (await fs.readdir(dossier)).filter((f) => f.endsWith('.sql'));
+
+    const sql = (await Promise.all(
+      fichiers.map((f) => fs.readFile(`${dossier}/${f}`, 'utf8')),
+    )).join('\n');
+
+    // La migration 00044 doit supprimer les index fautifs et poser les
+    // contraintes qui les remplacent.
+    expect(sql).toContain('drop index if exists idx_marketing_contenus_reference');
+    expect(sql).toContain('marketing_contenus_reference_unique unique (reference)');
+    expect(sql).toContain('marketing_opportunites_reference_unique unique (reference)');
+  });
+});

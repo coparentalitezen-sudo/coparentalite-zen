@@ -110,11 +110,24 @@ export async function actionPublier(
     body: JSON.stringify({ reference, plateforme, page: 0, confirmation: true }),
   });
 
-  const corps = await reponse.json().catch(() => ({}));
-  if (!reponse.ok || !corps.publie) {
-    return { ok: false, message: corps.erreur ?? corps.message ?? 'La publication a échoué.' };
+  const brut = await reponse.text();
+  let corps: Record<string, unknown> = {};
+  try { corps = JSON.parse(brut) as Record<string, unknown>; } catch { /* réponse non JSON */ }
+
+  if (!reponse.ok || corps.publie !== true) {
+    // La cause précède le message générique. « La publication a échoué »
+    // n'apprend rien et oblige à fouiller ailleurs ; le motif renvoyé par
+    // Meta, lui, dit quoi corriger.
+    const motif = (corps.erreur ?? corps.message) as string | undefined;
+    return {
+      ok: false,
+      message: motif ?? `Échec ${reponse.status} : ${brut.slice(0, 200) || 'réponse vide'}`,
+    };
   }
 
   revalidatePath('/admin');
-  return { ok: true, metaId: corps.meta_media_id ?? null };
+  return {
+    ok: true,
+    metaId: typeof corps.meta_media_id === 'string' ? corps.meta_media_id : null,
+  };
 }

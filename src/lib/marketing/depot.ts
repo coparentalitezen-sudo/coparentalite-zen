@@ -92,9 +92,15 @@ export async function enregistrerSemaine(date: Date, base: string): Promise<Cont
       }, { onConflict: 'reference', ignoreDuplicates: false })
       .select('id').single();
 
-    if (!opportunite) continue;
+    if (!opportunite) {
+      // Une opportunité qui ne s'écrit pas rend tout le reste impossible :
+      // le contenu la référence. Le dire plutôt que de passer au suivant, un
+      // écran vide sans message étant le pire des symptômes.
+      console.error('[marketing] opportunité non enregistrée', referenceOpportunite);
+      continue;
+    }
 
-    await service.from('marketing_contenus').upsert({
+    const { error: erreurContenu } = await service.from('marketing_contenus').upsert({
       reference: c.reference,
       opportunite_id: opportunite.id,
       format: c.format,
@@ -109,6 +115,10 @@ export async function enregistrerSemaine(date: Date, base: string): Promise<Cont
       prevu_le: dateDuJour(date, c.jour),
       statut: 'en_attente',
     }, { onConflict: 'reference', ignoreDuplicates: true });
+
+    if (erreurContenu) {
+      console.error('[marketing] contenu non enregistré', c.reference, erreurContenu.message);
+    }
   }
 
   return contenus;
@@ -138,17 +148,25 @@ export async function lireStatuts(
   return table;
 }
 
+/**
+ * Change le statut d'un contenu.
+ *
+ * Renvoie faux si aucune ligne n'a été touchée. Sans cette vérification, une
+ * mise à jour portant sur une référence absente réussissait sans rien faire :
+ * l'écran affichait « Validé » alors que la base ne contenait rien. Un
+ * mensonge à l'écran coûte plus cher qu'une erreur affichée.
+ */
 export async function majStatut(
   reference: string, statut: Statut, motif?: string,
 ): Promise<boolean> {
   const service = supabaseService();
   if (!service) return false;
-  const { error } = await service.from('marketing_contenus').update({
+  const { data, error } = await service.from('marketing_contenus').update({
     statut,
     motif_rejet: statut === 'rejete' ? (motif ?? null) : null,
     updated_at: new Date().toISOString(),
-  }).eq('reference', reference);
-  return !error;
+  }).eq('reference', reference).select('reference');
+  return !error && (data?.length ?? 0) > 0;
 }
 
 /** Remplace le texte d'une légende, sans toucher au reste du contenu. */
@@ -158,10 +176,10 @@ export async function corrigerLegende(
   const service = supabaseService();
   if (!service) return false;
   const champ = plateforme === 'instagram' ? 'legende_instagram' : 'legende_facebook';
-  const { error } = await service.from('marketing_contenus')
+  const { data, error } = await service.from('marketing_contenus')
     .update({ [champ]: texte, updated_at: new Date().toISOString() })
-    .eq('reference', reference);
-  return !error;
+    .eq('reference', reference).select('reference');
+  return !error && (data?.length ?? 0) > 0;
 }
 
 /**
