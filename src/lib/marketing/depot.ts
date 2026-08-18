@@ -247,3 +247,78 @@ export async function lireBilans(limite = 5) {
     .select('semaine, texte, cree_le').order('cree_le', { ascending: false }).limit(limite);
   return data ?? [];
 }
+
+export interface EtatPublication {
+  id: string;
+  statut: string;
+  metaMediaId: string | null;
+  tentatives: number;
+}
+
+/**
+ * Réserve une publication avant d'appeler Meta.
+ *
+ * L'ordre compte : on écrit d'abord, on publie ensuite. La clé d'idempotence
+ * étant unique en base, deux demandes simultanées ne peuvent pas réserver la
+ * même ligne — la seconde échoue avant d'avoir rien envoyé. Publier d'abord et
+ * enregistrer après laisserait au contraire une fenêtre où un incident réseau
+ * produirait un doublon invisible.
+ */
+export async function reserverPublication(
+  contenuReference: string, plateforme: 'instagram' | 'facebook',
+): Promise<{ ok: boolean; deja?: EtatPublication; erreur?: string }> {
+  const service = supabaseService();
+  if (!service) return { ok: false, erreur: 'Service indisponible.' };
+
+  const { data: contenu } = await service.from('marketing_contenus')
+    .select('id').eq('reference', contenuReference).single();
+  if (!contenu) return { ok: false, erreur: 'Contenu introuvable en base.' };
+
+  const cle = `${contenuReference}:${plateforme}`;
+  const { data: existante } = await service.from('marketing_publications')
+    .select('id, statut, meta_media_id, tentatives').eq('cle_idempotence', cle).maybeSingle();
+
+  if (existante) {
+    if (existante.statut === 'publiee') {
+      return {
+        ok: false,
+        deja: {
+          id: existante.id, statut: existante.statut,
+          metaMediaId: existante.meta_media_id, tentatives: existante.tentatives,
+        },
+        erreur: 'Déjà publié.',
+      };
+    }
+    await service.from('marketing_publications')
+      .update({ statut: 'envoyee', tentatives: existante.tentatives + 1, updated_at: new Date().toISOString() })
+      .eq('id', existante.id);
+    return { ok: true, deja: {
+      id: existante.id, statut: 'envoyee',
+      metaMediaId: existante.meta_media_id, tentatives: existante.tentatives + 1,
+    } };
+  }
+
+  const { data: creee, error } = await service.from('marketing_publications')
+    .insert({
+      contenu_id: contenu.id, plateforme, cle_idempotence: cle,
+      statut: 'envoyee', tentatives: 1,
+    }).select('id').single();
+
+  if (error || !creee) return { ok: false, erreur: 'Réservation impossible.' };
+  return { ok: true, deja: { id: creee.id, statut: 'envoyee', metaMediaId: null, tentatives: 1 } };
+}
+
+/** Consigne le résultat, succès ou échec, avec un message déjà expurgé. */
+export async function conclurePublication(
+  id: string, succes: boolean, metaMediaId?: string, erreur?: string,
+): Promise<void> {
+  const service = supabaseService();
+  if (!service) return;
+  await service.from('marketing_publications').update({
+    statut: succes ? 'publiee' : 'echec',
+    meta_media_id: metaMediaId ?? null,
+    derniere_erreur: succes ? null : (erreur ?? 'Échec sans message.'),
+    publie_le: succes ? new Date().toISOString() : null,
+    updated_at: new Date().toISOString(),
+  }).eq('id', id);
+}
