@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
 import { supabaseServer } from '@/lib/supabase/server';
 import { estAdministrateur } from '@/lib/marketing/administration';
 import {
@@ -78,4 +79,42 @@ export async function actionMode(
   const ok = await majParametres({ mode });
   if (ok) revalidatePath('/admin');
   return { ok, message: ok ? undefined : 'Le réglage n’a pas été enregistré.' };
+}
+
+/**
+ * Publication déclenchée depuis l'interface.
+ *
+ * Passe par la route plutôt que d'appeler Meta directement : la route porte
+ * déjà la réservation en base, l'idempotence et l'expurgation des messages.
+ * Dupliquer cette logique ici la ferait diverger au premier correctif.
+ *
+ * Le contenu doit être validé au préalable. Publier un brouillon non relu
+ * reviendrait à supprimer l'étape de validation tout en la conservant à
+ * l'écran.
+ */
+export async function actionPublier(
+  reference: string, plateforme: 'instagram' | 'facebook',
+): Promise<{ ok: boolean; message?: string; metaId?: string | null }> {
+  if (!await exigerAdministrateur()) return { ok: false, message: 'Accès refusé.' };
+
+  const base = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://coparentalitezen.fr';
+
+  const reponse = await fetch(`${base}/api/marketing/publier`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      // La route revérifie les droits : l'appel venant du serveur, il faut lui
+      // transmettre la session de la personne qui a appuyé.
+      cookie: (await cookies()).toString(),
+    },
+    body: JSON.stringify({ reference, plateforme, page: 0, confirmation: true }),
+  });
+
+  const corps = await reponse.json().catch(() => ({}));
+  if (!reponse.ok || !corps.publie) {
+    return { ok: false, message: corps.erreur ?? corps.message ?? 'La publication a échoué.' };
+  }
+
+  revalidatePath('/admin');
+  return { ok: true, metaId: corps.meta_media_id ?? null };
 }

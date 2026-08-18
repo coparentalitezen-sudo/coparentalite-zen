@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import Link from 'next/link';
 import {
   actionStatut, actionValiderTout, actionLegende, actionSuspendre, actionMode,
+  actionPublier,
 } from '@/app/admin/actions';
 
 /**
@@ -61,6 +62,73 @@ function Copier({ texte, libelle }: { texte: string; libelle: string }) {
     >
       {erreur ? 'Copie refusée — sélectionnez le texte' : fait ? 'Copié' : libelle}
     </button>
+  );
+}
+
+
+/**
+ * Publication en deux temps.
+ *
+ * Un premier appui arme, un second envoie. Publier sur un compte public est
+ * irréversible : un bouton à un seul appui, sur un téléphone rangé dans une
+ * poche, finirait par publier tout seul.
+ *
+ * L'état armé retombe au bout de dix secondes, pour qu'un bouton oublié à
+ * l'écran ne reste pas prêt à partir.
+ */
+function PublierMaintenant({
+  reference, onPublie,
+}: { reference: string; onPublie: () => void }) {
+  const [arme, setArme] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [enCours, demarrer] = useTransition();
+
+  useEffect(() => {
+    if (!arme) return;
+    const minuterie = setTimeout(() => setArme(false), 10000);
+    return () => clearTimeout(minuterie);
+  }, [arme]);
+
+  if (!arme) {
+    return (
+      <div className="space-y-2">
+        <button
+          type="button" className="btn btn-ghost w-full" disabled={enCours}
+          onClick={() => { setMessage(null); setArme(true); }}
+        >
+          Publier sur Instagram
+        </button>
+        {message && <p className="text-sm font-bold text-navy-text">{message}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2 rounded-2xl bg-muted p-3">
+      <p className="text-sm text-soft">
+        La publication partira immédiatement sur le compte coparentalitezen.
+        Elle ne pourra pas être annulée depuis ici.
+      </p>
+      <div className="flex gap-2">
+        <button
+          type="button" className="btn btn-primary flex-1" disabled={enCours}
+          onClick={() => demarrer(async () => {
+            const r = await actionPublier(reference, 'instagram');
+            if (r.ok) { onPublie(); setMessage(`Publié. Identifiant Meta : ${r.metaId ?? 'non renvoyé'}`); }
+            else setMessage(r.message ?? 'Échec.');
+            setArme(false);
+          })}
+        >
+          {enCours ? 'Envoi…' : 'Confirmer la publication'}
+        </button>
+        <button
+          type="button" className="btn btn-ghost flex-1" disabled={enCours}
+          onClick={() => setArme(false)}
+        >
+          Annuler
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -180,6 +248,10 @@ function Carte({ contenu }: { contenu: ContenuAffiche }) {
             <Copier texte={contenu.texteAlternatif} libelle="Copier le texte alternatif" />
           </section>
         </div>
+      )}
+
+      {statut === 'valide' && (
+        <PublierMaintenant reference={contenu.reference} onPublie={() => setStatut('publie')} />
       )}
 
       <div className="flex gap-2">

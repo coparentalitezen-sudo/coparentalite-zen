@@ -270,8 +270,11 @@ export function genererSemaine(
       legendeFacebook: facebook,
       // Le texte alternatif décrit ce que l'image montre, sans jamais évoquer
       // un enfant identifiable : les visuels n'en comportent aucun.
+      // La couverture est sur fond marine, les planches suivantes sur crème.
+      // Décrire l'inverse tromperait précisément les personnes qui dépendent
+      // de ce texte pour se représenter l'image.
       texteAlternatif:
-        `Visuel sobre sur fond crème. Titre : « ${accroche} ». `
+        `Visuel sobre, texte blanc sur fond bleu marine. Titre : « ${accroche} ». `
         + `Sujet : ${sujet.angle.toLowerCase()}`,
       hashtags,
       appelAction: APPEL_ACTION,
