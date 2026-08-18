@@ -1,12 +1,12 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { cookies } from 'next/headers';
 import { supabaseServer } from '@/lib/supabase/server';
 import { estAdministrateur } from '@/lib/marketing/administration';
 import {
   majParametres, majStatut, corrigerLegende, type Statut,
 } from '@/lib/marketing/depot';
+import { publierContenu } from '@/lib/marketing/publication';
 
 /**
  * Contrôle d'accès des actions.
@@ -84,50 +84,27 @@ export async function actionMode(
 /**
  * Publication déclenchée depuis l'interface.
  *
- * Passe par la route plutôt que d'appeler Meta directement : la route porte
- * déjà la réservation en base, l'idempotence et l'expurgation des messages.
- * Dupliquer cette logique ici la ferait diverger au premier correctif.
- *
- * Le contenu doit être validé au préalable. Publier un brouillon non relu
- * reviendrait à supprimer l'étape de validation tout en la conservant à
- * l'écran.
+ * Appelle directement la logique partagée. La version précédente passait par
+ * un appel HTTP de l'application vers sa propre route, en recopiant les
+ * cookies de session : la session ne se transmettait pas, la route répondait
+ * 404, et l'aller-retour n'apportait rien puisque les droits venaient d'être
+ * vérifiés ici même.
  */
 export async function actionPublier(
   reference: string, plateforme: 'instagram' | 'facebook',
 ): Promise<{ ok: boolean; message?: string; metaId?: string | null }> {
   if (!await exigerAdministrateur()) return { ok: false, message: 'Accès refusé.' };
 
-  const base = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://coparentalitezen.fr';
-
-  const reponse = await fetch(`${base}/api/marketing/publier`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      // La route revérifie les droits : l'appel venant du serveur, il faut lui
-      // transmettre la session de la personne qui a appuyé.
-      cookie: (await cookies()).toString(),
-    },
-    body: JSON.stringify({ reference, plateforme, page: 0, confirmation: true }),
-  });
-
-  const brut = await reponse.text();
-  let corps: Record<string, unknown> = {};
-  try { corps = JSON.parse(brut) as Record<string, unknown>; } catch { /* réponse non JSON */ }
-
-  if (!reponse.ok || corps.publie !== true) {
-    // La cause précède le message générique. « La publication a échoué »
-    // n'apprend rien et oblige à fouiller ailleurs ; le motif renvoyé par
-    // Meta, lui, dit quoi corriger.
-    const motif = (corps.erreur ?? corps.message) as string | undefined;
+  const r = await publierContenu(reference, plateforme);
+  if (!r.ok) {
     return {
       ok: false,
-      message: motif ?? `Échec ${reponse.status} : ${brut.slice(0, 200) || 'réponse vide'}`,
+      message: r.dejaPublie
+        ? `Déjà publié — identifiant Meta ${r.metaId ?? 'inconnu'}.`
+        : (r.erreur ?? 'Échec sans message.'),
     };
   }
 
   revalidatePath('/admin');
-  return {
-    ok: true,
-    metaId: typeof corps.meta_media_id === 'string' ? corps.meta_media_id : null,
-  };
+  return { ok: true, metaId: r.metaId ?? null };
 }
