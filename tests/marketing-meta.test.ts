@@ -212,11 +212,21 @@ describe('aptitudes réelles plutôt que déclarées', () => {
     const f = faussaire([
       { corps: { data: [{ quota_usage: 0, config: { quota_total: 100 } }] } },
       { corps: { id: '222' } },
-      { corps: { data: [] } },
     ]);
     const a = await aptitudes(CONFIG, f.requete);
     expect(a.instagram).toBe(true);
     expect(a.facebook).toBe(true);
+  });
+
+  it('ne conclut pas d’un échec en lecture que l’écriture échouerait', async () => {
+    // La lecture du fil dépend d'autorisations différentes de l'écriture.
+    // Seul le type de jeton est concluant sans publier.
+    const f = faussaire([
+      { corps: { data: [{ quota_usage: 0, config: { quota_total: 100 } }] } },
+      { corps: { id: '222' } },
+    ]);
+    const a = await aptitudes(CONFIG, f.requete);
+    expect(a.detailFacebook).toContain('publiant');
   });
 
   it('explique pourquoi Facebook échouerait, au lieu de dire seulement « non »', async () => {

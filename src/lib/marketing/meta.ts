@@ -271,26 +271,36 @@ export interface Aptitudes {
 export async function aptitudes(
   config: ConfigurationMeta, requete?: Requete,
 ): Promise<Aptitudes> {
-  const [quota, nature, publications] = await Promise.all([
+  const [quota, nature] = await Promise.all([
     quotaPublication(config, requete),
     natureDuJeton(config, requete),
-    appelGraph<{ data?: unknown[] }>(`/${config.pageId}/feed?limit=1`, config, { requete }),
   ]);
 
-  const facebook = nature.ok && nature.donnees!.estJetonDePage && publications.ok;
+  // Facebook ne se vérifie pas sans écrire.
+  //
+  // Lire le fil de la page semblait un essai commode, mais cette lecture
+  // dépend d'autorisations différentes de l'écriture : elle échoue là où
+  // publier réussirait, et le verdict serait faux dans le sens le plus
+  // coûteux — renoncer à un canal qui fonctionne.
+  //
+  // Ce qui est vérifiable sans rien publier : le jeton est bien un jeton de
+  // page, et il désigne la bonne page. C'est nécessaire, ce n'est pas
+  // suffisant, et le dire ainsi vaut mieux qu'un « oui » ou un « non »
+  // également infondés. La première publication réelle tranchera.
+  const jetonDePage = nature.ok && nature.donnees!.estJetonDePage;
 
   return {
     instagram: quota.ok,
-    facebook,
+    facebook: jetonDePage,
     detailInstagram: quota.ok
       ? 'Quota de publication obtenu : les autorisations Instagram répondent.'
       : `Quota inaccessible — ${quota.erreur ?? 'raison inconnue'}`,
     detailFacebook: !nature.ok
       ? `Jeton illisible — ${nature.erreur}`
       : !nature.donnees!.estJetonDePage
-        ? 'Jeton d’utilisateur et non de page : la publication sur la page échouerait.'
-        : publications.ok
-          ? 'Jeton de page valide, publications de la page lisibles.'
-          : `Page illisible — ${publications.erreur}`,
+        ? 'Jeton d’utilisateur et non de page : la publication sur la page échouerait. '
+          + 'Il faut dériver un jeton de page.'
+        : 'Jeton de page valide désignant la bonne page. L’écriture ne peut se '
+          + 'vérifier qu’en publiant : la première publication réelle le dira.',
   };
 }
