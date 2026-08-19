@@ -12,8 +12,10 @@ export async function GET() {
     lireParametres(),
   ]);
   const publiables = parametres?.actif
-    ? contenus.filter((contenu) =>
-      ['valide', 'publie'].includes(statuts[contenu.reference]?.statut ?? ''))
+    ? parametres.mode === 'automatique'
+      ? contenus
+      : contenus.filter((contenu) =>
+        ['valide', 'publie'].includes(statuts[contenu.reference]?.statut ?? ''))
     : [];
   const flux = creerFluxPinterest(publiables, base);
 
