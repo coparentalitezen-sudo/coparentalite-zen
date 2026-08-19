@@ -4,6 +4,7 @@ import { estAdministrateur } from '@/lib/marketing/administration';
 import { enregistrerSemaine, lireParametres, lireStatuts } from '@/lib/marketing/depot';
 import { semaineIso } from '@/lib/marketing/generateur';
 import { urlVisuelPublic } from '@/lib/marketing/signature';
+import { PINTEREST_DOMAIN_VERIFICATION } from '@/lib/marketing/configuration-pinterest';
 import { AdminSemaine, type ContenuAffiche } from '@/components/admin-semaine';
 
 /**
@@ -62,7 +63,7 @@ export default async function PageAdmin() {
       semaine={`semaine ${semaineIso(maintenant)}`}
       pinterest={{
         rssUrl: new URL('/pinterest.xml', base).toString(),
-        verificationConfiguree: Boolean(process.env.NEXT_PUBLIC_PINTEREST_DOMAIN_VERIFY?.trim()),
+        verificationConfiguree: Boolean(PINTEREST_DOMAIN_VERIFICATION),
       }}
     />
   );
