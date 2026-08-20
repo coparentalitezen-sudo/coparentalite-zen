@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   configurationMeta, etatConfiguration, expurger, appelGraph,
   verifierConnexion, permissions, publierImageInstagram, publierFacebook,
-  natureDuJeton, aptitudes, jetonDePage, expirationJeton,
+  natureDuJeton, aptitudes, jetonDePage, expirationJeton, publierCarrouselInstagram,
   VERSION_GRAPH, type ConfigurationMeta,
 } from '../src/lib/marketing/meta';
 
@@ -291,5 +291,58 @@ describe('dérivation du jeton de page', () => {
     expect(e.connue).toBe(false);
     expect(e.date).toBeNull();
     expect(e.motif).toContain('META_APP_SECRET');
+  });
+});
+
+describe('carrousel Instagram', () => {
+  const planches = (n: number) => Array.from({ length: n }, (_, i) => ({
+    url: `https://exemple.fr/${i}.jpg`, texteAlternatif: `Planche ${i + 1}`,
+  }));
+
+  it('refuse un carrousel hors des bornes admises par Meta', async () => {
+    for (const n of [1, 11]) {
+      const r = await publierCarrouselInstagram(CONFIG, planches(n), 'L', faussaire([{ corps: {} }]).requete);
+      expect(r.ok).toBe(false);
+      expect(r.erreur).toContain('2 à 10');
+    }
+  });
+
+  it('déclare chaque planche comme élément de carrousel', async () => {
+    // Sans is_carousel_item, Meta traite l'image comme une publication
+    // autonome et le groupe la refuse.
+    const f = faussaire([
+      { corps: { id: 'p1' } }, { corps: { id: 'p2' } },
+      { corps: { status_code: 'FINISHED' } }, { corps: { status_code: 'FINISHED' } },
+      { corps: { id: 'groupe' } }, { corps: { status_code: 'FINISHED' } },
+      { corps: { id: 'media-9' } },
+    ]);
+    const r = await publierCarrouselInstagram(CONFIG, planches(2), 'Ma légende', f.requete);
+    expect(r.ok).toBe(true);
+    expect(String(f.appels[0].init?.body)).toContain('is_carousel_item=true');
+  });
+
+  it('rassemble les planches puis publie le groupe', async () => {
+    const f = faussaire([
+      { corps: { id: 'p1' } }, { corps: { id: 'p2' } },
+      { corps: { status_code: 'FINISHED' } }, { corps: { status_code: 'FINISHED' } },
+      { corps: { id: 'groupe' } }, { corps: { status_code: 'FINISHED' } },
+      { corps: { id: 'media-9' } },
+    ]);
+    const r = await publierCarrouselInstagram(CONFIG, planches(2), 'Ma légende', f.requete);
+    expect(r.donnees?.id).toBe('media-9');
+    const groupe = String(f.appels[4].init?.body);
+    expect(groupe).toContain('media_type=CAROUSEL');
+    expect(groupe).toContain('children=p1%2Cp2');
+    expect(groupe).toContain('caption=Ma+l%C3%A9gende');
+  });
+
+  it('nomme la planche fautive plutôt que d’échouer en bloc', async () => {
+    const f = faussaire([
+      { corps: { id: 'p1' } },
+      { statut: 400, corps: { error: { message: 'Image inaccessible' } } },
+    ]);
+    const r = await publierCarrouselInstagram(CONFIG, planches(3), 'L', f.requete);
+    expect(r.ok).toBe(false);
+    expect(r.erreur).toContain('Planche 2');
   });
 });

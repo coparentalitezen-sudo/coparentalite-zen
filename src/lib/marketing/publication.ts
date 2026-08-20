@@ -1,5 +1,8 @@
 import 'server-only';
-import { configurationPrete, publierImageInstagram, publierFacebook, expurger } from './meta';
+import {
+  configurationPrete, publierImageInstagram, publierCarrouselInstagram,
+  publierFacebook, expurger,
+} from './meta';
 import { urlVisuelPublic } from './signature';
 import { contenuDeReference } from './rendu';
 import {
@@ -70,9 +73,24 @@ export async function publierContenu(
     };
   }
 
-  const resultat = plateforme === 'instagram'
-    ? await publierImageInstagram(config, urlImage, contenu.legendeInstagram, contenu.texteAlternatif)
-    : await publierFacebook(config, urlImage, contenu.legendeFacebook);
+  // Un carrousel part avec toutes ses planches. N'en publier que la première
+  // revenait à amputer le contenu de sa démonstration : la couverture pose
+  // une question, ce sont les planches suivantes qui y répondent.
+  const estCarrousel = contenu.format === 'carrousel' && contenu.pages.length >= 2;
+
+  const resultat = plateforme === 'facebook'
+    ? await publierFacebook(config, urlImage, contenu.legendeFacebook)
+    : estCarrousel
+      ? await publierCarrouselInstagram(
+          config,
+          contenu.pages.map((_, i) => ({
+            url: urlVisuelPublic(base, reference, i) ?? '',
+            texteAlternatif: contenu.texteAlternatif,
+          })),
+          contenu.legendeInstagram,
+        )
+      : await publierImageInstagram(
+          config, urlImage, contenu.legendeInstagram, contenu.texteAlternatif);
 
   const idPublication = reservation.deja!.id;
 

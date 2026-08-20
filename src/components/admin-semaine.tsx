@@ -78,8 +78,8 @@ function Copier({ texte, libelle }: { texte: string; libelle: string }) {
  * l'écran ne reste pas prêt à partir.
  */
 function PublierMaintenant({
-  reference, onPublie,
-}: { reference: string; onPublie: () => void }) {
+  reference, onPublie, libelle = 'Publier sur Instagram',
+}: { reference: string; onPublie: () => void; libelle?: string }) {
   const [arme, setArme] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [enCours, demarrer] = useTransition();
@@ -97,7 +97,7 @@ function PublierMaintenant({
           type="button" className="btn btn-ghost w-full" disabled={enCours}
           onClick={() => { setMessage(null); setArme(true); }}
         >
-          Publier sur Instagram
+          {libelle}
         </button>
         {message && <p className="text-sm font-bold text-navy-text">{message}</p>}
       </div>
@@ -129,6 +129,57 @@ function PublierMaintenant({
           Annuler
         </button>
       </div>
+    </div>
+  );
+}
+
+
+/**
+ * Script de tournage d'un Reel.
+ *
+ * Un Reel ne peut pas être publié par l'API sans fichier vidéo, et l'encodage
+ * n'est pas réalisable ici. Plutôt que d'afficher un bouton qui échouera,
+ * l'écran donne ce qu'il faut pour tourner : la durée de chaque plan, le texte
+ * à dire, celui à afficher, et la légende à coller ensuite.
+ *
+ * Le tout est copiable d'un geste : lire un script sur un écran pendant qu'on
+ * filme avec le même téléphone est impossible.
+ */
+function ScriptTournage({ contenu }: { contenu: ContenuAffiche }) {
+  const duree = contenu.pages.reduce((s, p) => s + (p.secondes ?? 0), 0);
+
+  const script = [
+    `REEL — ${contenu.accroche}`,
+    `Durée visée : ${duree} secondes`,
+    '',
+    ...contenu.pages.flatMap((p, i) => [
+      `PLAN ${i + 1} — ${p.secondes ?? '?'} s — ${p.titre}`,
+      `À dire et à afficher : ${p.texte}`,
+      '',
+    ]),
+    'LÉGENDE À COLLER APRÈS LE MONTAGE :',
+    contenu.legendeInstagram,
+  ].join('\n');
+
+  return (
+    <div className="space-y-2 rounded-2xl bg-muted p-3">
+      <p className="text-sm font-bold text-ink">À tourner vous-même</p>
+      <p className="text-sm text-soft">
+        Un Reel exige un fichier vidéo : Instagram n’accepte pas qu’on le fabrique
+        à distance. Comptez trois minutes avec votre téléphone. Pensez aux
+        sous-titres, la plupart des gens regardent sans le son.
+      </p>
+      <ol className="space-y-2 text-sm">
+        {contenu.pages.map((p, i) => (
+          <li key={p.titre + i} className="rounded-xl bg-card p-3">
+            <p className="font-bold text-ink">
+              Plan {i + 1} · {p.secondes ?? '?'} s · {p.titre}
+            </p>
+            <p className="mt-1 text-soft">{p.texte}</p>
+          </li>
+        ))}
+      </ol>
+      <Copier texte={script} libelle="Copier le script complet" />
     </div>
   );
 }
@@ -251,8 +302,18 @@ function Carte({ contenu }: { contenu: ContenuAffiche }) {
         </div>
       )}
 
-      {statut === 'valide' && (
-        <PublierMaintenant reference={contenu.reference} onPublie={() => setStatut('publie')} />
+      {statut === 'valide' && contenu.format !== 'reel' && (
+        <PublierMaintenant
+          reference={contenu.reference}
+          onPublie={() => setStatut('publie')}
+          libelle={contenu.format === 'carrousel'
+            ? `Publier le carrousel (${contenu.pages.length} planches)`
+            : 'Publier sur Instagram'}
+        />
+      )}
+
+      {statut === 'valide' && contenu.format === 'reel' && (
+        <ScriptTournage contenu={contenu} />
       )}
 
       <div className="flex gap-2">

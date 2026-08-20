@@ -448,3 +448,84 @@ export async function expirationJeton(
   if (expire === 0) return { connue: true, date: null, motif: 'N’expire pas.' };
   return { connue: true, date: new Date(expire * 1000).toISOString() };
 }
+
+/**
+ * Publie un carrousel sur Instagram.
+ *
+ * Trois temps, imposés par Meta : un conteneur par image, puis un conteneur
+ * de groupe qui les rassemble, puis la publication du groupe. Chaque image
+ * doit être déclarée « is_carousel_item », faute de quoi Meta la traite comme
+ * une publication autonome et le groupe la refuse.
+ *
+ * Les conteneurs d'images sont créés en série et non en parallèle : Meta
+ * télécharge chaque visuel lui-même, et lancer six téléchargements simultanés
+ * depuis la même adresse fait tomber certains d'entre eux en ERROR sans
+ * message utile.
+ *
+ * La légende et le texte alternatif se placent différemment d'une publication
+ * simple : la légende sur le groupe, le texte alternatif sur chaque image —
+ * un lecteur d'écran décrit les planches une par une.
+ */
+export async function publierCarrouselInstagram(
+  config: ConfigurationMeta,
+  images: { url: string; texteAlternatif: string }[],
+  legende: string,
+  requete?: Requete,
+): Promise<ResultatMeta<{ id: string }>> {
+  if (images.length < 2 || images.length > 10) {
+    return {
+      ok: false,
+      erreur: `Un carrousel compte de 2 à 10 planches, ${images.length} fournie(s).`,
+    };
+  }
+
+  const identifiants: string[] = [];
+  for (const [rang, image] of images.entries()) {
+    const conteneur = await appelGraph<{ id: string }>(
+      `/${config.igUserId}/media`, config,
+      {
+        methode: 'POST', requete,
+        corps: {
+          image_url: image.url,
+          is_carousel_item: 'true',
+          alt_text: image.texteAlternatif,
+        },
+      },
+    );
+    if (!conteneur.ok) {
+      return { ok: false, erreur: `Planche ${rang + 1} : ${conteneur.erreur}` };
+    }
+    identifiants.push(conteneur.donnees!.id);
+  }
+
+  // Chaque planche doit être prête avant le regroupement : un groupe formé
+  // sur une image encore en cours de traitement échoue sans dire laquelle.
+  for (const [rang, id] of identifiants.entries()) {
+    const pret = await attendreConteneur(id, config, requete);
+    if (!pret.ok) return { ok: false, erreur: `Planche ${rang + 1} : ${pret.erreur}` };
+  }
+
+  const groupe = await appelGraph<{ id: string }>(
+    `/${config.igUserId}/media`, config,
+    {
+      methode: 'POST', requete,
+      corps: {
+        media_type: 'CAROUSEL',
+        children: identifiants.join(','),
+        caption: legende,
+      },
+    },
+  );
+  if (!groupe.ok) return { ok: false, erreur: `Groupe : ${groupe.erreur}` };
+
+  const pretGroupe = await attendreConteneur(groupe.donnees!.id, config, requete);
+  if (!pretGroupe.ok) return { ok: false, erreur: `Groupe : ${pretGroupe.erreur}` };
+
+  const publie = await appelGraph<{ id: string }>(
+    `/${config.igUserId}/media_publish`, config,
+    { methode: 'POST', requete, corps: { creation_id: groupe.donnees!.id } },
+  );
+  if (!publie.ok) return { ok: false, erreur: `Publication : ${publie.erreur}` };
+
+  return { ok: true, donnees: publie.donnees };
+}
