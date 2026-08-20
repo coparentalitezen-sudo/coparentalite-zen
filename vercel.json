@@ -25,5 +25,11 @@
       "path": "/api/marketing/bilan",
       "schedule": "30 5 * * 1"
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/coparentalitezen/confidentialite",
+      "destination": "/app/confidentialite"
+    }
   ]
 }

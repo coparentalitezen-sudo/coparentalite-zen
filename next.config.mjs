@@ -22,6 +22,15 @@ export default {
   env: {
     NEXT_PUBLIC_VERSION: (process.env.VERCEL_GIT_COMMIT_SHA || 'local').slice(0, 7),
   },
+    async rewrites() {
+    return [
+      {
+        source: '/coparentalitezen/confidentialite',
+        destination: '/app/confidentialite',
+      },
+    ];
+  },
+
   async headers() {
     return [{
       source: '/(.*)',
