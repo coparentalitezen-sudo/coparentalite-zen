@@ -17,10 +17,61 @@ import { genererSemaine, semaineIso, type Contenu } from './generateur';
 
 export type Statut = 'brouillon' | 'en_attente' | 'valide' | 'rejete' | 'publie' | 'echec';
 
+export type Plateforme = 'global' | 'instagram' | 'facebook' | 'pinterest';
+
 export interface Parametres {
   mode: 'validation' | 'automatique';
   actif: boolean;
   suspenduMotif: string | null;
+}
+
+/**
+ * Réglages d'une plateforme.
+ *
+ * Chaque canal a les siens depuis la migration 00045. Auparavant une ligne
+ * unique les commandait tous, si bien qu'activer la publication automatique
+ * pour un canal l'activait pour les autres — une commande à distance
+ * involontaire, découverte parce qu'un second canal est apparu.
+ */
+export async function lireParametresPlateforme(
+  plateforme: Plateforme,
+): Promise<Parametres | null> {
+  const service = supabaseService();
+  if (!service) return null;
+  const { data } = await service
+    .from('marketing_parametres')
+    .select('mode, actif, suspendu_motif').eq('plateforme', plateforme).maybeSingle();
+  if (!data) return null;
+  return { mode: data.mode, actif: data.actif, suspenduMotif: data.suspendu_motif };
+}
+
+/**
+ * Une plateforme peut-elle publier ?
+ *
+ * Deux notions distinctes, qu'il ne faut pas confondre :
+ *   * « actif » dit si le canal est en service. C'est l'arrêt d'urgence, et
+ *     il vaut aussi pour une publication déclenchée à la main — un arrêt
+ *     qu'un clic contourne n'arrête rien.
+ *   * « mode » dit qui déclenche : vous, ou la tâche planifiée.
+ *
+ * Il faut l'interrupteur du canal *et* l'interrupteur général. Le global
+ * coupe tout, mais n'allume rien : rallumer doit rester un geste par canal.
+ */
+export async function publicationAutorisee(
+  plateforme: Exclude<Plateforme, 'global'>,
+): Promise<{ autorisee: boolean; motif?: string }> {
+  const [global, propre] = await Promise.all([
+    lireParametresPlateforme('global'),
+    lireParametresPlateforme(plateforme),
+  ]);
+
+  if (global && !global.actif) {
+    return { autorisee: false, motif: 'Publication suspendue pour toutes les plateformes.' };
+  }
+  if (!propre?.actif) {
+    return { autorisee: false, motif: `Publication suspendue pour ${plateforme}.` };
+  }
+  return { autorisee: true };
 }
 
 export interface ContenuEnregistre extends Contenu {
@@ -33,12 +84,14 @@ export async function lireParametres(): Promise<Parametres | null> {
   if (!service) return null;
   const { data } = await service
     .from('marketing_parametres')
-    .select('mode, actif, suspendu_motif').eq('id', true).single();
+    .select('mode, actif, suspendu_motif').eq('plateforme', 'global').maybeSingle();
   if (!data) return null;
   return { mode: data.mode, actif: data.actif, suspenduMotif: data.suspendu_motif };
 }
 
-export async function majParametres(champs: Partial<Parametres>): Promise<boolean> {
+export async function majParametres(
+  champs: Partial<Parametres> & { plateforme?: Plateforme },
+): Promise<boolean> {
   const service = supabaseService();
   if (!service) return false;
   const { error } = await service.from('marketing_parametres').update({
@@ -46,7 +99,7 @@ export async function majParametres(champs: Partial<Parametres>): Promise<boolea
     ...(champs.actif !== undefined ? { actif: champs.actif } : {}),
     ...(champs.suspenduMotif !== undefined ? { suspendu_motif: champs.suspenduMotif } : {}),
     updated_at: new Date().toISOString(),
-  }).eq('id', true);
+  }).eq('plateforme', champs.plateforme ?? 'global');
   return !error;
 }
 

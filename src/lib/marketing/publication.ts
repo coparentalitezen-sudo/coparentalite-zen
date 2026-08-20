@@ -2,7 +2,9 @@ import 'server-only';
 import { configurationPrete, publierImageInstagram, publierFacebook, expurger } from './meta';
 import { urlVisuelPublic } from './signature';
 import { contenuDeReference } from './rendu';
-import { reserverPublication, conclurePublication, enregistrerSemaine } from './depot';
+import {
+  reserverPublication, conclurePublication, enregistrerSemaine, publicationAutorisee,
+} from './depot';
 
 /**
  * Publication d'un contenu.
@@ -30,6 +32,14 @@ export async function publierContenu(
   plateforme: 'instagram' | 'facebook',
   page = 0,
 ): Promise<ResultatPublication> {
+  // Chaque plateforme répond d'elle-même. Une publication déclenchée à la
+  // main reste soumise à son interrupteur : c'est lui l'arrêt d'urgence, et
+  // un arrêt qu'un clic contourne n'arrête rien.
+  const autorisation = await publicationAutorisee(plateforme);
+  if (!autorisation.autorisee) {
+    return { ok: false, erreur: autorisation.motif };
+  }
+
   const prete = await configurationPrete();
   if (!prete.ok) return { ok: false, erreur: prete.erreur };
   const config = prete.donnees!;
