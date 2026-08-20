@@ -1,5 +1,5 @@
 import 'server-only';
-import { configurationMeta, publierImageInstagram, publierFacebook, expurger } from './meta';
+import { configurationPrete, publierImageInstagram, publierFacebook, expurger } from './meta';
 import { urlVisuelPublic } from './signature';
 import { contenuDeReference } from './rendu';
 import { reserverPublication, conclurePublication, enregistrerSemaine } from './depot';
@@ -30,8 +30,9 @@ export async function publierContenu(
   plateforme: 'instagram' | 'facebook',
   page = 0,
 ): Promise<ResultatPublication> {
-  const config = configurationMeta();
-  if (!config) return { ok: false, erreur: 'Meta n’est pas configuré.' };
+  const prete = await configurationPrete();
+  if (!prete.ok) return { ok: false, erreur: prete.erreur };
+  const config = prete.donnees!;
 
   const base = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://coparentalitezen.fr';
 

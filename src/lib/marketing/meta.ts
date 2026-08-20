@@ -304,3 +304,100 @@ export async function aptitudes(
           + 'vérifier qu’en publiant : la première publication réelle le dira.',
   };
 }
+
+/**
+ * Jeton de page, dérivé au besoin.
+ *
+ * Publier sur une page exige un jeton de page. L'obtenir demandait jusqu'ici
+ * trois requêtes manuelles enchaînées — jeton court, jeton long, jeton de
+ * page — et il fallait coller la bonne des trois valeurs dans Vercel. Deux
+ * fois sur deux, c'est la mauvaise qui a été enregistrée, et l'erreur ne se
+ * voyait qu'à l'expiration, des heures plus tard.
+ *
+ * L'application fait donc elle-même la dernière étape : si le jeton fourni
+ * est un jeton d'utilisateur, elle en dérive le jeton de page. Une seule
+ * valeur à saisir au lieu de trois, et celle qui reste est la plus facile à
+ * obtenir.
+ *
+ * Le résultat est gardé en mémoire pour la durée de vie de la fonction : la
+ * dérivation coûte un appel, inutile de le refaire à chaque publication.
+ */
+let jetonDePageEnCache: { source: string; valeur: string } | null = null;
+
+export async function jetonDePage(
+  config: ConfigurationMeta, requete?: Requete,
+): Promise<ResultatMeta<string>> {
+  if (jetonDePageEnCache?.source === config.jeton) {
+    return { ok: true, donnees: jetonDePageEnCache.valeur };
+  }
+
+  const nature = await natureDuJeton(config, requete);
+  if (!nature.ok) return { ok: false, erreur: nature.erreur };
+
+  // Déjà un jeton de page : rien à dériver.
+  if (nature.donnees!.estJetonDePage) {
+    jetonDePageEnCache = { source: config.jeton, valeur: config.jeton };
+    return { ok: true, donnees: config.jeton };
+  }
+
+  const derive = await appelGraph<{ access_token?: string }>(
+    `/${config.pageId}?fields=access_token`, config, { requete });
+  if (!derive.ok) return { ok: false, erreur: `Dérivation impossible — ${derive.erreur}` };
+
+  const valeur = derive.donnees?.access_token;
+  if (!valeur) {
+    return {
+      ok: false,
+      erreur: 'La page n’a pas renvoyé de jeton : l’autorisation pages_show_list manque '
+        + 'peut-être, ou le compte n’administre pas cette page.',
+    };
+  }
+
+  jetonDePageEnCache = { source: config.jeton, valeur };
+  return { ok: true, donnees: valeur };
+}
+
+/** Configuration prête à publier, jeton de page compris. */
+export async function configurationPrete(
+  requete?: Requete,
+): Promise<ResultatMeta<ConfigurationMeta>> {
+  const config = configurationMeta();
+  if (!config) return { ok: false, erreur: 'Meta n’est pas configuré.' };
+
+  const jeton = await jetonDePage(config, requete);
+  if (!jeton.ok) return { ok: false, erreur: jeton.erreur };
+
+  return { ok: true, donnees: { ...config, jeton: jeton.donnees! } };
+}
+
+/**
+ * Date d'expiration du jeton, si elle est connaissable.
+ *
+ * Exige la clé secrète de l'application : sans elle, Meta refuse d'inspecter
+ * un jeton. Absente, la fonction le dit plutôt que d'inventer une date — un
+ * jeton dont on croit à tort qu'il court six semaines est pire qu'un jeton
+ * dont on ignore l'échéance.
+ */
+export async function expirationJeton(
+  config: ConfigurationMeta, requete?: Requete,
+): Promise<{ connue: boolean; date: string | null; motif?: string }> {
+  const secret = process.env.META_APP_SECRET?.trim();
+  if (!secret) {
+    return {
+      connue: false, date: null,
+      motif: 'META_APP_SECRET absente : l’échéance du jeton ne peut pas être lue.',
+    };
+  }
+
+  const r = await appelGraph<{ data?: { expires_at?: number; is_valid?: boolean } }>(
+    `/debug_token?input_token=${encodeURIComponent(config.jeton)}`
+    + `&access_token=${encodeURIComponent(`${config.appId}|${secret}`)}`,
+    config, { requete },
+  );
+  if (!r.ok) return { connue: false, date: null, motif: r.erreur };
+
+  const expire = r.donnees?.data?.expires_at ?? 0;
+  // Zéro signifie « n'expire pas » dans la convention de Meta.
+  if (expire === 0) return { connue: true, date: null, motif: 'N’expire pas.' };
+  return { connue: true, date: new Date(expire * 1000).toISOString() };
+}

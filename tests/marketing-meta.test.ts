@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   configurationMeta, etatConfiguration, expurger, appelGraph,
   verifierConnexion, permissions, publierImageInstagram, publierFacebook,
-  natureDuJeton, aptitudes, VERSION_GRAPH, type ConfigurationMeta,
+  natureDuJeton, aptitudes, jetonDePage, expirationJeton,
+  VERSION_GRAPH, type ConfigurationMeta,
 } from '../src/lib/marketing/meta';
 
 const CONFIG: ConfigurationMeta = {
@@ -234,5 +235,45 @@ describe('aptitudes réelles plutôt que déclarées', () => {
     const a = await aptitudes(CONFIG, f.requete);
     expect(a.facebook).toBe(false);
     expect(a.detailFacebook.length).toBeGreaterThan(20);
+  });
+});
+
+describe('dérivation du jeton de page', () => {
+  it('garde tel quel un jeton déjà de page', async () => {
+    const f = faussaire([{ corps: { id: '222' } }]);
+    const r = await jetonDePage({ ...CONFIG, jeton: 'jeton-page-A' }, f.requete);
+    expect(r.donnees).toBe('jeton-page-A');
+    expect(f.appels).toHaveLength(1);
+  });
+
+  it('dérive un jeton de page depuis un jeton d’utilisateur', async () => {
+    // C'est l'étape manuelle qui a été ratée deux fois. La faire faire à
+    // l'application supprime la confusion plutôt que de la documenter.
+    const f = faussaire([
+      { corps: { id: '999' } },
+      { corps: { access_token: 'jeton-de-page-derive' } },
+    ]);
+    const r = await jetonDePage({ ...CONFIG, jeton: 'jeton-utilisateur-B' }, f.requete);
+    expect(r.ok).toBe(true);
+    expect(r.donnees).toBe('jeton-de-page-derive');
+    expect(f.appels[1].url).toContain('/222?fields=access_token');
+  });
+
+  it('explique une dérivation impossible au lieu de la taire', async () => {
+    const f = faussaire([
+      { corps: { id: '999' } },
+      { corps: { id: '222' } },
+    ]);
+    const r = await jetonDePage({ ...CONFIG, jeton: 'jeton-utilisateur-C' }, f.requete);
+    expect(r.ok).toBe(false);
+    expect(r.erreur).toContain('pages_show_list');
+  });
+
+  it('n’invente pas d’échéance sans la clé secrète', async () => {
+    delete process.env.META_APP_SECRET;
+    const e = await expirationJeton(CONFIG, faussaire([{ corps: {} }]).requete);
+    expect(e.connue).toBe(false);
+    expect(e.date).toBeNull();
+    expect(e.motif).toContain('META_APP_SECRET');
   });
 });

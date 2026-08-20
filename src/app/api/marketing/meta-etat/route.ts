@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
 import { estAdministrateur } from '@/lib/marketing/administration';
 import {
-  configurationMeta, etatConfiguration, verifierConnexion, permissions,
-  quotaPublication, aptitudes, VERSION_GRAPH,
+  configurationMeta, configurationPrete, etatConfiguration, verifierConnexion,
+  permissions, quotaPublication, aptitudes, expirationJeton, VERSION_GRAPH,
 } from '@/lib/marketing/meta';
 import { lireParametres } from '@/lib/marketing/depot';
 import { urlVisuelPublic } from '@/lib/marketing/signature';
@@ -38,7 +38,7 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!estAdministrateur(user?.email)) return new NextResponse('Not found', { status: 404 });
 
-  const config = configurationMeta();
+  const brute = configurationMeta();
   const variables = etatConfiguration();
   const parametres = await lireParametres();
 
@@ -50,7 +50,7 @@ export async function GET() {
   const premier = genererSemaine(new Date(), base).find((c) => c.format === 'publication');
   const urlVisuel = premier ? urlVisuelPublic(base, premier.reference, 0) : null;
 
-  if (!config) {
+  if (!brute) {
     return NextResponse.json({
       connecte: false,
       motif: 'Configuration incomplète.',
@@ -59,11 +59,26 @@ export async function GET() {
     });
   }
 
-  const [identite, accordees, quota, capacites] = await Promise.all([
+  // On éprouve la configuration telle qu'elle servira à publier, jeton de
+  // page dérivé au besoin. Vérifier autre chose que ce qui publie ne prouve
+  // rien — la leçon a coûté deux jetons expirés.
+  const prete = await configurationPrete();
+  if (!prete.ok) {
+    return NextResponse.json({
+      connecte: false,
+      motif: prete.erreur,
+      variables,
+      version_graph: VERSION_GRAPH,
+    });
+  }
+  const config = prete.donnees!;
+
+  const [identite, accordees, quota, capacites, echeance] = await Promise.all([
     verifierConnexion(config),
     permissions(config),
     quotaPublication(config),
     aptitudes(config),
+    expirationJeton(config),
   ]);
 
   // La liste déclarative ne vaut que pour un jeton d'utilisateur : un jeton de
@@ -93,6 +108,13 @@ export async function GET() {
     quota_publications: quota.donnees ?? null,
     // Sans CRON_SECRET, aucune adresse ne peut être signée : le lien serait
     // vide et Meta n'aurait rien à récupérer.
+    // L'échéance doit être lisible avant de publier, pas découverte à
+    // l'échec : c'est ce qui manquait quand un jeton de deux heures a été
+    // enregistré à la place d'un jeton de deux mois.
+    jeton_expire_le: echeance.date,
+    jeton_echeance_connue: echeance.connue,
+    jeton_echeance_motif: echeance.motif ?? null,
+    jeton_derive_automatiquement: config.jeton !== brute.jeton,
     visuel_signable: Boolean(urlVisuel),
     visuel_url: urlVisuel,
     mode: parametres?.mode ?? 'validation',
