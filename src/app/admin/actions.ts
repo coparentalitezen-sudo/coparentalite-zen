@@ -5,6 +5,7 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { estAdministrateur } from '@/lib/marketing/administration';
 import {
   majParametres, majStatut, corrigerLegende, type Statut,
+  type Plateforme,
 } from '@/lib/marketing/depot';
 import { publierContenu } from '@/lib/marketing/publication';
 
@@ -56,27 +57,24 @@ export async function actionLegende(
   return { ok, message: ok ? undefined : 'La correction n’a pas abouti.' };
 }
 
-/**
- * Interrupteur général.
- *
- * Volontairement séparé du mode : suspendre tout et passer en automatique sont
- * deux décisions différentes, et les confondre dans un seul réglage conduirait
- * un jour à réactiver les publications en croyant changer de mode.
- */
+/** Interrupteur d'un canal, ou arrêt d'urgence commun avec « global ». */
 export async function actionSuspendre(
-  actif: boolean, motif?: string,
+  plateforme: Plateforme, actif: boolean, motif?: string,
 ): Promise<{ ok: boolean; message?: string }> {
   if (!await exigerAdministrateur()) return { ok: false, message: 'Accès refusé.' };
-  const ok = await majParametres({ actif, suspenduMotif: actif ? null : (motif ?? 'Suspendu manuellement') });
+  const ok = await majParametres({
+    plateforme, actif,
+    suspenduMotif: actif ? null : (motif ?? 'Suspendu manuellement'),
+  });
   if (ok) revalidatePath('/admin');
   return { ok, message: ok ? undefined : 'Le réglage n’a pas été enregistré.' };
 }
 
 export async function actionMode(
-  mode: 'validation' | 'automatique',
+  plateforme: Exclude<Plateforme, 'global'>, mode: 'validation' | 'automatique',
 ): Promise<{ ok: boolean; message?: string }> {
   if (!await exigerAdministrateur()) return { ok: false, message: 'Accès refusé.' };
-  const ok = await majParametres({ mode });
+  const ok = await majParametres({ plateforme, mode });
   if (ok) revalidatePath('/admin');
   return { ok, message: ok ? undefined : 'Le réglage n’a pas été enregistré.' };
 }

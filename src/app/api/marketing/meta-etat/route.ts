@@ -5,7 +5,7 @@ import {
   configurationMeta, configurationPrete, etatConfiguration, verifierConnexion,
   permissions, quotaPublication, aptitudes, expirationJeton, VERSION_GRAPH,
 } from '@/lib/marketing/meta';
-import { lireParametres } from '@/lib/marketing/depot';
+import { lireParametresPlateforme } from '@/lib/marketing/depot';
 import { urlVisuelPublic } from '@/lib/marketing/signature';
 import { genererSemaine } from '@/lib/marketing/generateur';
 
@@ -40,7 +40,10 @@ export async function GET() {
 
   const brute = configurationMeta();
   const variables = etatConfiguration();
-  const parametres = await lireParametres();
+  const [instagramParametres, facebookParametres] = await Promise.all([
+    lireParametresPlateforme('instagram'),
+    lireParametresPlateforme('facebook'),
+  ]);
 
   // Le visuel est le maillon le plus souvent en cause, et le seul que Meta
   // décrit mal : ses refus parlent de « type de média » quand l'adresse est
@@ -117,7 +120,15 @@ export async function GET() {
     jeton_derive_automatiquement: config.jeton !== brute.jeton,
     visuel_signable: Boolean(urlVisuel),
     visuel_url: urlVisuel,
-    mode: parametres?.mode ?? 'validation',
-    publication_active: parametres?.actif ?? false,
+    // Conserver les réglages séparés évite qu'un diagnostic Instagram fasse
+    // croire que Facebook est actif, ou inversement.
+    reglages_instagram: {
+      mode: instagramParametres?.mode ?? 'validation',
+      actif: instagramParametres?.actif ?? false,
+    },
+    reglages_facebook: {
+      mode: facebookParametres?.mode ?? 'validation',
+      actif: facebookParametres?.actif ?? false,
+    },
   });
 }

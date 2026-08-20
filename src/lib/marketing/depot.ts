@@ -65,7 +65,7 @@ export async function publicationAutorisee(
     lireParametresPlateforme(plateforme),
   ]);
 
-  if (global && !global.actif) {
+  if (!global?.actif) {
     return { autorisee: false, motif: 'Publication suspendue pour toutes les plateformes.' };
   }
   if (!propre?.actif) {
@@ -77,16 +77,6 @@ export async function publicationAutorisee(
 export interface ContenuEnregistre extends Contenu {
   statut: Statut;
   motifRejet: string | null;
-}
-
-export async function lireParametres(): Promise<Parametres | null> {
-  const service = supabaseService();
-  if (!service) return null;
-  const { data } = await service
-    .from('marketing_parametres')
-    .select('mode, actif, suspendu_motif').eq('plateforme', 'global').maybeSingle();
-  if (!data) return null;
-  return { mode: data.mode, actif: data.actif, suspenduMotif: data.suspendu_motif };
 }
 
 export async function majParametres(

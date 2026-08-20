@@ -1,5 +1,7 @@
 import { genererSemaine } from '@/lib/marketing/generateur';
-import { lireParametres, lireStatuts } from '@/lib/marketing/depot';
+import {
+  lireParametresPlateforme, lireStatuts, publicationAutorisee,
+} from '@/lib/marketing/depot';
 import { creerFluxPinterest } from '@/lib/marketing/pinterest';
 
 export const dynamic = 'force-dynamic';
@@ -7,11 +9,12 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const base = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://coparentalitezen.fr';
   const contenus = genererSemaine(new Date(), base);
-  const [statuts, parametres] = await Promise.all([
+  const [statuts, parametres, autorisation] = await Promise.all([
     lireStatuts(contenus.map((contenu) => contenu.reference)),
-    lireParametres(),
+    lireParametresPlateforme('pinterest'),
+    publicationAutorisee('pinterest'),
   ]);
-  const publiables = parametres?.actif
+  const publiables = autorisation.autorisee && parametres
     ? parametres.mode === 'automatique'
       ? contenus
       : contenus.filter((contenu) =>

@@ -1,7 +1,9 @@
 import { notFound } from 'next/navigation';
 import { supabaseServer } from '@/lib/supabase/server';
 import { estAdministrateur } from '@/lib/marketing/administration';
-import { enregistrerSemaine, lireParametres, lireStatuts } from '@/lib/marketing/depot';
+import {
+  enregistrerSemaine, lireParametresPlateforme, lireStatuts,
+} from '@/lib/marketing/depot';
 import { semaineIso } from '@/lib/marketing/generateur';
 import { urlVisuelPublic } from '@/lib/marketing/signature';
 import { PINTEREST_DOMAIN_VERIFICATION } from '@/lib/marketing/configuration-pinterest';
@@ -32,8 +34,11 @@ export default async function PageAdmin() {
   // L'enregistrement est rejouable : ouvrir la page deux fois ne crée pas une
   // seconde série de brouillons, les références étant uniques en base.
   const contenus = await enregistrerSemaine(maintenant, base);
-  const [parametres, statuts] = await Promise.all([
-    lireParametres(),
+  const [global, instagram, facebook, pinterest, statuts] = await Promise.all([
+    lireParametresPlateforme('global'),
+    lireParametresPlateforme('instagram'),
+    lireParametresPlateforme('facebook'),
+    lireParametresPlateforme('pinterest'),
     lireStatuts(contenus.map((c) => c.reference)),
   ]);
 
@@ -58,12 +63,19 @@ export default async function PageAdmin() {
   return (
     <AdminSemaine
       contenus={affiches}
-      actif={parametres?.actif ?? false}
-      mode={parametres?.mode ?? 'validation'}
+      globalActif={global?.actif ?? false}
+      actif={instagram?.actif ?? false}
+      mode={instagram?.mode ?? 'validation'}
+      facebook={{
+        actif: facebook?.actif ?? false,
+        mode: facebook?.mode ?? 'validation',
+      }}
       semaine={`semaine ${semaineIso(maintenant)}`}
       pinterest={{
         rssUrl: new URL('/pinterest.xml', base).toString(),
         verificationConfiguree: Boolean(PINTEREST_DOMAIN_VERIFICATION),
+        actif: pinterest?.actif ?? false,
+        mode: pinterest?.mode ?? 'validation',
       }}
     />
   );

@@ -337,16 +337,26 @@ function Carte({ contenu }: { contenu: ContenuAffiche }) {
 }
 
 export function AdminSemaine({
-  contenus, actif, mode, semaine, pinterest,
+  contenus, globalActif, actif, mode, semaine, facebook, pinterest,
 }: {
   contenus: ContenuAffiche[];
+  globalActif: boolean;
   actif: boolean;
   mode: 'validation' | 'automatique';
   semaine: string;
-  pinterest: { rssUrl: string; verificationConfiguree: boolean };
+  facebook: { actif: boolean; mode: 'validation' | 'automatique' };
+  pinterest: {
+    rssUrl: string;
+    verificationConfiguree: boolean;
+    actif: boolean;
+    mode: 'validation' | 'automatique';
+  };
 }) {
+  const [generalEnService, setGeneralEnService] = useState(globalActif);
   const [enService, setEnService] = useState(actif);
   const [modeActuel, setModeActuel] = useState(mode);
+  const [facebookEnService, setFacebookEnService] = useState(facebook.actif);
+  const [facebookMode, setFacebookMode] = useState(facebook.mode);
   const [message, setMessage] = useState<string | null>(null);
   const [enCours, demarrer] = useTransition();
 
@@ -380,11 +390,15 @@ export function AdminSemaine({
             </p>
           </div>
           <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-bold ${
-            pinterest.verificationConfiguree ? 'bg-navy text-white' : 'bg-muted text-soft'
+            pinterest.actif && generalEnService ? 'bg-navy text-white' : 'bg-muted text-soft'
           }`}>
-            {pinterest.verificationConfiguree ? 'Prêt' : 'À connecter'}
+            {pinterest.actif && generalEnService ? 'En service' : 'Suspendu'}
           </span>
         </div>
+        <p className="text-sm text-soft">
+          Domaine {pinterest.verificationConfiguree ? 'configuré' : 'à configurer'} · mode{' '}
+          {pinterest.mode === 'automatique' ? 'automatique' : 'validation'}.
+        </p>
         <div className="rounded-xl bg-muted p-3">
           <p className="text-xs font-bold uppercase text-soft">Flux RSS à connecter</p>
           <p className="mt-1 break-all text-sm">{pinterest.rssUrl}</p>
@@ -395,7 +409,29 @@ export function AdminSemaine({
       <section className="card space-y-3 p-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="font-bold">Publication automatique</p>
+            <p className="font-bold">Arrêt général</p>
+            <p className="text-sm text-soft">
+              {generalEnService ? 'Tous les canaux peuvent fonctionner' : 'Toutes les publications sont suspendues'}
+            </p>
+          </div>
+          <button
+            type="button" className={generalEnService ? 'btn btn-ghost' : 'btn btn-primary'}
+            disabled={enCours}
+            onClick={() => demarrer(async () => {
+              const r = await actionSuspendre('global', !generalEnService);
+              if (r.ok) setGeneralEnService(!generalEnService);
+              else setMessage(r.message ?? 'Échec.');
+            })}
+          >
+            {generalEnService ? 'Tout suspendre' : 'Lever l’arrêt général'}
+          </button>
+        </div>
+      </section>
+
+      <section className="card space-y-3 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="font-bold">Publication Instagram</p>
             <p className="text-sm text-soft">
               {enService ? 'En service' : 'Suspendue — rien ne part'}
             </p>
@@ -404,12 +440,12 @@ export function AdminSemaine({
             type="button" className={enService ? 'btn btn-ghost' : 'btn btn-primary'}
             disabled={enCours}
             onClick={() => demarrer(async () => {
-              const r = await actionSuspendre(!enService);
+              const r = await actionSuspendre('instagram', !enService);
               if (r.ok) setEnService(!enService);
               else setMessage(r.message ?? 'Échec.');
             })}
           >
-            {enService ? 'Tout suspendre' : 'Remettre en service'}
+            {enService ? 'Suspendre Instagram' : 'Activer Instagram'}
           </button>
         </div>
 
@@ -426,7 +462,7 @@ export function AdminSemaine({
             type="button" className="btn btn-ghost" disabled={enCours}
             onClick={() => demarrer(async () => {
               const nouveau = modeActuel === 'validation' ? 'automatique' : 'validation';
-              const r = await actionMode(nouveau);
+              const r = await actionMode('instagram', nouveau);
               if (r.ok) setModeActuel(nouveau);
               else setMessage(r.message ?? 'Échec.');
             })}
@@ -436,6 +472,50 @@ export function AdminSemaine({
         </div>
 
         {message && <p className="text-sm font-bold text-navy-text">{message}</p>}
+      </section>
+
+      <section className="card space-y-3 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="font-bold">Publication Facebook</p>
+            <p className="text-sm text-soft">
+              {facebookEnService ? 'En service' : 'Suspendue — rien ne part'}
+            </p>
+          </div>
+          <button
+            type="button" className={facebookEnService ? 'btn btn-ghost' : 'btn btn-primary'}
+            disabled={enCours}
+            onClick={() => demarrer(async () => {
+              const r = await actionSuspendre('facebook', !facebookEnService);
+              if (r.ok) setFacebookEnService(!facebookEnService);
+              else setMessage(r.message ?? 'Échec.');
+            })}
+          >
+            {facebookEnService ? 'Suspendre Facebook' : 'Activer Facebook'}
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-black/5 pt-3">
+          <div>
+            <p className="font-bold">Mode</p>
+            <p className="text-sm text-soft">
+              {facebookMode === 'validation'
+                ? 'Publication déclenchée manuellement'
+                : 'Publication déclenchée automatiquement'}
+            </p>
+          </div>
+          <button
+            type="button" className="btn btn-ghost" disabled={enCours}
+            onClick={() => demarrer(async () => {
+              const nouveau = facebookMode === 'validation' ? 'automatique' : 'validation';
+              const r = await actionMode('facebook', nouveau);
+              if (r.ok) setFacebookMode(nouveau);
+              else setMessage(r.message ?? 'Échec.');
+            })}
+          >
+            {facebookMode === 'validation' ? 'Passer en automatique' : 'Revenir à la validation'}
+          </button>
+        </div>
       </section>
 
       {enAttente.length > 0 && (

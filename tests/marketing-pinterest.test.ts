@@ -56,6 +56,15 @@ describe('flux automatique Pinterest', () => {
     expect(vide).toContain('<channel>');
     expect(vide).not.toContain('<item>');
   });
+
+  it('utilise les réglages Pinterest et respecte les deux arrêts d’urgence', async () => {
+    const fs = await import('node:fs/promises');
+    const route = await fs.readFile('src/app/pinterest.xml/route.ts', 'utf8');
+
+    expect(route).toContain("lireParametresPlateforme('pinterest')");
+    expect(route).toContain("publicationAutorisee('pinterest')");
+    expect(route).not.toContain('lireParametres()');
+  });
 });
 
 describe('visuel Pinterest', () => {

@@ -152,4 +152,30 @@ describe('leçon de la migration 00045', () => {
     expect(depot).not.toContain("eq('id', true)");
     expect(depot).toContain("eq('plateforme'");
   });
+
+  it('ferme la publication si le réglage global manque ou est inactif', async () => {
+    const fs = await import('node:fs/promises');
+    const depot = await fs.readFile('src/lib/marketing/depot.ts', 'utf8');
+    expect(depot).toContain('if (!global?.actif)');
+    expect(depot).toContain('if (!propre?.actif)');
+  });
+
+  it('remplace les trois anciens lecteurs par leur plateforme explicite', async () => {
+    const fs = await import('node:fs/promises');
+    const [meta, admin, pinterest, bilan] = await Promise.all([
+      fs.readFile('src/app/api/marketing/meta-etat/route.ts', 'utf8'),
+      fs.readFile('src/app/admin/page.tsx', 'utf8'),
+      fs.readFile('src/app/pinterest.xml/route.ts', 'utf8'),
+      fs.readFile('src/app/api/marketing/bilan/route.ts', 'utf8'),
+    ]);
+
+    expect(meta).toContain("lireParametresPlateforme('instagram')");
+    expect(meta).toContain("lireParametresPlateforme('facebook')");
+    expect(admin).toContain("lireParametresPlateforme('global')");
+    expect(admin).toContain("lireParametresPlateforme('instagram')");
+    expect(admin).toContain("lireParametresPlateforme('facebook')");
+    expect(admin).toContain("lireParametresPlateforme('pinterest')");
+    expect(pinterest).toContain("publicationAutorisee('pinterest')");
+    expect([meta, admin, pinterest, bilan].join('\n')).not.toContain('lireParametres()');
+  });
 });
