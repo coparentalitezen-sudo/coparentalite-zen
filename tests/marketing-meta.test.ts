@@ -160,13 +160,29 @@ describe('publication Instagram', () => {
     expect(String(f.appels[0].init?.body)).toContain('alt_text=Description');
   });
 
-  it('s’arrête si le conteneur n’est pas prêt, au lieu de provoquer une erreur 9007', async () => {
+  it('attend qu’un conteneur en cours devienne prêt, au lieu d’abandonner', async () => {
+    // Meta télécharge l'image lui-même : quelques secondes s'écoulent avant
+    // FINISHED. Échouer sur un IN_PROGRESS revenait à refuser un cas normal.
     const f = faussaire([
-      { corps: { id: 'c' } }, { corps: { status_code: 'IN_PROGRESS' } },
+      { corps: { id: 'c' } },
+      { corps: { status_code: 'IN_PROGRESS' } },
+      { corps: { status_code: 'FINISHED' } },
+      { corps: { id: 'media-7' } },
+    ]);
+    const r = await publierImageInstagram(CONFIG, 'https://exemple.fr/i.png', 'L', 'A', f.requete);
+    expect(r.ok).toBe(true);
+    expect(r.donnees?.id).toBe('media-7');
+  }, 20000);
+
+  it('renonce aussitôt si Meta déclare le conteneur en erreur', async () => {
+    const f = faussaire([
+      { corps: { id: 'c' } },
+      { corps: { status_code: 'ERROR', status: 'Image inaccessible' } },
     ]);
     const r = await publierImageInstagram(CONFIG, 'https://exemple.fr/i.png', 'L', 'A', f.requete);
     expect(r.ok).toBe(false);
-    expect(r.erreur).toContain('IN_PROGRESS');
+    expect(r.erreur).toContain('Image inaccessible');
+    // Deux appels seulement : inutile d'attendre quand Meta a renoncé.
     expect(f.appels).toHaveLength(2);
   });
 

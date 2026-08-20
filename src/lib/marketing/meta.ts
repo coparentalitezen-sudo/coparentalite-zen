@@ -152,6 +152,58 @@ export async function permissions(
   };
 }
 
+/** Attente entre deux vérifications de l'état du conteneur. */
+const ATTENTE_MS = 3000;
+const TENTATIVES_MAX = 8;
+
+/**
+ * Attend que le conteneur soit prêt.
+ *
+ * Meta télécharge l'image lui-même avant de la préparer : quelques secondes
+ * s'écoulent entre la création du conteneur et son état FINISHED. Vérifier
+ * une seule fois, aussitôt après la création, revenait à échouer sur un
+ * IN_PROGRESS parfaitement normal — une précaution qui ne laissait pas le
+ * temps de servir.
+ *
+ * On interroge donc jusqu'à huit fois, toutes les trois secondes, soit vingt
+ * secondes au plus. Au-delà, il s'agit d'autre chose qu'une lenteur, et
+ * insister ne ferait que retarder le diagnostic.
+ */
+async function attendreConteneur(
+  id: string, config: ConfigurationMeta, requete?: Requete,
+): Promise<ResultatMeta<string>> {
+  let dernier = 'inconnu';
+
+  for (let essai = 0; essai < TENTATIVES_MAX; essai++) {
+    const etat = await appelGraph<{ status_code?: string; status?: string }>(
+      `/${id}?fields=status_code,status`, config, { requete });
+
+    if (!etat.ok) return { ok: false, erreur: `État illisible — ${etat.erreur}` };
+
+    dernier = etat.donnees?.status_code ?? 'inconnu';
+    if (dernier === 'FINISHED') return { ok: true, donnees: dernier };
+
+    if (dernier === 'ERROR' || dernier === 'EXPIRED') {
+      // Inutile d'attendre : Meta a renoncé. Le champ « status » porte alors
+      // la raison, souvent plus parlante que le code.
+      return {
+        ok: false,
+        erreur: `Conteneur en échec (${dernier}) — ${etat.donnees?.status ?? 'sans détail'}`,
+      };
+    }
+
+    if (essai < TENTATIVES_MAX - 1) {
+      await new Promise((suite) => setTimeout(suite, ATTENTE_MS));
+    }
+  }
+
+  return {
+    ok: false,
+    erreur: `Conteneur toujours ${dernier} après ${(TENTATIVES_MAX * ATTENTE_MS) / 1000} s. `
+      + 'Réessayez : le contenu n’a pas été publié.',
+  };
+}
+
 /**
  * Publie une image simple sur Instagram.
  *
@@ -172,13 +224,8 @@ export async function publierImageInstagram(
   );
   if (!conteneur.ok) return { ok: false, erreur: `Conteneur : ${conteneur.erreur}` };
 
-  const etat = await appelGraph<{ status_code?: string }>(
-    `/${conteneur.donnees!.id}?fields=status_code`, config, { requete });
-  if (etat.ok && etat.donnees?.status_code && etat.donnees.status_code !== 'FINISHED') {
-    // Publier avant que le conteneur soit prêt renvoie l'erreur 9007. Mieux
-    // vaut s'arrêter ici et réessayer que produire un échec obscur.
-    return { ok: false, erreur: `Conteneur non prêt : ${etat.donnees.status_code}` };
-  }
+  const pret = await attendreConteneur(conteneur.donnees!.id, config, requete);
+  if (!pret.ok) return { ok: false, erreur: pret.erreur };
 
   const publie = await appelGraph<{ id: string }>(
     `/${config.igUserId}/media_publish`, config,
