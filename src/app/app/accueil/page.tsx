@@ -12,6 +12,7 @@ import {
   type Pastille,
 } from '@/components/icons';
 import { useContexte } from '@/lib/use-contexte';
+import { lireIntention, oublierIntention, destinationApresInscription } from '@/lib/intention-achat';
 import {
   listerDepenses,
   listerRemboursements,
@@ -239,6 +240,26 @@ function AnneauSerenite({
 
 export default function Accueil() {
   const { ctx, recharger } = useContexte();
+
+  /**
+   * Reprise de l'intention d'achat.
+   *
+   * Un visiteur venu de la page d'accueil publique a choisi une offre avant
+   * d'avoir un compte. Une fois son foyer créé, on le ramène là où il allait
+   * — sinon la mémorisation ne servirait à rien et il devrait refaire le
+   * chemin. On attend que le foyer existe : rediriger vers la page d'offre
+   * pendant l'accueil guidé n'aurait aucun sens.
+   *
+   * L'intention est oubliée avant la redirection, pour qu'un retour en
+   * arrière ne la rejoue pas indéfiniment.
+   */
+  useEffect(() => {
+    if (ctx.etat !== 'pret') return;
+    const intention = lireIntention();
+    if (!intention) return;
+    oublierIntention();
+    window.location.href = destinationApresInscription(intention);
+  }, [ctx.etat]);
 
   const [depenses, setDepenses] = useState<DepenseListe[] | null>(null);
   const [regle, setRegle] = useState<RegleGarde | null | 'inconnu'>(

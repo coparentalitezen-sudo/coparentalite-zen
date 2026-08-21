@@ -259,3 +259,31 @@ export function agreger(
   if (payees > 0) return 'moitie_payee';
   return 'en_attente';
 }
+
+/**
+ * Disponibilité côté navigateur.
+ *
+ * PAYMENT_SPLIT_ENABLED n'est lisible que sur le serveur. L'interface a
+ * besoin de la même réponse pour ne pas afficher un bouton qui serait ensuite
+ * refusé par la route — d'où ce doublon public. La décision qui fait foi
+ * reste celle du serveur : partageDisponible() est revérifiée dans
+ * /api/paiement/partage, et un client modifié n'obtient rien de plus.
+ */
+export function partageDisponibleClient(periodicite: 'month' | 'year'): boolean {
+  return process.env.NEXT_PUBLIC_PAYMENT_SPLIT_ENABLED === 'true' && periodicite === 'year';
+}
+
+/** Libellés des états, tels qu'ils sont montrés aux deux parents. */
+export function libelleEtat(etat: EtatAgrege): string {
+  switch (etat) {
+    case 'en_attente': return 'En attente de l’autre parent';
+    case 'moitie_payee': return 'Une moitié réglée, l’autre attendue';
+    case 'actif': return 'Abonnement activé';
+    case 'grace': return 'Paiement en difficulté — accès maintenu';
+    case 'remboursement_du': return 'Règlement interrompu, régularisation en cours';
+    case 'interrompu': return 'Règlement interrompu';
+    case 'expire': return 'Demande expirée';
+    case 'invalide': return 'Règlement incohérent';
+    default: return 'Aucun règlement en cours';
+  }
+}

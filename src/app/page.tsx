@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import { InstallAppCard } from '@/components/install-app-card';
 import Link from 'next/link';
+import { BoutonAchat } from '@/components/bouton-achat';
 import { lireGrilleTarifaire, lireGrilleExtensions, formatPrix } from '@/lib/tarifs';
 
 const avantages = [
@@ -94,17 +95,20 @@ const fonctionsZenPlus = [
  */
 const extensions = [
   {
+    id: null,
     duree: '+1 mois',
     prix: '0,99 €',
     description: 'Pour préparer une période ponctuelle un peu plus éloignée.',
   },
   {
+    id: null,
     duree: '+6 mois',
     prix: '3,99 €',
     description: 'Idéal pour organiser les prochaines vacances et la rentrée.',
     recommande: true,
   },
   {
+    id: null,
     duree: '+12 mois',
     prix: '5,99 €',
     description: 'Pour préparer sereinement une année complète.',
@@ -153,6 +157,7 @@ export default async function Landing() {
   // Les extensions codées plus haut ne servent que si la base est injoignable
   const extensionsAffichees = grilleExtensions?.length
     ? grilleExtensions.map((e) => ({
+        id: e.extensionId,
         duree: e.libelle,
         prix: formatPrix(e.prixCents),
         description: e.description ?? '',
@@ -394,10 +399,6 @@ export default async function Landing() {
             </article>
 
             <article className="card relative flex flex-col border-2 border-navy p-6">
-              <span className="absolute right-4 top-4 rounded-full bg-muted px-3 py-1 text-xs font-bold text-navy-text">
-                Bientôt disponible
-              </span>
-
               <div>
                 <p className="text-sm font-bold text-navy-text">
                   Coparentalité Zen Plus
@@ -450,13 +451,11 @@ export default async function Landing() {
                 ))}
               </ul>
 
-              <button
-                type="button"
-                disabled
-                className="btn btn-primary mt-7 w-full opacity-70"
-              >
-                Zen Plus bientôt disponible
-              </button>
+              <BoutonAchat
+                type="abonnement"
+                periodicite="year"
+                libelle="Choisir Zen Plus"
+              />
             </article>
           </div>
         </div>
@@ -509,13 +508,20 @@ export default async function Landing() {
                   {extension.description}
                 </p>
 
-                <button
-                  type="button"
-                  disabled
-                  className="btn btn-ghost mt-5 w-full opacity-70"
-                >
-                  Bientôt disponible
-                </button>
+                {extension.id ? (
+                  <BoutonAchat
+                    type="extension"
+                    extensionId={extension.id}
+                    libelle="Choisir cette extension"
+                    variante="ghost"
+                  />
+                ) : (
+                  /* Grille injoignable : mieux vaut aucun bouton qu'un bouton
+                     qui ouvrirait un achat sans savoir lequel. */
+                  <Link href="/inscription" className="btn btn-ghost mt-5 w-full">
+                    Créer mon espace
+                  </Link>
+                )}
               </article>
             ))}
           </div>
