@@ -64,6 +64,13 @@ export default function Cgu() {
     </SectionJuridique>
 
     {!enBeta && (
+      <SectionJuridique title="Période gratuite">
+        <p>La création d’un foyer ouvre une période de trois mois pendant laquelle la planification est accessible sans paiement. Cette période court à compter de la date de création du foyer et n’est pas reconductible.</p>
+        <p>À son terme, le compte et les données demeurent accessibles, consultables et exportables. Seule la planification d’événements au-delà de l’horizon atteint nécessite l’achat d’une extension ou la souscription d’un abonnement. Aucun prélèvement n’intervient à l’issue de cette période sans souscription expresse de l’utilisateur.</p>
+      </SectionJuridique>
+    )}
+
+    {!enBeta && (
       <SectionJuridique title="Offres payantes">
         <p>Les prix applicables sont ceux affichés avant validation du paiement. Les abonnements sont encaissés par Stripe et renouvelés selon la périodicité choisie. Ils peuvent être résiliés depuis le portail de facturation, avec effet à la fin de la période en cours.</p>
       </SectionJuridique>

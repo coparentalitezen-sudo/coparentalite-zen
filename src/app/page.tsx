@@ -73,7 +73,7 @@ const fonctionsGratuites = [
   'Gestion des dépenses',
   'Calcul automatique du solde',
   'Consultation de l’historique',
-  'Planification jusqu’à 3 mois à l’avance',
+  '3 mois gratuits dès la création de votre espace',
 ];
 
 const fonctionsZenPlus = [
@@ -113,14 +113,14 @@ const extensions = [
 
 const faq = [
   {
-    question: 'Que signifie la limite de trois mois ?',
+    question: 'Que comprennent les 3 mois gratuits ?',
     reponse:
-      'La formule gratuite permet d’ajouter et de modifier des événements jusqu’à trois mois dans le futur. Votre historique reste consultable et vos données ne sont pas supprimées.',
+      'À la création de votre espace, vous pouvez planifier librement pendant 3 mois. Passé ce délai, votre historique reste consultable et vos données ne sont jamais supprimées : seule la planification vers le futur demande une extension ou Zen Plus.',
   },
   {
-    question: 'Que se passe-t-il lorsque j’atteins la limite ?',
+    question: 'Que se passe-t-il au bout des 3 mois ?',
     reponse:
-      'Vous pouvez continuer à utiliser l’application, consulter votre planning et gérer vos dépenses courantes. Pour planifier plus loin, vous pourrez acheter une extension ou choisir Zen Plus.',
+      'Vous pouvez continuer à utiliser l’application, consulter votre planning et gérer vos dépenses courantes. Pour planifier plus loin, vous choisissez une extension ponctuelle ou Zen Plus. Aucun prélèvement n’est déclenché automatiquement.',
   },
   {
     question: 'L’achat d’une extension est-il un abonnement ?',
@@ -217,7 +217,7 @@ export default async function Landing() {
               href="/inscription"
               className="btn btn-primary px-6 py-3"
             >
-              Créer mon espace gratuitement
+              Créer mon espace — 3 mois gratuits
             </Link>
 
             <Link
@@ -229,7 +229,7 @@ export default async function Landing() {
           </div>
 
           <p className="mt-3 text-xs text-soft">
-            Aucun paiement demandé pour commencer.
+            3 mois gratuits pour commencer. Aucune carte bancaire demandée à l’inscription.
           </p>
         </div>
 
@@ -339,12 +339,12 @@ export default async function Landing() {
             </p>
 
             <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight">
-              Commencez gratuitement, prolongez seulement si nécessaire
+              3 mois gratuits pour commencer, prolongez seulement si nécessaire
             </h2>
 
             <p className="mt-3 text-soft">
-              La formule gratuite permet de planifier jusqu’à trois mois dans
-              le futur. Pour aller plus loin, choisissez une extension
+              Votre espace inclut 3 mois de planification gratuite à compter
+              de sa création. Pour aller plus loin, choisissez une extension
               ponctuelle ou Zen Plus.
             </p>
           </div>
@@ -353,7 +353,7 @@ export default async function Landing() {
             <article className="card flex flex-col p-6">
               <div>
                 <p className="text-sm font-bold text-soft">
-                  Formule gratuite
+                  3 mois gratuits
                 </p>
 
                 <div className="mt-2 flex items-end gap-2">
@@ -362,7 +362,7 @@ export default async function Landing() {
                   </span>
 
                   <span className="pb-1 text-sm text-soft">
-                    sans engagement
+                    pendant 3 mois, sans engagement
                   </span>
                 </div>
               </div>
@@ -389,7 +389,7 @@ export default async function Landing() {
                 href="/inscription"
                 className="btn btn-ghost mt-7 w-full"
               >
-                Créer mon espace gratuitement
+                Créer mon espace
               </Link>
             </article>
 
@@ -572,7 +572,7 @@ export default async function Landing() {
             href="/inscription"
             className="mt-6 inline-flex min-h-12 items-center justify-center rounded-xl bg-white px-6 font-bold text-navy-text"
           >
-            Commencer gratuitement
+            Commencer — 3 mois gratuits
           </Link>
         </div>
       </section>

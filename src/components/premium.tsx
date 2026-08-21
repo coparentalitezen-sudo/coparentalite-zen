@@ -40,8 +40,8 @@ export function BandeauHorizon({ offre }: { offre: Offre | null }) {
         <span aria-hidden className="mt-0.5 shrink-0"><Icone nom="calendrier" taille={16} /></span>
         <span>
           {expire
-            ? `Votre planning gratuit s’est arrêté le ${dateCourte(offre.horizon)}.`
-            : `Votre planning gratuit couvre jusqu’au ${dateCourte(offre.horizon)}.`}
+            ? `Vos 3 mois gratuits se sont terminés le ${dateCourte(offre.horizon)}.`
+            : `Vos 3 mois gratuits couvrent jusqu’au ${dateCourte(offre.horizon)}.`}
         </span>
       </p>
       <p className="mt-1 pl-6 text-[13px] leading-snug text-soft">
@@ -87,7 +87,7 @@ export function PastilleOffre({ offre }: { offre: Offre | null }) {
   }
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[11px] font-bold text-soft">
-      Offre gratuite
+      3 mois gratuits
       {offre.joursRestants !== null && offre.joursRestants <= JOURS_ALERTE
         && ` · ${offre.joursRestants} j`}
     </span>

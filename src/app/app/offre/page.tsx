@@ -212,7 +212,7 @@ function ContenuOffre() {
             ) : (
               <>
                 <p className="font-display text-[17px] font-semibold tracking-tight">
-                  Offre gratuite
+                  3 mois gratuits
                 </p>
                 <p className="mt-1.5 text-[13px] leading-snug text-soft">
                   {offre.horizon && (

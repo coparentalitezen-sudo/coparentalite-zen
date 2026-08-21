@@ -646,7 +646,7 @@ export default function Accueil() {
                       id="titre-horizon"
                       className="text-[11px] font-bold uppercase tracking-[0.08em] text-soft"
                     >
-                      Calendrier gratuit
+                      3 mois gratuits
                     </p>
 
                     <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-navy-text">
@@ -669,7 +669,7 @@ export default function Accueil() {
               <div
                 className="mt-4 h-2 overflow-hidden rounded-full bg-white"
                 role="progressbar"
-                aria-label="Période gratuite de planification"
+                aria-label="Période de planification incluse"
                 aria-valuemin={0}
                 aria-valuemax={3}
                 aria-valuenow={3}

@@ -144,6 +144,72 @@ export async function creerSessionAbonnement(params: {
   return appel<SessionPaiement>(config.cleSecrete, '/checkout/sessions', 'POST', champs, params.cleIdempotence);
 }
 
+/**
+ * Moitié d'abonnement, pour un règlement partagé entre les deux parents.
+ *
+ * Aucun tarif « moitié » n'existe chez Stripe et il ne doit pas en exister :
+ * le catalogue reste celui de la table plans. Le montant est donc décrit à la
+ * volée avec price_data, calculé à partir du tarif lu en base — Stripe prévoit
+ * explicitement ce cas pour les catalogues tenus hors de chez lui.
+ *
+ * L'appelant fournit un montant déjà réparti et vérifié : cette fonction ne
+ * divise rien, elle facture ce qu'on lui donne. La règle d'arrondi vit dans
+ * paiement-partage.ts, où elle est testée.
+ */
+export async function creerSessionMoitie(params: {
+  config: ConfigStripe;
+  householdId: string;
+  /** Identifiant du partage : relie les deux moitiés entre elles. */
+  partageId: string;
+  /** Parent qui règle cette part — sert au webhook à créditer la bonne ligne. */
+  userId: string;
+  /** Montant de CETTE part, en centimes, déjà arrondi. */
+  montantCents: number;
+  periodicite: 'month' | 'year';
+  emailClient?: string;
+  clientExistant?: string | null;
+  cleIdempotence: string;
+}): Promise<SessionPaiement> {
+  const { config } = params;
+  if (!Number.isInteger(params.montantCents) || params.montantCents <= 0) {
+    throw new Error('Montant de contribution invalide.');
+  }
+  const champs: Record<string, string> = {
+    mode: 'subscription',
+    'line_items[0][quantity]': '1',
+    'line_items[0][price_data][currency]': 'eur',
+    'line_items[0][price_data][unit_amount]': String(params.montantCents),
+    'line_items[0][price_data][recurring][interval]':
+      params.periodicite === 'year' ? 'year' : 'month',
+    'line_items[0][price_data][product_data][name]':
+      'Coparentalité Zen Plus — votre moitié',
+    'line_items[0][price_data][product_data][description]':
+      'Part de 50 % de l’abonnement du foyer, réglée par un parent.',
+    success_url: `${config.origine}/app/offre?paiement=reussi&type=partage`,
+    cancel_url: `${config.origine}/app/offre?paiement=annule`,
+    locale: 'fr',
+    billing_address_collection: 'auto',
+    'custom_text[submit][message]':
+      'Votre moitié. L’abonnement s’ouvrira une fois les deux parts réglées.',
+    client_reference_id: params.householdId,
+    'metadata[household_id]': params.householdId,
+    'metadata[type]': 'partage',
+    'metadata[partage_id]': params.partageId,
+    'metadata[user_id]': params.userId,
+    'metadata[periodicite]': params.periodicite,
+    // Recopiées sur l'abonnement : les événements de renouvellement et d'échec
+    // portent l'abonnement, pas la session, et doivent rester rattachables.
+    'subscription_data[metadata][household_id]': params.householdId,
+    'subscription_data[metadata][partage_id]': params.partageId,
+    'subscription_data[metadata][user_id]': params.userId,
+    'subscription_data[metadata][type]': 'partage',
+  };
+  if (params.clientExistant) champs.customer = params.clientExistant;
+  else if (params.emailClient) champs.customer_email = params.emailClient;
+
+  return appel<SessionPaiement>(config.cleSecrete, '/checkout/sessions', 'POST', champs, params.cleIdempotence);
+}
+
 /** Portail client : moyen de paiement, factures, résiliation. */
 export async function creerSessionPortail(params: {
   config: ConfigStripe; client: string;

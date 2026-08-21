@@ -18,7 +18,7 @@ const rubriques: [string, string, string | null][] = [
   ['Messages', 'Échanges liés au planning et aux dépenses', null],
   ['Rapports', 'PDF mensuel et annuel, CSV, ICS', null],
   ['Notifications', 'Préférences par catégorie', null],
-  ['Abonnement', 'Gratuit — découvrir Premium', null],
+  ['Abonnement', '3 mois gratuits, puis Zen Plus', '/app/offre'],
   ['Aide', 'Diagnostic guidé et questions fréquentes', '/aide'],
 ];
 
