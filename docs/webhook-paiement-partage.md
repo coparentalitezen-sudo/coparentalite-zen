@@ -56,7 +56,7 @@ webhook peut journaliser mais ne doit pas réinterpréter.
 
 | Événement Stripe | Statut de la part | Remarque |
 |---|---|---|
-| `checkout.session.completed` (mode `setup`) | `ready_to_charge` | empreinte prise, aucun débit |
+| `checkout.session.completed` (mode `setup`) | `ready_to_charge` | empreinte prise, aucun débit ; tente ensuite `declencherDebits` |
 | `customer.subscription.created` | `processing` | abonnement créé côté serveur |
 | `invoice.paid` | `paid` | seul statut qui ouvre un droit |
 | `invoice.payment_failed` | `past_due` | déclenche la grâce, jamais la coupure |
@@ -96,6 +96,26 @@ Trois garde-fous se cumulent :
 3. `recalculer_partage` relit systématiquement l'ensemble des parts. Elle ne
    fait pas avancer un compteur : elle recalcule. L'ordre d'arrivée des deux
    `invoice.paid` est donc sans effet sur le résultat.
+
+## Déclenchement du débit
+
+Les deux empreintes arrivent par deux événements distincts, potentiellement
+simultanés. Chaque `checkout.session.completed` en mode `setup` enregistre le
+moyen de paiement de sa part, puis appelle `declencherDebits`, qui ne fait
+quelque chose que si **toutes** les parts attendues sont prêtes.
+
+Deux protections s'y superposent :
+
+- **un seul déclenchement** — l'arrangement bascule en `processing` par une
+  comparaison-et-échange (`update ... where status <> 'processing'`) ; le
+  passage qui obtient zéro ligne s'arrête ;
+- **aucun double débit** — une part portant déjà un `stripe_subscription_id`
+  est sautée, et la clé d'idempotence Stripe est dérivée de l'identifiant de
+  la contribution, donc stable dans le temps.
+
+`declencherDebits` ne pose jamais le statut `paid`. Elle crée les abonnements
+et laisse les parts en `processing` : seule la facture réglée, confirmée par
+`invoice.paid`, ouvre un droit.
 
 ## Ce qui reste à décider avant la mise en service
 

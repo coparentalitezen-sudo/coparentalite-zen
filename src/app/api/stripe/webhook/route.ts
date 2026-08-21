@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseService } from '@/lib/supabase/server';
-import { configStripe, signatureValide, lireAbonnement, finDePeriode } from '@/lib/stripe';
+import { configStripe, signatureValide, lireAbonnement, finDePeriode, lireSetupIntent } from '@/lib/stripe';
+import { declencherDebits } from '@/lib/paiement/declencher-debits';
 
 /**
  * Réception des événements Stripe.
@@ -159,6 +160,51 @@ export async function POST(requete: Request) {
           p_amount: objet.amount_total ? Number(objet.amount_total) : null,
         });
         if (error) throw new Error(error.message);
+      }
+
+      // Empreinte de carte d'un règlement partagé. Aucun débit n'a eu lieu :
+      // on enregistre le moyen de paiement, puis on tente le déclenchement.
+      // Celui-ci ne fait quelque chose que si TOUTES les parts sont prêtes.
+      if (mode === 'setup' && metadonnees.type === 'partage_empreinte') {
+        const arrangementId = metadonnees.arrangement_id;
+        const parentId = metadonnees.user_id;
+        if (!arrangementId || !parentId) {
+          console.error('[webhook] empreinte sans métadonnées exploitables');
+          await confirmerEvenement(service, evenement.id);
+          return NextResponse.json({ recu: true, ignore: true });
+        }
+
+        const idSetup = objet.setup_intent as string | null;
+        const client = objet.customer as string | null;
+        let moyenPaiement: string | null = null;
+        if (idSetup) {
+          const setup = await lireSetupIntent(config, idSetup);
+          moyenPaiement = (setup.payment_method as string) ?? null;
+        }
+        if (!moyenPaiement || !client) {
+          console.error('[webhook] empreinte sans moyen de paiement exploitable');
+          await confirmerEvenement(service, evenement.id);
+          return NextResponse.json({ recu: true, ignore: true });
+        }
+
+        // Une part déjà rattachée à un abonnement ne revient pas en arrière :
+        // un événement rejoué ne doit pas rouvrir un débit déjà engagé.
+        const { error: erreurPart } = await service
+          .from('subscription_contributions')
+          .update({
+            status: 'ready_to_charge',
+            stripe_customer_id: client,
+            stripe_setup_intent_id: idSetup,
+            stripe_payment_method_id: moyenPaiement,
+          })
+          .eq('arrangement_id', arrangementId)
+          .eq('user_id', parentId)
+          .is('stripe_subscription_id', null);
+        if (erreurPart) throw new Error(erreurPart.message);
+
+        const resultat = await declencherDebits(service, arrangementId, config);
+        await confirmerEvenement(service, evenement.id);
+        return NextResponse.json({ recu: true, partage: resultat });
       }
 
       if (mode === 'subscription' && householdId) {
