@@ -95,16 +95,16 @@ describe('état global du partage', () => {
   });
 
   it('attend l’accord tant que l’autre parent n’a pas répondu', () => {
-    expect(etatPartage([part('awaiting_partner'), part('invited')])).toBe('attente_accord');
+    expect(etatPartage([part('awaiting_first_setup'), part('awaiting_partner')])).toBe('attente_accord');
   });
 
   it('attend les règlements une fois la demande acceptée', () => {
-    expect(etatPartage([part('awaiting_payment'), part('awaiting_payment')]))
+    expect(etatPartage([part('ready_to_charge'), part('ready_to_charge')]))
       .toBe('attente_paiement');
   });
 
   it('signale une moitié payée quand une seule part est confirmée', () => {
-    expect(etatPartage([part('paid'), part('awaiting_payment')])).toBe('moitie_payee');
+    expect(etatPartage([part('paid'), part('ready_to_charge')])).toBe('moitie_payee');
   });
 
   it('n’active qu’une fois les deux parts confirmées', () => {
@@ -124,7 +124,7 @@ describe('état global du partage', () => {
   });
 
   it('signale un échec de paiement', () => {
-    expect(etatPartage([part('awaiting_payment'), part('failed')])).toBe('echec');
+    expect(etatPartage([part('ready_to_charge'), part('failed')])).toBe('echec');
   });
 
   it('traite le paiement intégral payé comme actif', () => {
@@ -136,8 +136,8 @@ describe('état global du partage', () => {
   });
 
   it('est indifférent à l’ordre des parts — les webhooks arrivent désordonnés', () => {
-    const a = etatPartage([part('paid'), part('awaiting_payment')]);
-    const b = etatPartage([part('awaiting_payment'), part('paid')]);
+    const a = etatPartage([part('paid'), part('ready_to_charge')]);
+    const b = etatPartage([part('ready_to_charge'), part('paid')]);
     expect(a).toBe(b);
   });
 
@@ -153,7 +153,7 @@ describe('ouverture de l’abonnement', () => {
   });
 
   it('reste fermé si l’autre parent a seulement accepté', () => {
-    expect(abonnementOuvrable([part('paid'), part('awaiting_payment')])).toBe(false);
+    expect(abonnementOuvrable([part('paid'), part('ready_to_charge')])).toBe(false);
   });
 
   it('reste fermé si une part a échoué', () => {
@@ -177,7 +177,7 @@ describe('états terminaux', () => {
   });
 
   it('laisse les états vivants ouverts à un paiement', () => {
-    expect(estTerminal('awaiting_payment')).toBe(false);
+    expect(estTerminal('ready_to_charge')).toBe(false);
     expect(estTerminal('paid')).toBe(false);
   });
 });

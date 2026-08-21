@@ -43,14 +43,13 @@
 -- Retour arrière
 -- --------------
 --   begin;
+--   drop function if exists public.maj_contribution_stripe(text, text, timestamptz, int);
 --   drop function if exists public.lire_partage(uuid);
 --   drop function if exists public.recalculer_partage(uuid, timestamptz, int);
 --   drop function if exists public.enregistrer_contribution(uuid, uuid, text, bigint, text, text, text);
 --   drop function if exists public.ouvrir_arrangement(uuid, text, text, text, bigint, timestamptz);
---   drop trigger if exists trg_coherence_contribution on public.subscription_contributions;
 --   drop trigger if exists trg_touch_contribution on public.subscription_contributions;
 --   drop trigger if exists trg_touch_arrangement on public.subscription_payment_arrangements;
---   drop function if exists public.verifier_contribution();
 --   drop function if exists public.touch_contribution();
 --   alter table public.subscriptions drop column if exists arrangement_id;
 --   alter table public.subscriptions drop column if exists grace_until;
@@ -124,7 +123,8 @@ create table if not exists public.subscription_contributions (
   status                     text not null default 'awaiting_first_setup'
     check (status in ('awaiting_first_setup', 'awaiting_partner',
                       'awaiting_second_setup', 'ready_to_charge', 'processing',
-                      'paid', 'failed', 'refused', 'expired', 'canceled')),
+                      'paid', 'past_due', 'failed', 'refused', 'expired',
+                      'canceled')),
   -- Références Stripe strictement utiles au serveur. Aucune coordonnée
   -- bancaire : ce sont des identifiants opaques d'objets détenus par Stripe.
   -- Le Setup Intent porte l'empreinte, le Payment Method sert au débit
@@ -199,87 +199,21 @@ create trigger trg_touch_arrangement
   for each row execute function public.touch_contribution();
 
 -- ---------- 5. Cohérence d'une contribution ----------
--- Ce que la contrainte déclarative ne sait pas exprimer : appartenance au
--- foyer, plafond du nombre de parts, correspondance du type au mode, somme
--- exacte une fois toutes les parts réunies.
+-- Volontairement PAS de déclencheur. Le plafond du nombre de parts,
+-- l'appartenance au foyer et la correspondance au mode sont garantis
+-- transactionnellement par enregistrer_contribution(), qui verrouille
+-- l'arrangement avant de décider — voir section 8. Un déclencheur aurait
+-- dispersé la règle en deux endroits sans rien garantir de plus : le verrou
+-- reste nécessaire dans les deux cas.
 --
--- Déclencheur CONSTRAINT différé en fin de transaction : les deux parts d'un
--- partage sont insérées l'une après l'autre, et la somme ne peut être
--- vérifiée qu'une fois les deux présentes. Le verrou sur l'arrangement
--- sérialise deux transactions concurrentes sur le même partage.
-create or replace function public.verifier_contribution() returns trigger
-language plpgsql security definer set search_path = public as $$
-declare
-  v_arr    record;
-  v_vives  int;
-  v_parents int;
-  v_somme  bigint;
-begin
-  select * into v_arr from subscription_payment_arrangements
-   where id = new.arrangement_id for update;
-  if v_arr.id is null then
-    raise exception 'Arrangement introuvable : %', new.arrangement_id;
-  end if;
-
-  -- Le payeur doit être membre du foyer qu'il finance.
-  if not exists (
-    select 1 from household_members
-     where household_id = new.household_id
-       and profile_id = new.user_id
-       and deleted_at is null
-  ) then
-    raise exception 'Le parent % n''appartient pas au foyer %',
-      new.user_id, new.household_id;
-  end if;
-
-  -- Le type de part doit refléter le mode convenu.
-  if new.share_type <> v_arr.mode then
-    raise exception 'Part de type % dans un arrangement %',
-      new.share_type, v_arr.mode;
-  end if;
-
-  -- L'abonnement rattaché, s'il existe, appartient au même foyer.
-  if new.subscription_id is not null and not exists (
-    select 1 from subscriptions
-     where id = new.subscription_id and household_id = new.household_id
-  ) then
-    raise exception 'Abonnement % étranger au foyer %',
-      new.subscription_id, new.household_id;
-  end if;
-
-  -- Plafond et distinction des parents. Le nombre attendu vient de
-  -- l'arrangement ; les lignes annulées sortent du décompte des vivantes mais
-  -- ne réduisent jamais le nombre attendu.
-  select count(*), count(distinct user_id), coalesce(sum(amount_cents), 0)
-    into v_vives, v_parents, v_somme
-    from subscription_contributions
-   where arrangement_id = new.arrangement_id and status <> 'canceled';
-
-  if v_vives > v_arr.expected_contributions then
-    raise exception 'Arrangement % : % parts pour % attendues',
-      v_arr.id, v_vives, v_arr.expected_contributions;
-  end if;
-  if v_parents <> v_vives then
-    raise exception 'Arrangement % : parts d''un même parent', v_arr.id;
-  end if;
-
-  -- Somme exacte, vérifiable une fois toutes les parts réunies. Un centime
-  -- d'écart est un écart : on refuse plutôt que d'encaisser un total
-  -- différent du tarif annoncé.
-  if v_vives = v_arr.expected_contributions
-     and v_somme <> v_arr.total_amount_cents then
-    raise exception 'Arrangement % : somme des parts % au lieu de %',
-      v_arr.id, v_somme, v_arr.total_amount_cents;
-  end if;
-
-  return new;
-end $$;
-
+-- Ce que la base garantit seule, déclarativement :
+--   - un parent ne contribue qu'une fois par arrangement  → unique (arrangement_id, user_id)
+--   - une part appartient au foyer de son arrangement     → clé étrangère composite
+--   - le mode dicte le nombre attendu                     → contrainte mode_coherent
+--   - un identifiant Stripe ne sert qu'une fois           → index uniques partiels
+-- Le reste relève des fonctions serveur, et est revérifié avant activation.
 drop trigger if exists trg_coherence_contribution on public.subscription_contributions;
-create constraint trigger trg_coherence_contribution
-  after insert or update on public.subscription_contributions
-  deferrable initially deferred
-  for each row execute function public.verifier_contribution();
+drop function if exists public.verifier_contribution();
 
 -- ---------- 6. Confidentialité : RLS et lecture filtrée ----------
 -- Les tables complètes ne sont lisibles que par service_role. Les parents y
@@ -360,6 +294,21 @@ begin
     raise exception 'Montant total invalide : %', p_total;
   end if;
 
+  -- Un foyer ne détient jamais deux droits à la fois. Ouvrir un partage
+  -- alors qu'un abonnement intégral court reviendrait à faire cohabiter deux
+  -- abonnements Stripe pour le même accès, et à laisser un échec de moitié
+  -- dégrader un droit déjà payé. Le changement de mode se fera à l'échéance
+  -- de la période en cours, par un parcours distinct.
+  if exists (
+    select 1 from subscriptions s
+     where s.household_id = p_household
+       and s.status in ('active', 'trialing')
+       and (s.current_period_end is null or s.current_period_end > now())
+  ) then
+    raise exception 'Ce foyer dispose déjà d''un abonnement actif. '
+      'Le changement de mode de règlement sera possible à la fin de la période en cours.';
+  end if;
+
   insert into subscription_payment_arrangements
     (household_id, mode, expected_contributions, plan_id, billing_period,
      total_amount_cents, expires_at)
@@ -395,24 +344,51 @@ create or replace function public.enregistrer_contribution(
 ) returns uuid
 language plpgsql security definer set search_path = public as $$
 declare
-  v_id        uuid;
-  v_household uuid;
-  v_mode      text;
+  v_id       uuid;
+  v_arr      record;
+  v_vives    int;
+  v_existe   boolean;
 begin
-  select household_id, mode into v_household, v_mode
-    from subscription_payment_arrangements where id = p_arrangement;
-  if v_household is null then
+  -- Verrou d'abord : tout ce qui suit décide à partir d'un décompte, et deux
+  -- appels concurrents doivent se sérialiser ici plutôt que de compter tous
+  -- les deux « une part sur deux » avant d'en insérer chacun une.
+  select * into v_arr from subscription_payment_arrangements
+   where id = p_arrangement for update;
+  if v_arr.id is null then
     raise exception 'Arrangement introuvable : %', p_arrangement;
   end if;
   if p_amount is null or p_amount <= 0 then
     raise exception 'Montant de contribution invalide : %', p_amount;
   end if;
 
+  -- Le payeur doit être membre du foyer qu'il finance.
+  if not exists (
+    select 1 from household_members
+     where household_id = v_arr.household_id
+       and profile_id = p_user and deleted_at is null
+  ) then
+    raise exception 'Ce parent n''appartient pas au foyer concerné.';
+  end if;
+
+  -- Plafond. Le nombre attendu vient de l'arrangement ; une part annulée
+  -- sort du décompte des vivantes mais ne réduit jamais le nombre attendu.
+  -- Une mise à jour de sa propre part ne consomme pas de place.
+  select count(*), bool_or(user_id = p_user)
+    into v_vives, v_existe
+    from subscription_contributions
+   where arrangement_id = p_arrangement and status <> 'canceled';
+
+  if not coalesce(v_existe, false)
+     and v_vives >= v_arr.expected_contributions then
+    raise exception 'Arrangement % : % parts déjà engagées pour % attendues.',
+      v_arr.id, v_vives, v_arr.expected_contributions;
+  end if;
+
   insert into subscription_contributions
     (arrangement_id, household_id, user_id, share_type, status, amount_cents,
      stripe_customer_id, stripe_setup_intent_id, stripe_checkout_session_id)
   values
-    (p_arrangement, v_household, p_user, v_mode, p_status, p_amount,
+    (p_arrangement, v_arr.household_id, p_user, v_arr.mode, p_status, p_amount,
      p_customer, p_setup, p_session)
   on conflict (arrangement_id, user_id) do update set
     status = excluded.status,
@@ -455,6 +431,7 @@ declare
   v_parents  int;
   v_payees   int;
   v_perdues  int;
+  v_retard   int;
   v_somme    bigint;
   v_abo      record;
   v_customer text;
@@ -472,8 +449,9 @@ begin
   select count(*), count(distinct user_id),
          count(*) filter (where status = 'paid'),
          count(*) filter (where status in ('failed', 'refused', 'expired')),
+         count(*) filter (where status = 'past_due'),
          coalesce(sum(amount_cents), 0)
-    into v_vives, v_parents, v_payees, v_perdues, v_somme
+    into v_vives, v_parents, v_payees, v_perdues, v_retard, v_somme
     from subscription_contributions
    where arrangement_id = v_arr.id and status <> 'canceled';
 
@@ -536,19 +514,37 @@ begin
     return 'actif';
   end if;
 
-  -- Une part perdue. On ne dégrade QUE si le droit en cours vient de cet
-  -- arrangement : un abonnement intégral antérieur reste intact.
-  if v_perdues > 0 then
+  -- Une part en difficulté. On ne dégrade QUE si le droit en cours vient de
+  -- cet arrangement : un abonnement intégral antérieur reste intact.
+  --
+  -- Le droit ne tombe jamais du seul fait qu'une moitié a échoué. Il passe
+  -- en past_due, une échéance de grâce est posée, et l'accès n'est clos
+  -- qu'une fois cette échéance dépassée — c'est le sens de la période de
+  -- grâce : laisser au parent le temps de corriger son moyen de paiement.
+  if v_perdues > 0 or v_retard > 0 then
     update subscription_payment_arrangements
-       set status = 'failed' where id = v_arr.id;
+       set status = case when v_perdues > 0 then 'failed' else status end
+     where id = v_arr.id;
+
     update subscriptions
        set status = 'past_due',
            grace_until = coalesce(grace_until,
                                   now() + make_interval(days => p_grace_days))
      where household_id = p_household
        and arrangement_id = v_arr.id
-       and status = 'active';
-    return case when v_payees > 0 then 'remboursement_du' else 'interrompu' end;
+       and status in ('active', 'trialing');
+
+    -- Grâce épuisée : le droit s'éteint, et seulement maintenant.
+    update subscriptions
+       set status = 'canceled'
+     where household_id = p_household
+       and arrangement_id = v_arr.id
+       and grace_until is not null
+       and grace_until <= now();
+
+    if v_payees > 0 and v_perdues > 0 then return 'remboursement_du'; end if;
+    if v_perdues > 0 then return 'interrompu'; end if;
+    return 'grace';
   end if;
 
   if v_payees > 0 then return 'moitie_payee'; end if;
@@ -558,6 +554,61 @@ end $$;
 revoke all on function public.recalculer_partage(uuid, timestamptz, int)
   from public, anon, authenticated;
 grant execute on function public.recalculer_partage(uuid, timestamptz, int)
+  to service_role;
+
+-- ---------- 10. Point d'entrée du webhook pour une moitié ----------
+-- Un événement Stripe concernant une moitié ne dit RIEN de l'état du foyer.
+-- Il ne doit donc jamais atteindre upsert_subscription : il met à jour la
+-- part correspondante, puis laisse recalculer_partage() décider, à partir
+-- des deux parts réunies, ce qu'il advient du droit d'accès.
+--
+-- Cette fonction est le seul chemin autorisé pour un abonnement issu d'un
+-- partage. upsert_subscription reste le chemin du paiement intégral, dont
+-- le comportement est inchangé.
+--
+-- Idempotente : deux passages avec le même statut laissent la base dans le
+-- même état, et l'ordre d'arrivée des événements n'a pas d'importance —
+-- l'agrégation relit toujours l'ensemble des parts.
+create or replace function public.maj_contribution_stripe(
+  p_stripe_subscription text,
+  p_status              text,
+  p_period_end          timestamptz default null,
+  p_grace_days          int default 7
+) returns text
+language plpgsql security definer set search_path = public as $$
+declare
+  v_contrib   record;
+  v_household uuid;
+begin
+  if p_stripe_subscription is null then
+    raise exception 'Aucun abonnement Stripe transmis.';
+  end if;
+
+  select * into v_contrib from subscription_contributions
+   where stripe_subscription_id = p_stripe_subscription;
+
+  -- Abonnement inconnu de la table : c'est un paiement intégral ou un
+  -- abonnement hors partage. On le signale sans rien écrire, l'appelant
+  -- retombera sur upsert_subscription.
+  if v_contrib.id is null then return 'hors_partage'; end if;
+
+  v_household := v_contrib.household_id;
+
+  -- Une part déjà close ne se rouvre pas sur un événement tardif.
+  if v_contrib.status in ('refused', 'expired', 'canceled') then
+    return 'ignore';
+  end if;
+
+  update subscription_contributions
+     set status = p_status
+   where id = v_contrib.id and status <> p_status;
+
+  return public.recalculer_partage(v_household, p_period_end, p_grace_days);
+end $$;
+
+revoke all on function public.maj_contribution_stripe(text, text, timestamptz, int)
+  from public, anon, authenticated;
+grant execute on function public.maj_contribution_stripe(text, text, timestamptz, int)
   to service_role;
 
 commit;

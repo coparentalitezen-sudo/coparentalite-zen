@@ -26,18 +26,26 @@ export type TypePart = 'full' | 'half';
 /**
  * Cycle de vie d'une part.
  *
- *   awaiting_partner  la part de l'initiateur, tant que l'autre n'a pas accepté
- *   invited           la part proposée à l'autre parent
- *   awaiting_payment  acceptée, reste à régler
- *   paid              réglée et confirmée par Stripe
- *   failed            paiement refusé ou échoué
- *   refused           l'autre parent a décliné la demande
- *   expired           délai dépassé sans règlement
- *   canceled          partage abandonné ou remboursé
+ * Reflète exactement le check contraint en base (migration 00046). Aucune
+ * carte n'est débitée avant ready_to_charge : le parcours prend d'abord les
+ * deux empreintes, puis débite.
+ *
+ *   awaiting_first_setup   empreinte du parent qui ouvre le partage
+ *   awaiting_partner       en attente de la réponse de l'autre parent
+ *   awaiting_second_setup  accepté, empreinte du second parent attendue
+ *   ready_to_charge        empreinte prise, aucun débit encore
+ *   processing             abonnement Stripe créé, paiement en cours
+ *   paid                   réglée et confirmée par Stripe
+ *   past_due               impayé : ouvre la période de grâce, ne coupe pas
+ *   failed                 échec franc du moyen de paiement
+ *   refused                l'autre parent a décliné la demande
+ *   expired                délai dépassé sans règlement
+ *   canceled               partage abandonné
  */
 export type StatutPart =
-  | 'awaiting_partner' | 'invited' | 'awaiting_payment'
-  | 'paid' | 'failed' | 'refused' | 'expired' | 'canceled';
+  | 'awaiting_first_setup' | 'awaiting_partner' | 'awaiting_second_setup'
+  | 'ready_to_charge' | 'processing'
+  | 'paid' | 'past_due' | 'failed' | 'refused' | 'expired' | 'canceled';
 
 /** États terminaux : une part qui y entre ne repart pas vers un paiement. */
 const TERMINAUX: ReadonlySet<StatutPart> = new Set<StatutPart>([
@@ -153,7 +161,7 @@ export function etatPartage(parts: readonly Part[]): EtatPartage {
   if (nb('expired') > 0) return payees > 0 ? 'remboursement_du' : 'expire';
   if (nb('failed') > 0) return 'echec';
   if (payees > 0) return 'moitie_payee';
-  if (nb('invited') > 0 || nb('awaiting_partner') > 0) return 'attente_accord';
+  if (nb('awaiting_partner') > 0 || nb('awaiting_first_setup') > 0) return 'attente_accord';
   return 'attente_paiement';
 }
 
@@ -184,4 +192,70 @@ export function partageDisponible(periodicite: 'month' | 'year'): boolean {
 export function formatCents(cents: number): string {
   return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
     .format(cents / 100);
+}
+
+/**
+ * Agrégation d'un partage — reflet exact des règles de recalculer_partage().
+ *
+ * Existe pour deux raisons. D'abord parce que ces règles doivent être
+ * testables sans base de données. Ensuite parce que l'interface doit pouvoir
+ * afficher l'état d'un partage sans attendre un aller-retour serveur.
+ *
+ * L'autorité reste la base : si les deux divergent, c'est le SQL qui a
+ * raison, et cette fonction est à corriger.
+ */
+export interface Arrangement {
+  mode: TypePart;
+  partsAttendues: 1 | 2;
+  totalCents: number;
+  expireLe?: string | Date | null;
+}
+
+export type EtatAgrege =
+  | 'aucun' | 'invalide' | 'expire' | 'actif'
+  | 'remboursement_du' | 'interrompu' | 'grace'
+  | 'moitie_payee' | 'en_attente';
+
+/**
+ * Ne fait pas avancer un compteur : elle recalcule à partir de l'ensemble
+ * des parts. Rejouer un événement, ou les recevoir dans le désordre, donne
+ * donc toujours le même résultat.
+ */
+export function agreger(
+  arrangement: Arrangement,
+  parts: readonly { statut: StatutPart; montantCents: number; parentId: string }[],
+  maintenant: Date = new Date(),
+): EtatAgrege {
+  const vives = parts.filter((p) => p.statut !== 'canceled');
+  if (vives.length === 0 && parts.length === 0) return 'aucun';
+
+  const parents = new Set(vives.map((p) => p.parentId)).size;
+  const somme = vives.reduce((s, p) => s + p.montantCents, 0);
+  const payees = vives.filter((p) => p.statut === 'paid').length;
+  const perdues = vives.filter(
+    (p) => p.statut === 'failed' || p.statut === 'refused' || p.statut === 'expired',
+  ).length;
+  const retard = vives.filter((p) => p.statut === 'past_due').length;
+
+  // Cohérence du groupe. Le nombre attendu vient de l'arrangement, jamais du
+  // nombre de parts trouvées.
+  if (vives.length > arrangement.partsAttendues
+      || parents !== vives.length
+      || (vives.length === arrangement.partsAttendues && somme !== arrangement.totalCents)) {
+    return 'invalide';
+  }
+
+  if (estExpiree(arrangement.expireLe ?? null, maintenant)
+      && payees < arrangement.partsAttendues) {
+    return 'expire';
+  }
+
+  if (vives.length === arrangement.partsAttendues && payees === arrangement.partsAttendues) {
+    return 'actif';
+  }
+
+  if (perdues > 0) return payees > 0 ? 'remboursement_du' : 'interrompu';
+  if (retard > 0) return 'grace';
+  if (payees > 0) return 'moitie_payee';
+  return 'en_attente';
 }
