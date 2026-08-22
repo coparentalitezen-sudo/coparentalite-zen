@@ -120,6 +120,55 @@ export interface Recommandation {
   raisonAlternative: string;
 }
 
+export interface ConseilsRythme {
+  benefices: string[];
+  vigilance: string;
+}
+
+/**
+ * Bénéfices concrets et point d'attention du rythme affiché.
+ *
+ * Ces textes restent volontairement organisationnels : le questionnaire ne
+ * connaît ni la situation juridique ni l'histoire familiale de la personne.
+ */
+export function conseilsRythme(pattern: CustodyPattern): ConseilsRythme {
+  const conseils: Record<CustodyPattern, ConseilsRythme> = {
+    alternating_weeks: {
+      benefices: ['Peu de passages d’un domicile à l’autre.', 'Un calendrier simple à mémoriser.'],
+      vigilance: 'Une semaine complète peut sembler longue aux plus jeunes : prévoyez des repères stables et des transitions claires.',
+    },
+    even_weeks: {
+      benefices: ['Les semaines attribuées restent prévisibles.', 'Les changements se repèrent longtemps à l’avance.'],
+      vigilance: 'Vérifiez chaque année la correspondance entre semaines paires et calendrier scolaire.',
+    },
+    odd_weeks: {
+      benefices: ['Les semaines attribuées restent prévisibles.', 'Les changements se repèrent longtemps à l’avance.'],
+      vigilance: 'Vérifiez chaque année la correspondance entre semaines impaires et calendrier scolaire.',
+    },
+    p2233: {
+      benefices: ['Aucune séparation ne dépasse trois jours.', 'Les contacts avec chaque parent sont fréquents.'],
+      vigilance: 'Les passages sont nombreux : préparez les affaires et les horaires de transition à l’avance.',
+    },
+    p3443: {
+      benefices: ['Les séjours restent courts sans changer chaque jour.', 'Les week-ends peuvent alterner régulièrement.'],
+      vigilance: 'Le cycle est moins intuitif qu’une semaine sur deux : un calendrier partagé devient particulièrement utile.',
+    },
+    p2255: {
+      benefices: ['Les mêmes jours de semaine reviennent chez le même parent.', 'Les week-ends alternent sans modifier les jours fixes.'],
+      vigilance: 'Les blocs de cinq jours demandent d’anticiper école, activités et affaires personnelles.',
+    },
+    alternating_weekends: {
+      benefices: ['Le domicile principal reste stable.', 'Les week-ends d’accueil sont prévisibles.'],
+      vigilance: 'Ajoutez séparément les vacances et les temps en semaine prévus par votre organisation.',
+    },
+    custom: {
+      benefices: ['Le cycle suit vos contraintes réelles.', 'Les roulements professionnels peuvent être reproduits fidèlement.'],
+      vigilance: 'Un cycle personnalisé doit être relu ensemble, surtout après un changement d’horaires.',
+    },
+  };
+  return conseils[pattern];
+}
+
 /**
  * Rythme conseillé à partir des réponses qui le concernent.
  *

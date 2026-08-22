@@ -179,3 +179,25 @@ describe('leçon de la migration 00045', () => {
     expect([meta, admin, pinterest, bilan].join('\n')).not.toContain('lireParametres()');
   });
 });
+
+describe('parcours agrégé du questionnaire', () => {
+  it('ne transmet aucune réponse ni donnée concernant un enfant', async () => {
+    const fs = await import('node:fs/promises');
+    const [client, route, migration] = await Promise.all([
+      fs.readFile('src/lib/marketing/parcours-quiz.ts', 'utf8'),
+      fs.readFile('src/app/api/marketing/parcours-quiz/route.ts', 'utf8'),
+      fs.readFile('supabase/migrations/00049_parcours_quiz.sql', 'utf8'),
+    ]);
+    const dispositif = `${client}\n${route}\n${migration}`;
+    expect(dispositif).not.toMatch(/\b(reponses|age|nombre_enfants|prenom_enfant|email_enfant)\b/i);
+    expect(dispositif).toContain("'commence', 'termine', 'clic_inscription'");
+  });
+
+  it('ferme les mesures aux rôles du navigateur', async () => {
+    const fs = await import('node:fs/promises');
+    const sql = await fs.readFile('supabase/migrations/00049_parcours_quiz.sql', 'utf8');
+    expect(sql).toContain('enable row level security');
+    expect(sql).toContain('revoke all on table public.marketing_parcours_quiz from public, anon, authenticated');
+    expect(sql).toContain('to service_role');
+  });
+});

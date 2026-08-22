@@ -14,7 +14,7 @@ import { Questionnaire } from './questionnaire';
 export const metadata = {
   title: 'Quel rythme de garde pour votre famille ? — Coparentalité Zen',
   description:
-    'Quatre questions pour découvrir le rythme de garde adapté à votre '
+    'Cinq questions pour découvrir le rythme de garde adapté à votre '
     + 'situation, avec le planning affiché sur deux semaines. Sans inscription.',
 };
 

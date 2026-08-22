@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
-  QUESTIONS, recommander, conseilDepenses, libelleEnfants, type Reponses,
+  QUESTIONS, recommander, conseilDepenses, libelleEnfants, conseilsRythme,
+  type Reponses,
 } from '../src/lib/quiz';
 import { MODELES } from '../src/lib/rythmes';
 
@@ -116,6 +117,14 @@ describe('recommandation', () => {
 });
 
 describe('suites proposées après le résultat', () => {
+  it('donne des bénéfices et un point de vigilance à chaque rythme', () => {
+    for (const modele of MODELES) {
+      const conseils = conseilsRythme(modele.pattern);
+      expect(conseils.benefices.length).toBeGreaterThanOrEqual(2);
+      expect(conseils.vigilance.length).toBeGreaterThan(40);
+    }
+  });
+
   it('adapte le conseil sur les dépenses à chaque réponse', () => {
     const vues = new Set(
       (['oui', 'pasEncore', 'non'] as const)
