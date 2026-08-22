@@ -43,6 +43,14 @@ export interface MessagePush {
   href?: string | null;
   /** Regroupe les alertes d'une même conversation sur l'appareil. */
   etiquette?: string;
+  /**
+   * Nombre de notifications non lues du destinataire, pour la pastille.
+   *
+   * Il voyage dans le message parce que le service worker, seul actif quand
+   * l'application est fermée, n'a aucun accès à la base. Absent, la pastille
+   * se contente d'un incrément — un chiffre approché qui dérive.
+   */
+  nonLues?: number | null;
 }
 
 export type ResultatEnvoi =
@@ -73,6 +81,11 @@ export async function envoyerPush(
         body: message.corps ?? '',
         url: message.href ?? '/app/notifications',
         tag: message.etiquette ?? 'coparentalite-zen',
+        // Omis plutôt qu'envoyé à zéro quand le compte est inconnu : le
+        // service worker distingue l'absence d'information d'un compte nul,
+        // et retombe alors sur son incrément.
+        ...(typeof message.nonLues === 'number' && message.nonLues >= 0
+          ? { nonLues: message.nonLues } : {}),
       }),
       { TTL: 24 * 3600 },   // une alerte vieille d'un jour n'a plus d'objet
     );

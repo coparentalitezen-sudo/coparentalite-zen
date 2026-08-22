@@ -46,9 +46,16 @@ export async function GET(requete: Request) {
     if (error) throw new Error(error.message);
 
     for (const l of (data ?? []) as Record<string, string>[]) {
+      // La colonne non_lues vient de la migration 00047. Une base non encore
+      // migrée la renvoie absente : Number(undefined) vaut NaN, écarté ici,
+      // et le service worker retombe sur son incrément. L'acheminement ne
+      // doit pas dépendre de l'ordre des déploiements.
+      const brut = Number(l.non_lues);
+      const nonLues = Number.isFinite(brut) && brut >= 0 ? brut : null;
+
       const r = await envoyerPush(config,
         { endpoint: l.endpoint, p256dh: l.p256dh, auth: l.auth },
-        { titre: l.titre, corps: l.corps, href: l.href });
+        { titre: l.titre, corps: l.corps, href: l.href, nonLues });
 
       if (r.statut === 'envoye') {
         bilan.envoyees += 1;
