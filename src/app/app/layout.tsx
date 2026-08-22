@@ -23,11 +23,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <Cloche />
           </span>
         </div>
-        {process.env.NEXT_PUBLIC_BETA !== 'false' && (
-          <p className="px-4 pb-2 text-center text-[10px] font-medium text-soft/80">
-            Version bêta — certaines rubriques sont encore en construction.
-          </p>
-        )}
       </header>
       {children}
     </div>

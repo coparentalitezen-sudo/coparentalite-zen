@@ -136,10 +136,10 @@ const QUESTIONS: Etape[] = [
       + 'propre compte : planning, changements ponctuels, vacances, dépenses partagées et rendez-vous.',
   },
   {
-    question: 'L’application est-elle gratuite ?',
+    question: 'Combien coûte Coparentalité Zen ?',
     reponse:
-      'Une formule gratuite permet d’organiser le planning et de suivre les dépenses. Une formule payante '
-      + 'ajoute des fonctionnalités complémentaires. Les tarifs en vigueur sont affichés sur la page '
+      'La création de votre espace comprend 3 mois gratuits pour organiser le planning et suivre les '
+      + 'dépenses. Au-delà, vous choisissez une extension ponctuelle ou l’abonnement Zen Plus. Les tarifs en vigueur sont affichés sur la page '
       + 'd’accueil et dans l’écran Offre ; aucun prélèvement n’a lieu sans un abonnement souscrit '
       + 'explicitement.',
   },

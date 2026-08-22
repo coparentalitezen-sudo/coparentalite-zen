@@ -7,10 +7,13 @@ import { BottomNav } from '@/components/ui';
 import { Chargement, Erreur, SansFoyer, Vide } from '@/components/etats';
 import { Icone } from '@/components/icons';
 import { PastilleOffre } from '@/components/premium';
+import { ChoixModeReglement, SuiviPartage, type ModeReglement } from '@/components/partage';
+import { partageDisponibleClient } from '@/lib/paiement-partage';
 import { useContexte } from '@/lib/use-contexte';
 import {
   getOffre, listerExtensions, listerAchats, ouvrirPaiement, ouvrirPortail,
-  type Offre, type Extension, type AchatExtension,
+  lirePartage, ouvrirPartage, repondrePartage,
+  type Offre, type Extension, type AchatExtension, type PartageVue,
 } from '@/lib/actions';
 import { formatCents } from '@/lib/money';
 
@@ -38,6 +41,8 @@ function ContenuOffre() {
   const [msg, setMsg] = useState<string | null>(null);
   const [enCours, setEnCours] = useState<string | null>(null);
   const [periodicite, setPeriodicite] = useState<'month' | 'year'>('year');
+  const [partage, setPartage] = useState<PartageVue | null>(null);
+  const [mode, setMode] = useState<ModeReglement | null>(null);
   /**
    * Suivi de la confirmation après un retour de Stripe.
    * 'attente' tant que le webhook n'a pas crédité, 'lent' s'il tarde.
@@ -56,6 +61,7 @@ function ContenuOffre() {
     });
     listerExtensions().then((r) => { if (r.status === 'ok') setExtensions(r.data); });
     listerAchats(hid).then((r) => { if (r.status === 'ok') setAchats(r.data); });
+    lirePartage(hid).then((r) => { if (r.status === 'ok') setPartage(r.data); });
   }, [ctx]);
 
   useEffect(charger, [charger]);
@@ -127,6 +133,32 @@ function ContenuOffre() {
     if (r.status === 'ok') window.location.href = r.data;
     else if (r.status === 'error') setErreur(r.message);
     else setErreur('Session non authentifiée. Reconnectez-vous.');
+  }
+
+  /** Ouvre un règlement partagé : empreinte de carte, aucun débit. */
+  async function partager() {
+    if (ctx.etat !== 'pret') return;
+    setErreur(null); setMsg(null); setEnCours('partage');
+    const r = await ouvrirPartage({
+      householdId: ctx.contexte.foyer.id, periodicite,
+    });
+    setEnCours(null);
+    if (r.status === 'ok') window.location.href = r.data.url;
+    else if (r.status === 'error') setErreur(r.message);
+    else setErreur('Session non authentifiée. Reconnectez-vous.');
+  }
+
+  /** Réponse du second parent à une demande de partage. */
+  async function repondre(reponse: 'accepte' | 'refuse') {
+    if (!partage) return;
+    setErreur(null); setMsg(null); setEnCours(reponse);
+    const r = await repondrePartage({ arrangementId: partage.arrangementId, reponse });
+    setEnCours(null);
+    if (r.status === 'error') { setErreur(r.message); return; }
+    if (r.status !== 'ok') return;
+    if (r.data.url) { window.location.href = r.data.url; return; }
+    setMsg('Votre réponse a été enregistrée. Aucun montant n’a été prélevé.');
+    charger();
   }
 
   async function gerer() {
@@ -212,7 +244,7 @@ function ContenuOffre() {
             ) : (
               <>
                 <p className="font-display text-[17px] font-semibold tracking-tight">
-                  Offre gratuite
+                  3 mois gratuits
                 </p>
                 <p className="mt-1.5 text-[13px] leading-snug text-soft">
                   {offre.horizon && (
@@ -239,6 +271,12 @@ function ContenuOffre() {
               </>
             )}
           </section>
+
+          {/* Règlement partagé en cours, visible par les deux parents */}
+          {partage && partage.mode === 'half'
+            && partage.etatArrangement !== 'canceled' && (
+            <SuiviPartage partage={partage} onRepondre={repondre} enCours={enCours} />
+          )}
 
           {/* Abonnement */}
           {!offre.illimite && (
@@ -286,10 +324,32 @@ function ContenuOffre() {
                 ))}
               </ul>
               {estProprietaire ? (
-                <button className="btn btn-primary mt-4 w-full" disabled={enCours === 'abonnement'}
-                        onClick={() => acheter('abonnement')}>
-                  {enCours === 'abonnement' ? 'Ouverture du paiement…' : 'Passer à Zen Plus'}
-                </button>
+                partageDisponibleClient(periodicite) && !partage ? (
+                  <>
+                    <ChoixModeReglement
+                      totalCents={periodicite === 'year'
+                        ? offre.prixAnnuelCents : offre.prixMensuelCents}
+                      choix={mode}
+                      onChoisir={setMode}
+                      desactive={enCours !== null}
+                    />
+                    <button
+                      className="btn btn-primary mt-4 w-full"
+                      disabled={mode === null || enCours !== null}
+                      onClick={() => (mode === 'partage' ? partager() : acheter('abonnement'))}
+                    >
+                      {enCours !== null ? 'Ouverture…'
+                        : mode === null ? 'Choisissez un mode de paiement'
+                        : mode === 'partage' ? 'Enregistrer ma carte, sans prélèvement'
+                        : 'Passer à Zen Plus'}
+                    </button>
+                  </>
+                ) : (
+                  <button className="btn btn-primary mt-4 w-full" disabled={enCours === 'abonnement'}
+                          onClick={() => acheter('abonnement')}>
+                    {enCours === 'abonnement' ? 'Ouverture du paiement…' : 'Passer à Zen Plus'}
+                  </button>
+                )
               ) : (
                 <p className="mt-4 rounded-xl bg-muted px-3 py-2 text-[13px] text-soft">
                   Seul le parent qui a créé le foyer peut souscrire.

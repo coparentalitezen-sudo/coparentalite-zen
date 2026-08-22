@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseService } from '@/lib/supabase/server';
-import { configStripe, signatureValide, lireAbonnement, finDePeriode } from '@/lib/stripe';
+import { configStripe, signatureValide, lireAbonnement, finDePeriode, lireSetupIntent } from '@/lib/stripe';
+import { declencherDebits } from '@/lib/paiement/declencher-debits';
 
 /**
  * Réception des événements Stripe.
@@ -26,6 +27,22 @@ const EVENEMENTS_FACTURE = new Set([
   'invoice.payment_failed',
 ]);
 
+/**
+ * Traduction pour UNE moitié. Distincte de statutSupabase() : un impayé sur
+ * une part ouvre une période de grâce, il ne coupe pas l'accès du foyer.
+ */
+function statutContribution(statutStripe: string): string {
+  switch (statutStripe) {
+    case 'active': return 'paid';
+    case 'trialing': return 'processing';
+    case 'past_due':
+    case 'unpaid': return 'past_due';
+    case 'incomplete': return 'processing';
+    case 'incomplete_expired': return 'failed';
+    default: return 'canceled';
+  }
+}
+
 function statutSupabase(statutStripe: string): string {
   switch (statutStripe) {
     case 'active': return 'active';
@@ -35,6 +52,30 @@ function statutSupabase(statutStripe: string): string {
     case 'incomplete': return 'past_due';
     default: return 'canceled';   // canceled, incomplete_expired, paused
   }
+}
+
+/**
+ * Aiguillage du paiement partagé.
+ *
+ * Renvoie true si l'abonnement Stripe appartient à un règlement partagé — le
+ * traitement est alors terminé, la base ayant recalculé l'accès du foyer à
+ * partir des deux moitiés. Renvoie false pour un abonnement ordinaire, que
+ * l'appelant confie alors au chemin historique, inchangé.
+ */
+async function traiterMoitie(
+  service: NonNullable<ReturnType<typeof supabaseService>>,
+  idAbonnement: string,
+  statut: string,
+  finPeriode?: string | null,
+): Promise<boolean> {
+  const { data, error } = await service.rpc('maj_contribution_stripe', {
+    p_stripe_subscription: idAbonnement,
+    p_status: statut,
+    p_period_end: finPeriode ?? null,
+  });
+  if (error) throw new Error(error.message);
+  // 'hors_partage' : cet abonnement n'est pas une moitié.
+  return data !== 'hors_partage';
 }
 
 async function confirmerEvenement(service: ReturnType<typeof supabaseService>, eventId: string) {
@@ -121,6 +162,51 @@ export async function POST(requete: Request) {
         if (error) throw new Error(error.message);
       }
 
+      // Empreinte de carte d'un règlement partagé. Aucun débit n'a eu lieu :
+      // on enregistre le moyen de paiement, puis on tente le déclenchement.
+      // Celui-ci ne fait quelque chose que si TOUTES les parts sont prêtes.
+      if (mode === 'setup' && metadonnees.type === 'partage_empreinte') {
+        const arrangementId = metadonnees.arrangement_id;
+        const parentId = metadonnees.user_id;
+        if (!arrangementId || !parentId) {
+          console.error('[webhook] empreinte sans métadonnées exploitables');
+          await confirmerEvenement(service, evenement.id);
+          return NextResponse.json({ recu: true, ignore: true });
+        }
+
+        const idSetup = objet.setup_intent as string | null;
+        const client = objet.customer as string | null;
+        let moyenPaiement: string | null = null;
+        if (idSetup) {
+          const setup = await lireSetupIntent(config, idSetup);
+          moyenPaiement = (setup.payment_method as string) ?? null;
+        }
+        if (!moyenPaiement || !client) {
+          console.error('[webhook] empreinte sans moyen de paiement exploitable');
+          await confirmerEvenement(service, evenement.id);
+          return NextResponse.json({ recu: true, ignore: true });
+        }
+
+        // Une part déjà rattachée à un abonnement ne revient pas en arrière :
+        // un événement rejoué ne doit pas rouvrir un débit déjà engagé.
+        const { error: erreurPart } = await service
+          .from('subscription_contributions')
+          .update({
+            status: 'ready_to_charge',
+            stripe_customer_id: client,
+            stripe_setup_intent_id: idSetup,
+            stripe_payment_method_id: moyenPaiement,
+          })
+          .eq('arrangement_id', arrangementId)
+          .eq('user_id', parentId)
+          .is('stripe_subscription_id', null);
+        if (erreurPart) throw new Error(erreurPart.message);
+
+        const resultat = await declencherDebits(service, arrangementId, config);
+        await confirmerEvenement(service, evenement.id);
+        return NextResponse.json({ recu: true, partage: resultat });
+      }
+
       if (mode === 'subscription' && householdId) {
         // La session ne porte pas la période : on interroge l'abonnement.
         const idAbo = objet.subscription as string;
@@ -163,7 +249,17 @@ export async function POST(requete: Request) {
         ? objet.subscription
         : ((objet.parent as { subscription_details?: { subscription?: string } } | undefined)
             ?.subscription_details?.subscription ?? null);
-      if (idAbo) {
+
+      // Chemin du partage. Un événement portant sur UNE moitié ne dit rien de
+      // l'état du foyer : il met à jour sa part, puis l'agrégation relit les
+      // deux et décide seule. Ne jamais l'envoyer à upsert_subscription, qui
+      // interpréterait une moitié en difficulté comme le foyer entier.
+      const traiteParPartage = idAbo
+        ? await traiterMoitie(service, idAbo,
+            evenement.type === 'invoice.payment_failed' ? 'past_due' : 'paid')
+        : false;
+
+      if (idAbo && !traiteParPartage) {
         const abo = await lireAbonnement(config, idAbo);
         const metaAbo = (abo.metadata ?? {}) as Record<string, string>;
         const foyer = metaAbo.household_id ?? householdId;
@@ -190,6 +286,20 @@ export async function POST(requete: Request) {
     }
 
     if (EVENEMENTS_ABONNEMENT.has(evenement.type)) {
+      // Même aiguillage : une moitié annulée ou renouvelée ne vaut pas pour
+      // le foyer entier.
+      const idMoitie = (objet.id as string) ?? null;
+      if (idMoitie && await traiterMoitie(
+        service, idMoitie,
+        evenement.type === 'customer.subscription.deleted'
+          ? 'canceled'
+          : statutContribution(String(objet.status ?? 'active')),
+        finDePeriode(objet),
+      )) {
+        await confirmerEvenement(service, evenement.id);
+        return NextResponse.json({ recu: true, partage: true });
+      }
+
       // L'abonnement porte lui-même la référence du foyer
       const foyer = householdId
         ?? ((objet.metadata as Record<string, string>)?.household_id ?? null);

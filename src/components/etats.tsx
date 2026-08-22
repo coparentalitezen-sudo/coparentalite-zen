@@ -12,7 +12,7 @@ export function Erreur({ message, details, onReessayer }:
       <p role="alert" className="rounded-xl bg-err-bg px-3 py-2 text-sm font-bold text-err">{message}</p>
       {details && (
         <details className="rounded-xl bg-muted px-3 py-2 text-xs">
-          <summary className="cursor-pointer font-bold text-soft">Détails techniques (bêta)</summary>
+          <summary className="cursor-pointer font-bold text-soft">Détails techniques</summary>
           <code className="mt-1 block break-all text-soft">{details}</code>
         </details>
       )}

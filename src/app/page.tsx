@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import { InstallAppCard } from '@/components/install-app-card';
 import Link from 'next/link';
+import { BoutonAchat } from '@/components/bouton-achat';
 import { lireGrilleTarifaire, lireGrilleExtensions, formatPrix } from '@/lib/tarifs';
 
 const avantages = [
@@ -73,7 +74,7 @@ const fonctionsGratuites = [
   'Gestion des dépenses',
   'Calcul automatique du solde',
   'Consultation de l’historique',
-  'Planification jusqu’à 3 mois à l’avance',
+  '3 mois gratuits dès la création de votre espace',
 ];
 
 const fonctionsZenPlus = [
@@ -94,17 +95,20 @@ const fonctionsZenPlus = [
  */
 const extensions = [
   {
+    id: null,
     duree: '+1 mois',
     prix: '0,99 €',
     description: 'Pour préparer une période ponctuelle un peu plus éloignée.',
   },
   {
+    id: null,
     duree: '+6 mois',
     prix: '3,99 €',
     description: 'Idéal pour organiser les prochaines vacances et la rentrée.',
     recommande: true,
   },
   {
+    id: null,
     duree: '+12 mois',
     prix: '5,99 €',
     description: 'Pour préparer sereinement une année complète.',
@@ -113,14 +117,14 @@ const extensions = [
 
 const faq = [
   {
-    question: 'Que signifie la limite de trois mois ?',
+    question: 'Que comprennent les 3 mois gratuits ?',
     reponse:
-      'La formule gratuite permet d’ajouter et de modifier des événements jusqu’à trois mois dans le futur. Votre historique reste consultable et vos données ne sont pas supprimées.',
+      'À la création de votre espace, vous pouvez planifier librement pendant 3 mois. Passé ce délai, votre historique reste consultable et vos données ne sont jamais supprimées : seule la planification vers le futur demande une extension ou Zen Plus.',
   },
   {
-    question: 'Que se passe-t-il lorsque j’atteins la limite ?',
+    question: 'Que se passe-t-il au bout des 3 mois ?',
     reponse:
-      'Vous pouvez continuer à utiliser l’application, consulter votre planning et gérer vos dépenses courantes. Pour planifier plus loin, vous pourrez acheter une extension ou choisir Zen Plus.',
+      'Vous pouvez continuer à utiliser l’application, consulter votre planning et gérer vos dépenses courantes. Pour planifier plus loin, vous choisissez une extension ponctuelle ou Zen Plus. Aucun prélèvement n’est déclenché automatiquement.',
   },
   {
     question: 'L’achat d’une extension est-il un abonnement ?',
@@ -153,6 +157,7 @@ export default async function Landing() {
   // Les extensions codées plus haut ne servent que si la base est injoignable
   const extensionsAffichees = grilleExtensions?.length
     ? grilleExtensions.map((e) => ({
+        id: e.extensionId,
         duree: e.libelle,
         prix: formatPrix(e.prixCents),
         description: e.description ?? '',
@@ -217,7 +222,7 @@ export default async function Landing() {
               href="/inscription"
               className="btn btn-primary px-6 py-3"
             >
-              Créer mon espace gratuitement
+              Créer mon espace — 3 mois gratuits
             </Link>
 
             <Link
@@ -229,7 +234,7 @@ export default async function Landing() {
           </div>
 
           <p className="mt-3 text-xs text-soft">
-            Aucun paiement demandé pour commencer.
+            3 mois gratuits pour commencer. Aucune carte bancaire demandée à l’inscription.
           </p>
         </div>
 
@@ -339,12 +344,12 @@ export default async function Landing() {
             </p>
 
             <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight">
-              Commencez gratuitement, prolongez seulement si nécessaire
+              3 mois gratuits pour commencer, prolongez seulement si nécessaire
             </h2>
 
             <p className="mt-3 text-soft">
-              La formule gratuite permet de planifier jusqu’à trois mois dans
-              le futur. Pour aller plus loin, choisissez une extension
+              Votre espace inclut 3 mois de planification gratuite à compter
+              de sa création. Pour aller plus loin, choisissez une extension
               ponctuelle ou Zen Plus.
             </p>
           </div>
@@ -353,7 +358,7 @@ export default async function Landing() {
             <article className="card flex flex-col p-6">
               <div>
                 <p className="text-sm font-bold text-soft">
-                  Formule gratuite
+                  3 mois gratuits
                 </p>
 
                 <div className="mt-2 flex items-end gap-2">
@@ -362,7 +367,7 @@ export default async function Landing() {
                   </span>
 
                   <span className="pb-1 text-sm text-soft">
-                    sans engagement
+                    pendant 3 mois, sans engagement
                   </span>
                 </div>
               </div>
@@ -389,15 +394,11 @@ export default async function Landing() {
                 href="/inscription"
                 className="btn btn-ghost mt-7 w-full"
               >
-                Créer mon espace gratuitement
+                Créer mon espace
               </Link>
             </article>
 
             <article className="card relative flex flex-col border-2 border-navy p-6">
-              <span className="absolute right-4 top-4 rounded-full bg-muted px-3 py-1 text-xs font-bold text-navy-text">
-                Bientôt disponible
-              </span>
-
               <div>
                 <p className="text-sm font-bold text-navy-text">
                   Coparentalité Zen Plus
@@ -450,13 +451,11 @@ export default async function Landing() {
                 ))}
               </ul>
 
-              <button
-                type="button"
-                disabled
-                className="btn btn-primary mt-7 w-full opacity-70"
-              >
-                Zen Plus bientôt disponible
-              </button>
+              <BoutonAchat
+                type="abonnement"
+                periodicite="year"
+                libelle="Choisir Zen Plus"
+              />
             </article>
           </div>
         </div>
@@ -509,13 +508,20 @@ export default async function Landing() {
                   {extension.description}
                 </p>
 
-                <button
-                  type="button"
-                  disabled
-                  className="btn btn-ghost mt-5 w-full opacity-70"
-                >
-                  Bientôt disponible
-                </button>
+                {extension.id ? (
+                  <BoutonAchat
+                    type="extension"
+                    extensionId={extension.id}
+                    libelle="Choisir cette extension"
+                    variante="ghost"
+                  />
+                ) : (
+                  /* Grille injoignable : mieux vaut aucun bouton qu'un bouton
+                     qui ouvrirait un achat sans savoir lequel. */
+                  <Link href="/inscription" className="btn btn-ghost mt-5 w-full">
+                    Créer mon espace
+                  </Link>
+                )}
               </article>
             ))}
           </div>
@@ -572,7 +578,7 @@ export default async function Landing() {
             href="/inscription"
             className="mt-6 inline-flex min-h-12 items-center justify-center rounded-xl bg-white px-6 font-bold text-navy-text"
           >
-            Commencer gratuitement
+            Commencer — 3 mois gratuits
           </Link>
         </div>
       </section>

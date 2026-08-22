@@ -19,6 +19,7 @@ export * from './reimbursements';
 export * from './attachments';
 export * from './privacy';
 export * from './premium';
+export * from './partage';
 export * from './vacances';
 export * from './localisation';
 export * from './notifications';
