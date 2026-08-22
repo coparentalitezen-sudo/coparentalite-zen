@@ -31,8 +31,32 @@ export function lienConseilPinterest(base: string, reference: string): string {
   }, `/conseils/${encodeURIComponent(reference)}`);
 }
 
-export function lienImagePinterest(base: string, reference: string): string {
-  return new URL(`/api/marketing/pinterest-visuel?ref=${encodeURIComponent(reference)}`, base).toString();
+/**
+ * Lien d'une épingle du questionnaire.
+ *
+ * Il mène à `/quiz` et non à la page de conseil : une personne venue de
+ * Pinterest pour connaître son rythme de garde doit trouver le questionnaire,
+ * pas un article qui en parle. Le contenu UTM porte le rang de la planche,
+ * ce qui indique laquelle des questions a réellement fait venir du monde.
+ */
+export function lienQuizPinterest(
+  base: string, reference: string, page: number,
+): string {
+  return construireLien(base, {
+    source: 'pinterest', campagne: 'questionnaire', contenu: `${reference}-p${page}`,
+  }, '/quiz');
+}
+
+export function lienImagePinterest(
+  base: string, reference: string, page = 0,
+): string {
+  const url = new URL('/api/marketing/pinterest-visuel', base);
+  url.searchParams.set('ref', reference);
+  // La couverture reste à l'adresse historique, sans paramètre : les épingles
+  // déjà importées par Pinterest pointent dessus, et changer leur URL les
+  // ferait réimporter comme des doublons.
+  if (page > 0) url.searchParams.set('page', String(page));
+  return url.toString();
 }
 
 export function resumePinterest(contenu: Contenu): string {
@@ -63,21 +87,84 @@ function datePublication(contenu: Contenu, semaine: Date): Date {
   return lundi;
 }
 
+/**
+ * Les épingles produites par un contenu.
+ *
+ * Un contenu ordinaire donne une épingle. Le questionnaire en donne une par
+ * planche : Pinterest étant un moteur de recherche, six épingles distinctes
+ * occupent six requêtes différentes — l'âge des enfants, le partage des
+ * dépenses, les horaires décalés — là où une seule n'en occuperait qu'une.
+ *
+ * Chaque épingle porte son propre titre et sa propre description, tirés de la
+ * planche qu'elle montre. Ce n'est pas un détail de style : Pinterest écarte
+ * les contenus dupliqués, et six épingles au texte identique seraient au
+ * mieux ignorées, au pire sanctionnées.
+ */
+export interface ElementFlux {
+  guid: string;
+  titre: string;
+  lien: string;
+  description: string;
+  image: string;
+}
+
+export function elementsDuContenu(contenu: Contenu, base: string): ElementFlux[] {
+  if (contenu.categorie !== 'quiz') {
+    return [{
+      guid: contenu.reference,
+      titre: contenu.accroche,
+      lien: lienConseilPinterest(base, contenu.reference),
+      description: resumePinterest(contenu),
+      image: lienImagePinterest(base, contenu.reference),
+    }];
+  }
+
+  /*
+   * La planche de conclusion est écartée.
+   *
+   * Elle renvoie au lien de la biographie, ce qui n'a de sens que sur
+   * Instagram : sur Pinterest, le lien est porté par l'épingle elle-même. Et
+   * son texte, écrit pour être lu en fin de carrousel, ferait un titre de
+   * cent quatre-vingts caractères là où Pinterest en affiche une quarantaine.
+   */
+  const retenues = contenu.pages
+    .map((page, rang) => ({ page, rang }))
+    .filter(({ page }) => page.titre === 'Couverture' || page.titre.startsWith('Question'));
+
+  return retenues.map(({ page, rang }) => {
+    // La première ligne d'une planche porte la question ; les suivantes
+    // énumèrent les réponses. Un titre d'épingle doit tenir sur une ligne.
+    const [premiere, ...reste] = page.texte.split('\n').filter(Boolean);
+    return {
+      guid: `${contenu.reference}-p${rang}`,
+      titre: premiere,
+      lien: lienQuizPinterest(base, contenu.reference, rang),
+      description: reste.length > 0
+        ? `${premiere} ${reste.join(' ').replaceAll('• ', '')} `
+          + 'Le questionnaire complet affiche le planning correspondant sur '
+          + 'deux semaines, sans inscription.'
+        : `${premiere} Cinq questions pour trouver le rythme de garde adapté `
+          + 'à votre situation, avec le planning affiché sur deux semaines.',
+      image: lienImagePinterest(base, contenu.reference, rang),
+    };
+  });
+}
+
 /** Flux RSS 2.0 accepté par l'import automatique de Pinterest. */
 export function creerFluxPinterest(contenus: Contenu[], base: string): string {
-  const items = contenus.map((contenu) => {
+  const items = contenus.flatMap((contenu) => {
     const semaine = dateDepuisReference(contenu.reference) ?? new Date();
-    const lien = lienConseilPinterest(base, contenu.reference);
-    const image = lienImagePinterest(base, contenu.reference);
-    return `    <item>\n`
-      + `      <title>${echapperXml(contenu.accroche)}</title>\n`
-      + `      <link>${echapperXml(lien)}</link>\n`
-      + `      <guid isPermaLink="false">${echapperXml(contenu.reference)}</guid>\n`
-      + `      <description>${echapperXml(resumePinterest(contenu))}</description>\n`
-      + `      <pubDate>${datePublication(contenu, semaine).toUTCString()}</pubDate>\n`
-      + `      <media:content url="${echapperXml(image)}" medium="image" type="image/jpeg" />\n`
-      + `      <enclosure url="${echapperXml(image)}" type="image/jpeg" />\n`
-      + `    </item>`;
+    const date = datePublication(contenu, semaine).toUTCString();
+    return elementsDuContenu(contenu, base).map((element) =>
+      `    <item>\n`
+      + `      <title>${echapperXml(element.titre)}</title>\n`
+      + `      <link>${echapperXml(element.lien)}</link>\n`
+      + `      <guid isPermaLink="false">${echapperXml(element.guid)}</guid>\n`
+      + `      <description>${echapperXml(element.description)}</description>\n`
+      + `      <pubDate>${date}</pubDate>\n`
+      + `      <media:content url="${echapperXml(element.image)}" medium="image" type="image/jpeg" />\n`
+      + `      <enclosure url="${echapperXml(element.image)}" type="image/jpeg" />\n`
+      + `    </item>`);
   }).join('\n');
 
   return `<?xml version="1.0" encoding="UTF-8"?>\n`
