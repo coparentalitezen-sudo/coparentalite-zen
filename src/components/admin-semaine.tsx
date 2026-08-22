@@ -238,12 +238,36 @@ function Carte({ contenu }: { contenu: ContenuAffiche }) {
                   <span className="font-bold text-ink">{p.titre}</span>
                   {p.secondes ? <span className="text-xs"> · {p.secondes} s</span> : null}
                   <p className="mt-1">{p.texte}</p>
+                  {/*
+                    * L'image est affichée, et non plus seulement liée.
+                    *
+                    * Sur iPhone, un appui long sur une image affichée propose
+                    * « Ajouter aux photos » ; un lien vers un fichier ne
+                    * propose rien. Or récupérer les planches est le geste qui
+                    * permet d'en faire un Reel, seul format qu'Instagram
+                    * montre au-delà des abonnés.
+                    *
+                    * eslint-disable-next-line @next/next/no-img-element :
+                    * next/image optimiserait une image déjà produite à la
+                    * bonne taille, et la servirait recompressée depuis un
+                    * autre domaine — ce qui casserait justement
+                    * l'enregistrement.
+                    */}
+                  {contenu.urlsVisuels[i] && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={contenu.urlsVisuels[i]}
+                      alt={`Planche ${i + 1} : ${p.titre}`}
+                      loading="lazy"
+                      className="mt-2 w-full max-w-[220px] rounded-lg border border-line"
+                    />
+                  )}
                   <a
                     className="mt-2 inline-block text-xs font-bold underline"
                     href={contenu.urlsVisuels[i] || '#'}
                     target="_blank" rel="noreferrer"
                   >
-                    Ouvrir le visuel
+                    Ouvrir en grand
                   </a>
                 </li>
               ))}
