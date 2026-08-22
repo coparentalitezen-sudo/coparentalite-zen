@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { genererSemaine, semaineIso, sujetsDeLaSemaine, CADENCE, APPEL_ACTION } from '../src/lib/marketing/generateur';
 import { BANQUE } from '../src/lib/marketing/banque';
 import { planifierVisuel } from '../src/lib/marketing/visuel';
+import { QUESTIONS } from '../src/lib/quiz';
 
 const BASE = 'https://coparentalitezen.fr';
 const LUNDI = new Date('2026-08-17T10:00:00Z');
@@ -273,6 +274,39 @@ describe('polices embarquées', () => {
       expect(octets.length).toBeGreaterThan(10000);
       // Signature du format woff, seul lisible par le moteur de rendu.
       expect(octets.subarray(0, 4).toString('ascii')).toBe('wOFF');
+    }
+  });
+});
+
+describe('carrousel du questionnaire', () => {
+  /** Le créneau 8 du cycle : la semaine ISO 2 de 2026 le fait tomber. */
+  const quiz = [0, 1, 2, 3]
+    .flatMap((n) => genererSemaine(new Date(2026, 0, 5 + n * 7), BASE))
+    .find((c) => c.categorie === 'quiz');
+
+  it('paraît une fois par cycle de quatre semaines', () => {
+    expect(quiz).toBeDefined();
+  });
+
+  it('est toujours un carrousel : une image unique ne se parcourt pas', () => {
+    expect(quiz!.format).toBe('carrousel');
+  });
+
+  it('reprend les questions du questionnaire, sans les recopier', () => {
+    for (const q of QUESTIONS) {
+      expect(quiz!.pages.some((p) => p.texte.includes(q.intitule))).toBe(true);
+    }
+  });
+
+  it('mène au questionnaire et non à l’accueil', () => {
+    expect(quiz!.legendeFacebook).toContain('/quiz');
+  });
+
+  it('n’annonce pas un résultat qu’Instagram ne peut pas calculer', () => {
+    // Une publication du fil n'est pas interactive : promettre un résultat
+    // « en appuyant » tromperait le lecteur dès la première planche.
+    for (const p of quiz!.pages) {
+      expect(p.texte).not.toMatch(/appuyez sur|tapez sur|cliquez ici/i);
     }
   });
 });

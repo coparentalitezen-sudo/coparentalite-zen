@@ -13,10 +13,12 @@
  */
 
 import { BANQUE, MARQUE, type Sujet } from './banque';
+import { QUESTIONS } from '../quiz';
 import { construireLien } from './utm';
 
 export type Format = 'reel' | 'carrousel' | 'publication';
-export type Categorie = 'conseil' | 'quotidien' | 'demonstration' | 'modele' | 'marque';
+export type Categorie =
+  'conseil' | 'quotidien' | 'demonstration' | 'modele' | 'marque' | 'quiz';
 
 export interface Page {
   titre: string;
@@ -59,10 +61,16 @@ export const CADENCE: Record<number, Format> = {
  * 40 / 25 / 20 / 10 / 5 ne tombe pas juste sur sept contenus : 40 % de sept
  * font 2,8. Étalée sur vingt-huit créneaux, la répartition tombe juste, et
  * chaque semaine reste proche de la cible sans qu'aucune ne soit aberrante.
+ *
+ * Le créneau 8 porte le questionnaire. Sa position n'est pas indifférente :
+ * le cycle avance de sept par semaine, donc l'indice 8 retombe toujours sur
+ * le deuxième créneau de la semaine, qui est un carrousel. Un questionnaire
+ * publié en Reel ou en image unique n'aurait aucun sens — il lui faut des
+ * planches à faire défiler.
  */
 const CYCLE: Categorie[] = [
   'conseil', 'quotidien', 'demonstration', 'conseil', 'modele', 'conseil', 'quotidien',
-  'conseil', 'demonstration', 'quotidien', 'conseil', 'marque', 'conseil', 'demonstration',
+  'conseil', 'quiz', 'quotidien', 'conseil', 'marque', 'conseil', 'demonstration',
   'quotidien', 'conseil', 'modele', 'conseil', 'demonstration', 'quotidien', 'conseil',
   'demonstration', 'quotidien', 'conseil', 'modele', 'conseil', 'demonstration', 'quotidien',
 ];
@@ -173,11 +181,84 @@ function legendes(
   };
 }
 
+/** Accroches du questionnaire, pour ne pas republier la même couverture. */
+const ACCROCHES_QUIZ = [
+  'Quel rythme de garde correspond vraiment à votre famille ?',
+  'Cinq questions pour trouver votre rythme de garde.',
+  'Il existe sept rythmes de garde. Lequel est le vôtre ?',
+  'Répondez à cinq questions, repartez avec votre planning.',
+];
+
+/**
+ * Carrousel du questionnaire.
+ *
+ * Les planches sont construites à partir des questions réelles du
+ * questionnaire, et non recopiées à côté. Modifier une question sur le site
+ * change donc le carrousel à la génération suivante — deux libellés qui
+ * divergent produiraient un lecteur qui répond à une question sur Instagram
+ * et en trouve une autre en arrivant sur la page.
+ *
+ * Une publication du fil n'est pas interactive : personne ne peut y appuyer
+ * sur une réponse. Le carrousel fait donc réfléchir, et c'est le lien qui
+ * calcule le planning. Les planches sont écrites dans cet esprit — elles
+ * n'annoncent jamais un résultat qu'Instagram serait incapable de donner.
+ */
+function planchesQuiz(accroche: string): Page[] {
+  return [
+    { titre: 'Couverture', texte: accroche },
+    ...QUESTIONS.map((q, i) => ({
+      titre: `Question ${i + 1}`,
+      texte: `${q.intitule}\n\n${q.options.map((o) => `• ${o.libelle}`).join('\n')}`,
+    })),
+    {
+      titre: 'Votre résultat',
+      texte:
+        'Semaine sur deux, 2-2-3, 2-2-5-5, 3-4-4-3, week-end alterné ou cycle '
+        + 'personnalisé : le questionnaire complet affiche votre planning sur '
+        + 'deux semaines, sans inscription. Lien dans la bio.',
+    },
+  ];
+}
+
+function contenuQuiz(
+  reference: string, jour: number, lienQuiz: string, indice: number,
+): Contenu {
+  const accroche = ACCROCHES_QUIZ[indice % ACCROCHES_QUIZ.length];
+  const hashtags = [
+    '#gardealternée', '#coparentalité', '#parentsséparés', '#organisationfamiliale',
+  ];
+
+  return {
+    reference, niche: 'rythme-de-garde', format: 'carrousel', categorie: 'quiz',
+    accroche,
+    pages: planchesQuiz(accroche),
+    legendeInstagram:
+      `${accroche}\n\n`
+      + 'Faites défiler et répondez pour vous. À la fin, le questionnaire '
+      + 'complet vous montre le planning correspondant, sur deux semaines, '
+      + 'sans créer de compte.\n\n'
+      + `${APPEL_ACTION}\n\n${hashtags.join(' ')}`,
+    legendeFacebook:
+      `${accroche}\n\n`
+      + 'Faites défiler et répondez pour vous. Le questionnaire complet '
+      + 'affiche ensuite le planning correspondant, sur deux semaines, sans '
+      + `créer de compte : ${lienQuiz}`,
+    texteAlternatif:
+      'Carrousel sobre. Couverture en texte blanc sur fond bleu marine : '
+      + `« ${accroche} ». Les planches suivantes, en texte foncé sur fond `
+      + 'crème, posent cinq questions sur l’âge des enfants, leur nombre, le '
+      + 'partage des dépenses, la répartition du temps et les horaires de '
+      + 'travail.',
+    hashtags,
+    appelAction: APPEL_ACTION,
+    jour,
+  };
+}
+
 /**
  * Contenu de marque, sans sujet : il ne parle d'aucune difficulté et n'ouvre
  * donc pas sur une solution. Un contenu sur vingt, pas davantage.
- */
-function contenuMarque(
+ */function contenuMarque(
   reference: string, format: Format, jour: number, lien: string, indice: number,
 ): Contenu {
   const m = MARQUE[indice % MARQUE.length];
@@ -241,6 +322,17 @@ export function genererSemaine(
 
     if (categorie === 'marque') {
       return contenuMarque(reference, format, jour, lien, semaine);
+    }
+
+    if (categorie === 'quiz') {
+      // Le lien mène au questionnaire, pas à l'accueil : une personne venue
+      // pour connaître son rythme de garde et déposée sur la page d'accueil
+      // devrait le chercher elle-même, et ne le ferait pas.
+      const lienQuiz = construireLien(
+        base, { source: 'facebook', campagne: 'acquisition', contenu: reference },
+        '/quiz',
+      );
+      return contenuQuiz(reference, jour, lienQuiz, semaine);
     }
 
     const sujet = sujets[i % sujets.length];
