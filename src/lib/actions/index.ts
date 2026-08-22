@@ -18,6 +18,7 @@ export * from './expenses';
 export * from './reimbursements';
 export * from './attachments';
 export * from './documents';
+export * from './messages';
 export * from './privacy';
 export * from './premium';
 export * from './partage';
