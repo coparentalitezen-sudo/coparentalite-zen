@@ -39,6 +39,7 @@ function acheminerPush() {
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { compterNonLues } from '@/lib/actions';
+import { poserPastille } from '@/lib/pastille';
 import { useContexte } from '@/lib/use-contexte';
 import { Icone } from './icons';
 
@@ -66,7 +67,12 @@ export function Cloche() {
   const rafraichir = useCallback(() => {
     if (!hid) return;
     compterNonLues(hid).then((r) => {
-      if (r.status === 'ok') setNonLues(r.data);
+      if (r.status !== 'ok') return;
+      setNonLues(r.data);
+      // La pastille de l'icône suit exactement le décompte de la cloche : deux
+      // chiffres différents pour la même chose donneraient l'impression que
+      // l'un des deux ment.
+      poserPastille(r.data);
     });
   }, [hid]);
 

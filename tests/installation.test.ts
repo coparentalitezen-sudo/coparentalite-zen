@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import {
   estInstallee, detecterPlateforme, etapesInstallation, beneficesInstallation,
 } from '../src/lib/installation';
+import { poserPastille } from '../src/lib/pastille';
 
 const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15';
 const IPAD_MODERNE = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15';
@@ -94,5 +95,52 @@ describe('beneficesInstallation', () => {
     const b = beneficesInstallation('android').join(' ');
     expect(b).not.toContain('indispensable');
     expect(b.length).toBeGreaterThan(50);
+  });
+});
+
+describe('pastille de l’icône', () => {
+  /** Un navigateur qui expose l'API, et un qui l'ignore. */
+  function faux(avecApi: boolean) {
+    const appels: (number | 'efface')[] = [];
+    const nav = avecApi
+      ? {
+        setAppBadge: (n?: number) => { appels.push(n ?? 0); return Promise.resolve(); },
+        clearAppBadge: () => { appels.push('efface'); return Promise.resolve(); },
+      }
+      : {};
+    return { appels, nav };
+  }
+
+  const original = globalThis.navigator;
+  afterEach(() => {
+    Object.defineProperty(globalThis, 'navigator', {
+      value: original, configurable: true,
+    });
+  });
+
+  function installer(nav: object) {
+    Object.defineProperty(globalThis, 'navigator', {
+      value: nav, configurable: true,
+    });
+  }
+
+  it('affiche le nombre de non-lues', () => {
+    const { appels, nav } = faux(true);
+    installer(nav);
+    poserPastille(3);
+    expect(appels).toEqual([3]);
+  });
+
+  it('efface plutôt que d’afficher zéro', () => {
+    const { appels, nav } = faux(true);
+    installer(nav);
+    poserPastille(0);
+    expect(appels).toEqual(['efface']);
+  });
+
+  it('ne rompt pas sur un navigateur sans l’API', () => {
+    const { nav } = faux(false);
+    installer(nav);
+    expect(() => poserPastille(2)).not.toThrow();
   });
 });

@@ -95,8 +95,39 @@ self.addEventListener('push', (event) => {
     data: { url: contenu.url || '/app/notifications' },
     lang: 'fr',
   };
-  event.waitUntil(self.registration.showNotification(titre, options));
+  /*
+   * La pastille est posée ici, et pas seulement à l'ouverture.
+   *
+   * C'est tout l'intérêt : application fermée, personne n'exécute le code de
+   * la cloche. Sans cet appel, le chiffre n'apparaîtrait sur l'icône qu'après
+   * que le parent a ouvert l'application — donc trop tard pour l'y faire
+   * revenir.
+   *
+   * Le serveur envoie le décompte quand il le connaît ; à défaut, on
+   * incrémente d'une unité, ce qu'aucune API ne permet de faire directement.
+   * Un chiffre approché vaut mieux qu'une icône muette.
+   */
+  const poser = () => {
+    if (!self.navigator || !self.navigator.setAppBadge) return Promise.resolve();
+    const nombre = typeof contenu.nonLues === 'number' && contenu.nonLues >= 0
+      ? contenu.nonLues
+      : (compteurLocal += 1);
+    return self.navigator.setAppBadge(nombre).catch(() => {});
+  };
+
+  event.waitUntil(Promise.all([
+    self.registration.showNotification(titre, options),
+    poser(),
+  ]));
 });
+
+/*
+ * Décompte de secours, le temps que l'application s'ouvre.
+ *
+ * Il ne survit pas à l'arrêt du service worker, et c'est acceptable : la
+ * cloche recale la pastille sur la valeur réelle dès la première ouverture.
+ */
+let compteurLocal = 0;
 
 /*
  * Toucher la notification ouvre l'écran concerné. Si l'application est déjà
@@ -106,6 +137,11 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const cible = (event.notification.data && event.notification.data.url)
     || '/app/notifications';
+
+  // Le décompte de secours repart de zéro : l'application va s'ouvrir et la
+  // cloche posera la valeur réelle. Le laisser courir ferait repartir le
+  // prochain incrément d'un total déjà lu.
+  compteurLocal = 0;
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true })
