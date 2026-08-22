@@ -58,7 +58,10 @@ export const QUESTIONS: Question[] = [
   },
   {
     cle: 'repartition',
-    intitule: 'Comment souhaitez-vous répartir le temps ?',
+    intitule: 'Quel rythme de garde avez-vous, ou souhaitez-vous ?',
+    precision:
+      'Répondez sur la situation en place si elle existe déjà, sinon sur '
+      + 'celle que vous visez.',
     options: [
       {
         valeur: 'partagee',

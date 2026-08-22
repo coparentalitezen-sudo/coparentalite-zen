@@ -14,7 +14,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { SchemaRythme } from '@/components/rythme';
-import { modele, schemaDeuxSemaines } from '@/lib/rythmes';
+import { MODELES, modele, schemaDeuxSemaines } from '@/lib/rythmes';
+import type { CustodyPattern } from '@/lib/custody';
 import {
   QUESTIONS, recommander, memoriserRythmeSuggere,
   type Reponses, type CleQuestion,
@@ -129,24 +130,35 @@ function Resultat({ reponses, onRecommencer }: {
   onRecommencer: () => void;
 }) {
   const reco = recommander(reponses);
-  const principal = modele(reco.pattern);
-  const secondaire = modele(reco.alternative);
+  // Le conseil est un point de départ, pas un verdict : la personne connaît sa
+  // situation mieux que quatre questions ne peuvent la décrire, et doit
+  // pouvoir choisir un autre rythme sans tout recommencer.
+  const [choisi, setChoisi] = useState<CustodyPattern>(reco.pattern);
+  const conseille = choisi === reco.pattern;
+  const courant = modele(choisi);
+
+  function changer(pattern: CustodyPattern) {
+    setChoisi(pattern);
+    memoriserRythmeSuggere(pattern);
+  }
 
   return (
     <section className="mt-5 space-y-5">
       <div>
         <p className="text-xs font-bold uppercase tracking-wide text-soft/70">
-          Le rythme conseillé
+          {conseille ? 'Le rythme conseillé' : 'Le rythme choisi'}
         </p>
         <h1 className="mt-1 font-display text-3xl font-semibold tracking-tight">
-          {principal?.nom}
+          {courant?.nom}
         </h1>
       </div>
 
       <article className="card space-y-4 p-5">
-        <p className="text-sm leading-relaxed text-soft">{reco.raison}</p>
+        <p className="text-sm leading-relaxed text-soft">
+          {conseille ? reco.raison : courant?.explication}
+        </p>
         <SchemaRythme
-          schema={schemaDeuxSemaines(reco.pattern)}
+          schema={schemaDeuxSemaines(choisi)}
           parent1={MOI}
           parent2={AUTRE}
         />
@@ -154,26 +166,61 @@ function Resultat({ reponses, onRecommencer }: {
           Deux semaines de planning : <strong>V</strong> pour vous,{' '}
           <strong>A</strong> pour l’autre parent.
         </p>
+        {!conseille && (
+          <button
+            type="button"
+            onClick={() => changer(reco.pattern)}
+            className="text-sm font-bold text-navy-text underline"
+          >
+            Revenir au rythme conseillé
+          </button>
+        )}
       </article>
 
-      {secondaire && (
-        <article className="card space-y-2 p-5">
-          <h2 className="text-base font-bold text-ink">
-            À considérer aussi : {secondaire.nom}
-          </h2>
-          <p className="text-sm leading-relaxed text-soft">
-            {reco.raisonAlternative}
-          </p>
-        </article>
-      )}
+      <section className="space-y-3">
+        <h2 className="text-base font-bold text-ink">
+          Un autre rythme vous conviendrait mieux ?
+        </h2>
+        <div className="space-y-2">
+          {MODELES.map((m) => (
+            <button
+              key={m.pattern}
+              type="button"
+              onClick={() => changer(m.pattern)}
+              aria-pressed={m.pattern === choisi}
+              className={`card w-full p-4 text-left active:scale-[.98] ${
+                m.pattern === choisi ? 'ring-2 ring-navy' : ''
+              }`}
+            >
+              <span className="flex items-baseline justify-between gap-3">
+                <span className="font-bold text-ink">{m.nom}</span>
+                {m.pattern === reco.pattern && (
+                  <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-navy-text">
+                    Conseillé
+                  </span>
+                )}
+                {m.pattern === reco.alternative && (
+                  <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-coral-text">
+                    À considérer
+                  </span>
+                )}
+              </span>
+              <span className="mt-1 block text-sm text-soft">
+                {m.pattern === reco.alternative ? reco.raisonAlternative : m.convientA}
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
 
       <div className="space-y-3">
         <Link href="/inscription" className="btn btn-primary w-full">
           Créer mon planning gratuitement
         </Link>
         <p className="text-center text-xs leading-relaxed text-soft">
-          Le rythme conseillé sera déjà sélectionné. Vous pourrez en changer à
-          tout moment, et inviter l’autre parent à rejoindre le planning.
+          Le rythme {conseille ? 'conseillé' : 'choisi'} sera déjà sélectionné.
+          Vous pourrez en changer à tout moment, et inviter l’autre parent à
+          rejoindre le planning.
         </p>
       </div>
 
