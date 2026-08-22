@@ -26,6 +26,10 @@ export const COULEURS = {
   marine: '#4E6381',  // --color-navy
   doux: '#4A5568',    // --color-soft
   carte: '#FFFFFF',   // --color-card
+  // Le corail de l'application, dans ses deux versions : la foncée reste
+  // lisible sur le fond crème, la claire sur le fond marine d'une couverture.
+  corail: '#A85548',       // --color-coral-text
+  corailClair: '#E4A196',  // --color-coral
 };
 
 /** Les deux seuls formats publiés. */
@@ -43,6 +47,15 @@ export type NomFormat = keyof typeof FORMATS;
 export interface Planche {
   /** Le texte principal, seul élément que l'œil doit accrocher. */
   texte: string;
+  /**
+   * Appel à l'action, détaché du texte principal.
+   *
+   * Séparé plutôt que concaténé : fondu dans le paragraphe, il se lit comme
+   * une phrase de plus et personne n'y va. Il est dessiné plus grand, en
+   * corail, à l'écart — c'est la seule chose que doit retenir un lecteur
+   * arrivé au bout du carrousel.
+   */
+  appel?: string;
   /** Mention discrète en haut : le sujet, ou le numéro de planche. */
   surtitre?: string;
   /** Rang et total, pour les carrousels : « 3 / 6 ». */
@@ -79,6 +92,11 @@ export interface PlanVisuel {
   taille: number;
   surtitre: string | null;
   texte: string;
+  /** Appel à l'action, ou null si la planche n'en porte pas. */
+  appel: string | null;
+  /** Nettement plus grand que le texte : c'est ce qui le détache. */
+  tailleAppel: number;
+  couleurAppel: string;
   pagination: string | null;
   signature: string;
 }
@@ -86,14 +104,20 @@ export interface PlanVisuel {
 export function planifierVisuel(planche: Planche, format: NomFormat): PlanVisuel {
   const { largeur, hauteur } = FORMATS[format];
   const couverture = planche.couverture ?? false;
+  const taille = tailleTexte(planche.texte, couverture);
   return {
     largeur,
     hauteur,
     fond: couverture ? COULEURS.marine : COULEURS.fond,
     couleurTexte: couverture ? '#FFFFFF' : COULEURS.encre,
-    taille: tailleTexte(planche.texte, couverture),
+    taille,
     surtitre: planche.surtitre ?? null,
     texte: planche.texte,
+    appel: planche.appel ?? null,
+    // Un tiers plus grand : assez pour trancher au premier coup d'œil, pas
+    // assez pour déborder d'une planche déjà chargée.
+    tailleAppel: Math.round(taille * 1.35),
+    couleurAppel: couverture ? COULEURS.corailClair : COULEURS.corail,
     pagination: planche.rang ? `${planche.rang.position} / ${planche.rang.total}` : null,
     signature: 'coparentalitezen.fr',
   };

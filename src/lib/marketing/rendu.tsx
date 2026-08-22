@@ -54,6 +54,7 @@ export async function rendreVisuel(
   const format: NomFormat = formatForce ?? (contenu.format === 'reel' ? 'vertical' : 'carre');
   const planche: Planche = {
     texte: contenu.pages[page].texte,
+    appel: contenu.pages[page].appel,
     surtitre: page === 0 ? undefined : contenu.pages[page].titre,
     couverture: page === 0,
     rang: contenu.format === 'carrousel'
@@ -78,13 +79,31 @@ export async function rendreVisuel(
           {plan.pagination && <span>{plan.pagination}</span>}
         </div>
 
-        <div
-          style={{
-            display: 'flex', fontSize: plan.taille, lineHeight: 1.28,
-            fontWeight: 700, letterSpacing: '-0.02em',
-          }}
-        >
-          {plan.texte}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 78 }}>
+          <div
+            style={{
+              display: 'flex', fontSize: plan.taille, lineHeight: 1.28,
+              fontWeight: 700, letterSpacing: '-0.02em',
+            }}
+          >
+            {plan.texte}
+          </div>
+
+          {plan.appel && (
+            <div
+              style={{
+                display: 'flex', fontSize: plan.tailleAppel, lineHeight: 1.2,
+                fontWeight: 700, letterSpacing: '-0.02em',
+                color: plan.couleurAppel,
+                // Un filet à gauche : l'appel n'est plus un paragraphe parmi
+                // d'autres, il devient un bloc à part.
+                borderLeft: `10px solid ${plan.couleurAppel}`,
+                paddingLeft: 32,
+              }}
+            >
+              {plan.appel}
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 22 }}>

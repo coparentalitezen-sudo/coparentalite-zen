@@ -23,6 +23,14 @@ export type Categorie =
 export interface Page {
   titre: string;
   texte: string;
+  /**
+   * Appel à l'action, dessiné à l'écart du texte et plus grand.
+   *
+   * Séparé du texte plutôt que collé à sa fin : noyé dans le paragraphe, il
+   * ne se distingue pas d'une phrase de conclusion, et l'œil ne s'y arrête
+   * pas. C'est pourtant la seule ligne du carrousel qui demande un geste.
+   */
+  appel?: string;
   /** Durée en secondes, pour les Reels seulement. */
   secondes?: number;
 }
@@ -215,7 +223,8 @@ function planchesQuiz(accroche: string): Page[] {
       texte:
         'Semaine sur deux, 2-2-3, 2-2-5-5, 3-4-4-3, week-end alterné ou cycle '
         + 'personnalisé : le questionnaire complet affiche votre planning sur '
-        + 'deux semaines, sans inscription. Lien dans la bio.',
+        + 'deux semaines, sans inscription.',
+      appel: 'Lien dans la bio',
     },
   ];
 }

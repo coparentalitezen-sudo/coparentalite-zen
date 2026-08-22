@@ -324,3 +324,29 @@ describe('cohérence des niches avec la base', () => {
     }
   });
 });
+
+describe('appel à l’action détaché', () => {
+  const quiz = [0, 1, 2, 3]
+    .flatMap((n) => genererSemaine(new Date(2026, 0, 5 + n * 7), BASE))
+    .find((c) => c.categorie === 'quiz')!;
+  const derniere = quiz.pages[quiz.pages.length - 1];
+
+  it('porte l’appel dans son champ, pas à la fin du texte', () => {
+    expect(derniere.appel).toBe('Lien dans la bio');
+    expect(derniere.texte).not.toMatch(/lien dans la bio/i);
+  });
+
+  it('le dessine plus grand que le texte, et en corail', () => {
+    const plan = planifierVisuel(
+      { texte: derniere.texte, appel: derniere.appel }, 'carre',
+    );
+    expect(plan.appel).toBe('Lien dans la bio');
+    expect(plan.tailleAppel).toBeGreaterThan(plan.taille);
+    expect(plan.couleurAppel).not.toBe(plan.couleurTexte);
+  });
+
+  it('n’invente pas d’appel là où la planche n’en porte pas', () => {
+    const plan = planifierVisuel({ texte: 'Un texte simple' }, 'carre');
+    expect(plan.appel).toBeNull();
+  });
+});
