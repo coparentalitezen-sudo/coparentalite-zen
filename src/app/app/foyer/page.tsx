@@ -17,6 +17,7 @@ import {
   MODELES, modele, cycleParDefaut, repartition, validerCyclePersonnalise,
   schemaDeuxSemaines, accepteJourChangement, JOURS_CHANGEMENT, nomDuJour,
 } from '@/lib/rythmes';
+import { lireRythmeSuggere } from '@/lib/quiz';
 import { useContexte } from '@/lib/use-contexte';
 import {
   createHousehold, inviteParent, nommerSecondParent, exportMyData, deleteMyAccount, deleteHousehold,
@@ -104,6 +105,13 @@ export default function Foyer() {
         setHeurePassage(r.data.handoverTime ?? '');
         setJourChangement(r.data.handoverDay ?? 1);
         setLieuPassage(r.data.handoverPlace ?? '');
+      } else if (r.status === 'ok') {
+        // Aucun rythme enregistré : celui qu'a désigné le questionnaire public
+        // sert de présélection, pour ne pas redemander ce qui vient d'être
+        // répondu. La valeur est consommée à la lecture — un rythme réellement
+        // enregistré ne sera jamais écrasé par cette branche.
+        const suggere = lireRythmeSuggere();
+        if (suggere) setRythme(suggere);
       }
     });
     listerPays().then((r) => { if (r.status === 'ok') setPays(r.data); });

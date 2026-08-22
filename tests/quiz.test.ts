@@ -1,0 +1,101 @@
+import { describe, it, expect } from 'vitest';
+import { QUESTIONS, recommander, type Reponses } from '../src/lib/quiz';
+import { MODELES } from '../src/lib/rythmes';
+
+/** Jeu de réponses complet, modifiable champ par champ dans chaque cas. */
+function reponses(partiel: Partial<Reponses> = {}): Reponses {
+  return {
+    age: 'grand',
+    distance: 'proche',
+    repartition: 'partagee',
+    horaires: 'variables',
+    ...partiel,
+  };
+}
+
+describe('questionnaire', () => {
+  it('pose quatre questions, toutes distinctes', () => {
+    expect(QUESTIONS).toHaveLength(4);
+    const cles = QUESTIONS.map((q) => q.cle);
+    expect(new Set(cles).size).toBe(4);
+  });
+
+  it('propose au moins deux options par question, sans doublon de valeur', () => {
+    for (const q of QUESTIONS) {
+      expect(q.options.length).toBeGreaterThanOrEqual(2);
+      const valeurs = q.options.map((o) => o.valeur);
+      expect(new Set(valeurs).size).toBe(valeurs.length);
+    }
+  });
+
+  it('formule les questions sans jargon technique', () => {
+    for (const q of QUESTIONS) {
+      expect(q.intitule).not.toMatch(/pattern|P1|P2|custody|2-2-5-5/);
+      expect(q.intitule.length).toBeGreaterThan(10);
+    }
+  });
+});
+
+describe('recommandation', () => {
+  it('renvoie toujours un rythme du catalogue', () => {
+    const patterns = MODELES.map((m) => m.pattern);
+    for (const age of ['petit', 'grand'] as const) {
+      for (const distance of ['proche', 'loin'] as const) {
+        for (const repartition of ['partagee', 'principale'] as const) {
+          for (const horaires of ['reguliers', 'variables', 'decales'] as const) {
+            const r = recommander({ age, distance, repartition, horaires });
+            expect(patterns).toContain(r.pattern);
+            expect(patterns).toContain(r.alternative);
+          }
+        }
+      }
+    }
+  });
+
+  it('ne conseille jamais son propre rythme en alternative', () => {
+    for (const age of ['petit', 'grand'] as const) {
+      for (const horaires of ['reguliers', 'variables', 'decales'] as const) {
+        const r = recommander(reponses({ age, horaires }));
+        expect(r.alternative).not.toBe(r.pattern);
+      }
+    }
+  });
+
+  it('écarte l’alternance quand les domiciles sont éloignés', () => {
+    expect(recommander(reponses({ distance: 'loin' })).pattern)
+      .toBe('alternating_weekends');
+    // Vrai même pour un jeune enfant : la contrainte de trajet prime.
+    expect(recommander(reponses({ distance: 'loin', age: 'petit' })).pattern)
+      .toBe('alternating_weekends');
+  });
+
+  it('respecte une résidence principale chez un parent', () => {
+    expect(recommander(reponses({ repartition: 'principale' })).pattern)
+      .toBe('alternating_weekends');
+  });
+
+  it('propose un cycle libre aux horaires en roulement', () => {
+    expect(recommander(reponses({ horaires: 'decales' })).pattern).toBe('custom');
+  });
+
+  it('évite les longues séparations avant six ans', () => {
+    expect(recommander(reponses({ age: 'petit' })).pattern).toBe('p2233');
+  });
+
+  it('fixe les mêmes jours chaque semaine quand les horaires le permettent', () => {
+    expect(recommander(reponses({ horaires: 'reguliers' })).pattern).toBe('p2255');
+  });
+
+  it('retient l’alternance hebdomadaire dans le cas le plus courant', () => {
+    expect(recommander(reponses()).pattern).toBe('alternating_weeks');
+  });
+
+  it('justifie chaque conseil en langage courant', () => {
+    for (const horaires of ['reguliers', 'variables', 'decales'] as const) {
+      const r = recommander(reponses({ horaires }));
+      expect(r.raison.length).toBeGreaterThan(40);
+      expect(r.raisonAlternative.length).toBeGreaterThan(30);
+      expect(r.raison).not.toMatch(/pattern|P1|P2/);
+    }
+  });
+});
