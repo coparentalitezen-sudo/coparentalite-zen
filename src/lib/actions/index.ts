@@ -17,6 +17,7 @@ export * from './balance';
 export * from './expenses';
 export * from './reimbursements';
 export * from './attachments';
+export * from './documents';
 export * from './privacy';
 export * from './premium';
 export * from './partage';

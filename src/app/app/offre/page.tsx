@@ -22,13 +22,21 @@ function dateLongue(iso: string) {
     .toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-/** Fonctions incluses dans Zen Plus, formulées par le bénéfice concret. */
+/**
+ * Fonctions incluses dans Zen Plus, formulées par le bénéfice concret.
+ *
+ * Chaque ligne doit correspondre à une fonction qui existe et fonctionne :
+ * annoncer ce qui n'est pas livré est une pratique commerciale trompeuse, et
+ * un parent qui paie puis ne trouve pas la fonction ne revient pas.
+ *
+ * Le rapport PDF mensuel figurait ici sans exister nulle part dans le code :
+ * retiré, il reviendra le jour où il sera écrit.
+ */
 const AVANTAGES = [
   'Planning sans limite de durée, autant d’années que nécessaire',
   'Vacances et changements ponctuels illimités',
-  'Export PDF mensuel du planning et des dépenses',
-  'Historique complet des modifications',
-  'Justificatifs multiples par dépense',
+  'Documents partagés : ordonnances, attestations, papiers scolaires',
+  'Plusieurs justificatifs par dépense',
 ];
 
 function ContenuOffre() {

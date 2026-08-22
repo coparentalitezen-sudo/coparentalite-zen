@@ -14,10 +14,8 @@ const rubriques: [string, string, string | null][] = [
   ['Notifications', 'Choisir ce dont vous voulez être prévenu', '/app/notifications/reglages'],
   ['Votre offre', 'Durée du planning, Zen Plus, factures', '/app/offre'],
   ['Confidentialité', 'Export de vos données, droits RGPD', '/app/confidentialite'],
-  ['Documents', 'Justificatifs et attestations', null],
+  ['Documents', 'Ordonnances, attestations, papiers scolaires', '/app/documents'],
   ['Messages', 'Échanges liés au planning et aux dépenses', null],
-  ['Rapports', 'PDF mensuel et annuel, CSV, ICS', null],
-  ['Notifications', 'Préférences par catégorie', null],
   ['Abonnement', '3 mois gratuits, puis Zen Plus', '/app/offre'],
   ['Aide', 'Diagnostic guidé et questions fréquentes', '/aide'],
 ];

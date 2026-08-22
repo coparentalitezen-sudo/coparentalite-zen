@@ -5,7 +5,8 @@ import { BottomNav, ParentBadge } from '@/components/ui';
 import { Chargement, Erreur, SansFoyer, Vide } from '@/components/etats';
 import { useContexte } from '@/lib/use-contexte';
 import {
-  listerDepenses, reviserDepense, urlJustificatif, creerRemboursement, listerRemboursements,
+  listerDepenses, reviserDepense, creerRemboursement, listerRemboursements,
+  listerJustificatifs, urlJustificatifParId, retirerJustificatif, type Justificatif,
   urlJustificatifRemboursement, annulerRemboursement, modifierDepense, supprimerDepense, METHODES,
   getSolde, soldeLocalTransitoire, type Solde,
   type DepenseListe, type Membre, type Remboursement,
@@ -109,10 +110,40 @@ export default function Depenses() {
     }
   }
 
-  async function ouvrirJustificatif(id: string) {
-    const r = await urlJustificatif(id);
+  /**
+   * Justificatifs dépliés d'une dépense.
+   *
+   * Chargés à la demande plutôt qu'avec la liste des dépenses : la plupart
+   * des dépenses n'en portent qu'un, et la plupart ne seront pas ouvertes.
+   */
+  const [justifsDe, setJustifsDe] = useState<string | null>(null);
+  const [justifs, setJustifs] = useState<Justificatif[]>([]);
+  const [justifsCharge, setJustifsCharge] = useState(false);
+
+  async function basculerJustificatifs(id: string) {
+    if (justifsDe === id) { setJustifsDe(null); return; }
+    setJustifsDe(id); setJustifs([]); setJustifsCharge(false);
+    const r = await listerJustificatifs(id);
+    setJustifsCharge(true);
+    if (r.status === 'ok') setJustifs(r.data);
+    else if (r.status === 'error') { setEditId(id); setEErreur(r.message); }
+  }
+
+  async function ouvrirJustificatifParId(attachmentId: string, depenseId: string) {
+    const r = await urlJustificatifParId(attachmentId);
     if (r.status === 'ok') window.open(r.data, '_blank');
-    else if (r.status === 'error') setErreur(r.message);
+    else if (r.status === 'error') { setEditId(depenseId); setEErreur(r.message); }
+  }
+
+  async function retirer(attachmentId: string, depenseId: string, foyerId: string) {
+    if (!confirm('Retirer ce justificatif ? La dépense est conservée.')) return;
+    const r = await retirerJustificatif(attachmentId);
+    if (r.status === 'ok') {
+      setJustifs((liste) => liste.filter((j) => j.id !== attachmentId));
+      // Le compteur affiché sur la dépense vient de la liste : la recharger
+      // évite un « 2 justificatifs » au-dessus d'une liste qui n'en montre qu'un.
+      charger(foyerId, p1?.profileId, p2?.profileId);
+    } else if (r.status === 'error') { setEditId(depenseId); setEErreur(r.message); }
   }
 
   const membres: Membre[] = ctx.etat === 'pret' ? ctx.contexte.membres : [];
@@ -473,10 +504,50 @@ export default function Depenses() {
                               )}
 
                               {d.justificatifs > 0 && (
-                                <button type="button" className="text-[13px] font-bold text-navy-text underline"
-                                        onClick={() => ouvrirJustificatif(d.id)}>
-                                  Voir le justificatif
-                                </button>
+                                <div className="space-y-2">
+                                  <button type="button"
+                                          className="text-[13px] font-bold text-navy-text underline"
+                                          aria-expanded={justifsDe === d.id}
+                                          onClick={() => basculerJustificatifs(d.id)}>
+                                    {d.justificatifs === 1
+                                      ? 'Voir le justificatif'
+                                      : `Voir les ${d.justificatifs} justificatifs`}
+                                  </button>
+
+                                  {justifsDe === d.id && (
+                                    <ul className="space-y-1.5">
+                                      {!justifsCharge && (
+                                        <li className="text-[13px] text-soft">Chargement…</li>
+                                      )}
+                                      {justifsCharge && justifs.length === 0 && (
+                                        <li className="text-[13px] text-soft">
+                                          Aucun justificatif disponible.
+                                        </li>
+                                      )}
+                                      {justifs.map((j) => (
+                                        <li key={j.id}
+                                            className="flex items-center gap-2 rounded-xl bg-muted px-3 py-2">
+                                          <button type="button"
+                                                  className="flex-1 truncate text-left text-[13px] font-bold text-navy-text underline"
+                                                  onClick={() => ouvrirJustificatifParId(j.id, d.id)}>
+                                            {j.nomFichier}
+                                          </button>
+                                          <span className="shrink-0 text-[11px] text-soft">
+                                            {Math.max(1, Math.round(j.taille / 1024))} Ko
+                                          </span>
+                                          {monEcriture && (
+                                            <button type="button"
+                                                    aria-label={`Retirer ${j.nomFichier}`}
+                                                    className="shrink-0 text-[12px] font-bold text-err underline"
+                                                    onClick={() => retirer(j.id, d.id, ctx.contexte.foyer.id)}>
+                                              Retirer
+                                            </button>
+                                          )}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  )}
+                                </div>
                               )}
 
                               {aValider && contesteId !== d.id && (
