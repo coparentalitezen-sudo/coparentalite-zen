@@ -18,6 +18,7 @@ import { MODELES, modele, schemaDeuxSemaines } from '@/lib/rythmes';
 import type { CustodyPattern } from '@/lib/custody';
 import {
   QUESTIONS, recommander, memoriserRythmeSuggere,
+  conseilDepenses, libelleEnfants,
   type Reponses, type CleQuestion,
 } from '@/lib/quiz';
 
@@ -163,8 +164,8 @@ function Resultat({ reponses, onRecommencer }: {
           parent2={AUTRE}
         />
         <p className="text-xs text-soft/80">
-          Deux semaines de planning : <strong>V</strong> pour vous,{' '}
-          <strong>A</strong> pour l’autre parent.
+          Deux semaines de planning pour {libelleEnfants(reponses)} :{' '}
+          <strong>V</strong> pour vous, <strong>A</strong> pour l’autre parent.
         </p>
         {!conseille && (
           <button
@@ -175,6 +176,13 @@ function Resultat({ reponses, onRecommencer }: {
             Revenir au rythme conseillé
           </button>
         )}
+      </article>
+
+      <article className="card space-y-2 p-5">
+        <h2 className="text-base font-bold text-ink">Et les dépenses ?</h2>
+        <p className="text-sm leading-relaxed text-soft">
+          {conseilDepenses(reponses)}
+        </p>
       </article>
 
       <section className="space-y-3">

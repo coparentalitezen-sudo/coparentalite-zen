@@ -2,9 +2,15 @@
  * Questionnaire d'orientation vers un rythme de garde.
  *
  * Un parent qui découvre l'application ne sait pas encore que « 2-2-5-5 »
- * existe, et encore moins si cela lui conviendrait. Quatre questions sur sa
+ * existe, et encore moins si cela lui conviendrait. Cinq questions sur sa
  * situation réelle suffisent à désigner un point de départ crédible — qu'il
  * pourra changer ensuite, rien ici n'est définitif.
+ *
+ * Toutes les questions ne servent pas au même but. L'âge, la répartition et
+ * les horaires déterminent le rythme ; le nombre d'enfants et le partage des
+ * dépenses n'y changent rien, mais orientent ce que l'on met en avant après
+ * le résultat. Les confondre laisserait croire qu'une réponse pèse sur un
+ * conseil qu'elle ne touche pas.
  *
  * Le questionnaire est public et ne demande aucun compte : il montre d'abord
  * ce que l'application sait faire, l'inscription vient après.
@@ -17,9 +23,11 @@ import type { CustodyPattern } from './custody';
 export interface Reponses {
   /** Âge du plus jeune enfant. */
   age: 'petit' | 'grand';
-  /** Distance entre les deux domiciles. */
-  distance: 'proche' | 'loin';
-  /** Répartition souhaitée ou déjà en place. */
+  /** Nombre d'enfants concernés par l'organisation. */
+  enfants: 'un' | 'deux' | 'troisPlus';
+  /** Les dépenses liées aux enfants sont-elles déjà partagées ? */
+  depenses: 'oui' | 'pasEncore' | 'non';
+  /** Répartition en place, ou souhaitée. */
   repartition: 'partagee' | 'principale';
   /** Régularité des horaires de travail. */
   horaires: 'reguliers' | 'variables' | 'decales';
@@ -48,12 +56,29 @@ export const QUESTIONS: Question[] = [
     ],
   },
   {
-    cle: 'distance',
-    intitule: 'Quelle distance sépare les deux domiciles ?',
-    precision: 'Elle détermine le nombre de trajets supportables par semaine.',
+    cle: 'enfants',
+    intitule: 'Combien avez-vous d’enfants ?',
     options: [
-      { valeur: 'proche', libelle: 'Moins de 30 minutes' },
-      { valeur: 'loin', libelle: 'Plus d’une heure' },
+      { valeur: 'un', libelle: 'Un enfant' },
+      { valeur: 'deux', libelle: 'Deux enfants' },
+      { valeur: 'troisPlus', libelle: 'Trois enfants ou plus' },
+    ],
+  },
+  {
+    cle: 'depenses',
+    /*
+     * « L'autre parent » et non « le papa » : la moitié des parents séparés
+     * qui s'organisent sont des pères, et une question qui les désigne comme
+     * un tiers les écarte dès la troisième réponse.
+     */
+    intitule:
+      'Partagez-vous les dépenses liées aux enfants avec l’autre parent ?',
+    precision:
+      'Cantine, activités, santé, fournitures — tout ce qui se règle à deux.',
+    options: [
+      { valeur: 'oui', libelle: 'Oui, régulièrement' },
+      { valeur: 'pasEncore', libelle: 'Pas encore, mais c’est prévu' },
+      { valeur: 'non', libelle: 'Non, chacun paie de son côté' },
     ],
   },
   {
@@ -79,18 +104,9 @@ export const QUESTIONS: Question[] = [
     cle: 'horaires',
     intitule: 'Vos horaires de travail sont-ils réguliers ?',
     options: [
-      {
-        valeur: 'reguliers',
-        libelle: 'Les mêmes jours chaque semaine',
-      },
-      {
-        valeur: 'variables',
-        libelle: 'Variables d’une semaine à l’autre',
-      },
-      {
-        valeur: 'decales',
-        libelle: 'Gardes, astreintes ou roulements',
-      },
+      { valeur: 'reguliers', libelle: 'Les mêmes jours chaque semaine' },
+      { valeur: 'variables', libelle: 'Variables d’une semaine à l’autre' },
+      { valeur: 'decales', libelle: 'Gardes, astreintes ou roulements' },
     ],
   },
 ];
@@ -105,22 +121,21 @@ export interface Recommandation {
 }
 
 /**
- * Rythme conseillé à partir des quatre réponses.
+ * Rythme conseillé à partir des réponses qui le concernent.
  *
- * L'ordre des règles compte : une contrainte matérielle (distance, horaires
- * atypiques) prime sur une préférence, parce qu'aucun rythme ne tient si les
- * trajets sont impossibles. L'âge vient ensuite, puis la régularité.
+ * L'ordre des règles compte : une contrainte matérielle prime sur une
+ * préférence, parce qu'aucun rythme ne tient si le quotidien l'empêche.
+ * L'âge vient ensuite, puis la régularité des horaires.
  */
 export function recommander(r: Reponses): Recommandation {
-  if (r.repartition === 'principale' || r.distance === 'loin') {
+  if (r.repartition === 'principale') {
     return {
       pattern: 'alternating_weekends',
-      raison: r.distance === 'loin'
-        ? 'Plus d’une heure de trajet rend les échanges fréquents éprouvants pour les enfants comme pour vous : mieux vaut des séjours plus rares et plus longs.'
-        : 'Les enfants gardent un domicile principal et retrouvent l’autre parent à un rythme prévisible.',
+      raison:
+        'Les enfants gardent un domicile principal et retrouvent l’autre parent à un rythme prévisible, week-end après week-end.',
       alternative: 'alternating_weeks',
       raisonAlternative:
-        'Si la distance se réduit un jour, l’alternance hebdomadaire devient envisageable.',
+        'Si vous vous orientez un jour vers un temps partagé, l’alternance hebdomadaire est le passage le plus simple.',
     };
   }
 
@@ -165,6 +180,30 @@ export function recommander(r: Reponses): Recommandation {
     raisonAlternative:
       'Si une semaine entière vous paraît longue, ce modèle raccourcit les séjours sans multiplier les échanges.',
   };
+}
+
+/**
+ * Ce que le partage des dépenses appelle comme suite, en une phrase.
+ *
+ * Trois situations, trois besoins : tenir des comptes déjà partagés, se
+ * préparer à les ouvrir, ou seulement garder une trace. Répondre la même
+ * chose aux trois donnerait le sentiment que la question n'a servi à rien.
+ */
+export function conseilDepenses(r: Reponses): string {
+  if (r.depenses === 'oui') {
+    return 'Vous partagez déjà les dépenses : l’application les enregistre, calcule ce que chacun doit et garde l’historique des remboursements.';
+  }
+  if (r.depenses === 'pasEncore') {
+    return 'Quand le partage des dépenses commencera, tout est prêt : une dépense s’ajoute en quelques secondes et le solde se met à jour seul.';
+  }
+  return 'Même quand chacun paie de son côté, garder une trace des dépenses évite bien des discussions plus tard. La fonction reste là si le besoin vient.';
+}
+
+/** Les enfants, désignés tels qu'on en parle. */
+export function libelleEnfants(r: Reponses): string {
+  if (r.enfants === 'un') return 'votre enfant';
+  if (r.enfants === 'deux') return 'vos deux enfants';
+  return 'vos enfants';
 }
 
 /** Clé de mémorisation du rythme conseillé, relue à la configuration du foyer. */

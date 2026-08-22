@@ -1,12 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { QUESTIONS, recommander, type Reponses } from '../src/lib/quiz';
+import {
+  QUESTIONS, recommander, conseilDepenses, libelleEnfants, type Reponses,
+} from '../src/lib/quiz';
 import { MODELES } from '../src/lib/rythmes';
 
 /** Jeu de réponses complet, modifiable champ par champ dans chaque cas. */
 function reponses(partiel: Partial<Reponses> = {}): Reponses {
   return {
     age: 'grand',
-    distance: 'proche',
+    enfants: 'un',
+    depenses: 'oui',
     repartition: 'partagee',
     horaires: 'variables',
     ...partiel,
@@ -14,10 +17,16 @@ function reponses(partiel: Partial<Reponses> = {}): Reponses {
 }
 
 describe('questionnaire', () => {
-  it('pose quatre questions, toutes distinctes', () => {
-    expect(QUESTIONS).toHaveLength(4);
+  it('pose cinq questions, toutes distinctes', () => {
+    expect(QUESTIONS).toHaveLength(5);
     const cles = QUESTIONS.map((q) => q.cle);
-    expect(new Set(cles).size).toBe(4);
+    expect(new Set(cles).size).toBe(5);
+  });
+
+  it('interroge sur l’autre parent sans lui prêter de genre', () => {
+    for (const q of QUESTIONS) {
+      expect(q.intitule).not.toMatch(/papa|maman|le père|la mère/i);
+    }
   });
 
   it('propose au moins deux options par question, sans doublon de valeur', () => {
@@ -40,12 +49,14 @@ describe('recommandation', () => {
   it('renvoie toujours un rythme du catalogue', () => {
     const patterns = MODELES.map((m) => m.pattern);
     for (const age of ['petit', 'grand'] as const) {
-      for (const distance of ['proche', 'loin'] as const) {
-        for (const repartition of ['partagee', 'principale'] as const) {
-          for (const horaires of ['reguliers', 'variables', 'decales'] as const) {
-            const r = recommander({ age, distance, repartition, horaires });
-            expect(patterns).toContain(r.pattern);
-            expect(patterns).toContain(r.alternative);
+      for (const enfants of ['un', 'deux', 'troisPlus'] as const) {
+        for (const depenses of ['oui', 'pasEncore', 'non'] as const) {
+          for (const repartition of ['partagee', 'principale'] as const) {
+            for (const horaires of ['reguliers', 'variables', 'decales'] as const) {
+              const r = recommander({ age, enfants, depenses, repartition, horaires });
+              expect(patterns).toContain(r.pattern);
+              expect(patterns).toContain(r.alternative);
+            }
           }
         }
       }
@@ -61,12 +72,16 @@ describe('recommandation', () => {
     }
   });
 
-  it('écarte l’alternance quand les domiciles sont éloignés', () => {
-    expect(recommander(reponses({ distance: 'loin' })).pattern)
-      .toBe('alternating_weekends');
-    // Vrai même pour un jeune enfant : la contrainte de trajet prime.
-    expect(recommander(reponses({ distance: 'loin', age: 'petit' })).pattern)
-      .toBe('alternating_weekends');
+  it('ne fait dépendre le rythme ni du nombre d’enfants ni des dépenses', () => {
+    // Ces deux réponses orientent ce qu'on met en avant après le résultat,
+    // jamais le rythme lui-même : le conseil doit rester identique.
+    const reference = recommander(reponses()).pattern;
+    for (const enfants of ['un', 'deux', 'troisPlus'] as const) {
+      for (const depenses of ['oui', 'pasEncore', 'non'] as const) {
+        expect(recommander(reponses({ enfants, depenses })).pattern)
+          .toBe(reference);
+      }
+    }
   });
 
   it('respecte une résidence principale chez un parent', () => {
@@ -97,5 +112,22 @@ describe('recommandation', () => {
       expect(r.raisonAlternative.length).toBeGreaterThan(30);
       expect(r.raison).not.toMatch(/pattern|P1|P2/);
     }
+  });
+});
+
+describe('suites proposées après le résultat', () => {
+  it('adapte le conseil sur les dépenses à chaque réponse', () => {
+    const vues = new Set(
+      (['oui', 'pasEncore', 'non'] as const)
+        .map((depenses) => conseilDepenses(reponses({ depenses }))),
+    );
+    expect(vues.size).toBe(3);
+    for (const texte of vues) expect(texte.length).toBeGreaterThan(40);
+  });
+
+  it('nomme les enfants selon leur nombre', () => {
+    expect(libelleEnfants(reponses({ enfants: 'un' }))).toBe('votre enfant');
+    expect(libelleEnfants(reponses({ enfants: 'deux' }))).toBe('vos deux enfants');
+    expect(libelleEnfants(reponses({ enfants: 'troisPlus' }))).toBe('vos enfants');
   });
 });
