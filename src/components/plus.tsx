@@ -16,6 +16,7 @@ const rubriques: [string, string, string | null][] = [
   ['Confidentialité', 'Export de vos données, droits RGPD', '/app/confidentialite'],
   ['Documents', 'Ordonnances, attestations, papiers scolaires', '/app/documents'],
   ['Messages', 'Échanges liés au planning et aux dépenses', '/app/messages'],
+  ['Rapport mensuel', 'Planning et dépenses du mois, en PDF', '/app/rapport'],
   ['Abonnement', '3 mois gratuits, puis Zen Plus', '/app/offre'],
   ['Aide', 'Diagnostic guidé et questions fréquentes', '/aide'],
 ];

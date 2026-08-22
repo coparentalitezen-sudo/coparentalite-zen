@@ -37,6 +37,7 @@ const AVANTAGES = [
   'Vacances et changements ponctuels illimités',
   'Documents partagés : ordonnances, attestations, papiers scolaires',
   'Plusieurs justificatifs par dépense',
+  'Rapport mensuel en PDF : garde, dépenses et solde',
 ];
 
 function ContenuOffre() {
