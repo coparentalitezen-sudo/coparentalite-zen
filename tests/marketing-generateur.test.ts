@@ -310,3 +310,17 @@ describe('carrousel du questionnaire', () => {
     }
   });
 });
+
+describe('cohérence des niches avec la base', () => {
+  it('n’emploie que des niches déclarées dans la banque', () => {
+    // marketing_opportunites.niche_id référence marketing_niches par clé
+    // étrangère. Une niche inventée dans le générateur ne lève aucune erreur
+    // visible : le contenu cesse simplement d'apparaître à la validation.
+    const connues = new Set([...BANQUE.map((s) => s.niche), 'marque']);
+    const contenus = [0, 1, 2, 3].flatMap((n) =>
+      genererSemaine(new Date(2026, 0, 5 + n * 7), BASE));
+    for (const c of contenus) {
+      expect(connues).toContain(c.niche);
+    }
+  });
+});

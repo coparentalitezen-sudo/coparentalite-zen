@@ -229,7 +229,11 @@ function contenuQuiz(
   ];
 
   return {
-    reference, niche: 'rythme-de-garde', format: 'carrousel', categorie: 'quiz',
+    // La niche doit exister dans marketing_niches : l'opportunité la
+    // référence par clé étrangère, et une valeur inventée ici ferait échouer
+    // l'enregistrement sans rien interrompre — le contenu disparaîtrait
+    // simplement de l'écran de validation.
+    reference, niche: 'garde-alternee', format: 'carrousel', categorie: 'quiz',
     accroche,
     pages: planchesQuiz(accroche),
     legendeInstagram:
