@@ -444,6 +444,50 @@ vérifient.
 peuvent passer alors que la lecture directe échoue en production. Le banc de
 test n'accorde donc jamais de privilège que le rôle applicatif n'aurait pas.
 
+**`drop function` avant `create function` emporte les droits accordés —
+y compris vers `service_role`.** PostgreSQL refuse un `create or replace`
+quand la signature de retour change (ajouter une colonne à un `returns
+table`, par exemple) ; il faut alors supprimer puis recréer, et la
+suppression retire tous les `grant` existants. Sans un
+`grant execute … to service_role` reposé explicitement en fin de migration,
+l'acheminement Push échoue à la prochaine exécution, sans le moindre message.
+Voir `00047_pastille_non_lues.sql` et `00048_push_foyers_supprimes.sql`, qui
+recréent `notifications_a_pousser` et reposent le grant à chaque fois pour
+cette raison précise.
+
+**Une clé étrangère invalide fait disparaître un contenu de `/admin` sans
+erreur visible.** `marketing_opportunites.niche_id` référence
+`marketing_niches(id)`. `src/lib/marketing/depot.ts` enregistre l'opportunité
+par `upsert(...).select('id').single()` en ne lisant que `data` ; si la niche
+n'existe pas (valeur inventée côté générateur de contenu), l'upsert échoue,
+`data` vaut `null`, la fonction journalise côté serveur (`console.error`) et
+passe au contenu suivant. L'écran de validation affiche simplement un élément
+de moins — rien n'indique pourquoi.
+
+**Vercel déploie depuis `develop`, pas `main`.** C'est la branche de
+production réelle ; en tenir compte pour tout ce qui touche au déploiement
+(migrations à appliquer avant de fusionner, vérification post-déploiement).
+
+**Une branche locale en retard produit un diagnostic faux, sans la moindre
+erreur.** Le 2026-08-23, un audit complet a tourné sur `develop` avec 68
+commits de retard sur `origin/develop` : la moitié des tests (286 au lieu de
+536) et un correctif déjà résolu en amont sont ressortis comme un problème
+critique. Rien ne le signale — le code se construit et les tests passent,
+seulement sur une version plus ancienne.
+
+**Protocole pour tout agent qui travaille sur ce dépôt :**
+1. `git fetch origin && git reset --hard origin/develop` en première commande
+   de toute session, sans exception, avant même de lire le code. Après un
+   reset ou un pull, `package.json` peut avoir changé : relancer `npm ci`
+   avant de faire confiance à `typecheck`/`build`/`test`.
+2. Aucun commit ne reste local en fin de session — le pousser tout de suite.
+   Un commit local invisible à distance fait repartir la session suivante
+   d'un `develop` distant qui l'ignore, et recrée l'écart en sens inverse.
+3. Un seul agent écrit sur `develop` à la fois ; Sekou arbitre qui a la main.
+   Deux agents qui avancent en parallèle sur la même branche recréent le
+   type de conflit non résolu que ce fichier a lui-même porté plusieurs jours
+   (`<<<<<<< HEAD` resté commité).
+
 ---
 
 ## Ce qui reste à faire
