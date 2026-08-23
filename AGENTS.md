@@ -81,11 +81,8 @@ découpage interne peut évoluer sans rien casser.
 | `configuration.ts` | étapes du parcours guidé, fonctions pures |
 | `actions/notifications.ts` | centre, préférences et délais de rappel |
 | `actions/rendez-vous.ts` | rendez-vous et affaires à prévoir |
-<<<<<<< HEAD
-=======
 | `partage-invitation.ts` | numéros, message et liens de transmission |
 | `installation.ts` | détection de plateforme et marche à suivre |
->>>>>>> origin/main
 | `tarifs.ts` | lecture de la grille publique ; **aucun montant en dur** |
 | `actions/vacances.ts` | calendrier scolaire officiel du foyer |
 | `actions/localisation.ts` | pays, subdivision, déduction depuis le code postal |
@@ -134,10 +131,7 @@ SQL et leurs jeux d'essai.
 | `00027` | **rendez-vous** : consultations, activités, affaires à prévoir |
 | `00028` | **programmation des rappels** : idempotente, par délai de parent |
 | `00029` | déclencheurs de notification par observation |
-<<<<<<< HEAD
-=======
 | `00030` | **notifications poussées** : abonnements et file d'envoi |
->>>>>>> origin/main
 
 ---
 
@@ -191,8 +185,6 @@ Deux discrétions volontaires : modifier la note d'une période ne notifie pas,
 seuls les dates et le parent gardien comptent ; corriger le libellé d'un
 rendez-vous non plus, seule la date déclenche une alerte.
 
-<<<<<<< HEAD
-=======
 **Notifications poussées.** Le canal Push est actif. Un abonnement appartient
 à un **appareil**, pas à un compte : un parent alerté sur son téléphone et sa
 tablette possède deux abonnements.
@@ -210,7 +202,6 @@ révoquée.
 l'écran d'accueil. Depuis Safari, la permission ne peut même pas être demandée :
 l'interface explique la marche à suivre au lieu de laisser un bouton échouer.
 
->>>>>>> origin/main
 **Rappels.** Une tâche nocturne programme trois familles de rappels :
 rendez-vous à venir avec les affaires restant à préparer, début et fin des
 périodes de vacances, changements de garde.
