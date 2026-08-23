@@ -259,6 +259,12 @@ function Carte({ contenu }: { contenu: ContenuAffiche }) {
                       src={contenu.urlsVisuels[i]}
                       alt={`Planche ${i + 1} : ${p.titre}`}
                       loading="lazy"
+                      // Décodage hors du fil principal, et dimensions
+                      // déclarées : le panneau s'ouvre immédiatement et ne
+                      // saute plus à mesure que les vignettes arrivent.
+                      decoding="async"
+                      width={220}
+                      height={220}
                       className="mt-2 w-full max-w-[220px] rounded-lg border border-line"
                     />
                   )}

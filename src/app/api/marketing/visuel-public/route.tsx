@@ -55,8 +55,21 @@ export async function GET(requete: Request) {
       headers: {
         'Content-Type': 'image/jpeg',
         'Content-Length': String(converti.data.length),
-        // Meta récupère la même image à chaque réessai.
-        'Cache-Control': 'public, max-age=3600, immutable',
+        /*
+         * Une référence donnée produit toujours la même image : le contenu
+         * est régénéré depuis la semaine que porte la référence, jamais
+         * modifié après coup. Rien ne justifie donc de le refabriquer.
+         *
+         * `s-maxage` est la partie qui compte : sans elle, le CDN de Vercel
+         * ne garde rien et chaque affichage relance un rendu complet —
+         * génération, décodage PNG, réencodage JPEG. Sept planches dépliées
+         * dans l'écran de validation, c'étaient sept rendus simultanés.
+         *
+         * `max-age` reste court : le navigateur n'a pas besoin de conserver
+         * des dizaines d'images de validation, le CDN s'en charge.
+         */
+        'Cache-Control':
+          'public, max-age=3600, s-maxage=31536000, stale-while-revalidate=86400, immutable',
       },
     });
   } catch (e) {

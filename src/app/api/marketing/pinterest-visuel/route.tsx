@@ -36,7 +36,11 @@ export async function GET(requete: Request) {
       headers: {
         'Content-Type': 'image/jpeg',
         'Content-Length': String(converti.data.length),
-        'Cache-Control': 'public, max-age=86400, stale-while-revalidate=604800',
+        // Déterministe pour une référence et une planche données : le CDN
+        // peut le garder indéfiniment, ce qui évite un rendu complet à chaque
+        // passage de Pinterest sur le flux.
+        'Cache-Control':
+          'public, max-age=86400, s-maxage=31536000, stale-while-revalidate=604800',
       },
     });
   } catch (erreur) {
