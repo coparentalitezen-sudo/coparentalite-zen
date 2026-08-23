@@ -152,7 +152,8 @@ et `upsert_subscription` sont réservées au rôle de service.
 
 ## Déploiement de l'application
 
-Vercel construit et publie automatiquement chaque commit de `main`.
+Vercel construit et publie automatiquement chaque commit de `develop` — c'est
+la branche de production réelle, pas `main`.
 
 Deux pièges vérifiés à leurs dépens :
 
