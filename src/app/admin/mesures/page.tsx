@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { supabaseServer } from '@/lib/supabase/server';
 import { estAdministrateur } from '@/lib/marketing/administration';
-import { lireMesures, lireBilans } from '@/lib/marketing/depot';
+import { lireMesures, lireBilans, lireParcoursQuiz } from '@/lib/marketing/depot';
 import {
   performances, regrouper, entonnoir, meilleuresAccroches,
 } from '@/lib/marketing/mesures';
@@ -39,7 +39,9 @@ export default async function PageMesures() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!estAdministrateur(user?.email)) notFound();
 
-  const [donnees, bilans] = await Promise.all([lireMesures(), lireBilans(3)]);
+  const [donnees, bilans, quiz] = await Promise.all([
+    lireMesures(), lireBilans(3), lireParcoursQuiz(),
+  ]);
   if (!donnees) notFound();
 
   const lignes = performances(donnees.contenus, donnees.visites, donnees.originesInscrits);
@@ -68,6 +70,27 @@ export default async function PageMesures() {
           precision={`${tunnel.tauxInscription} % des clics`} />
         <Bloc titre="Abonnements en cours" valeur={String(donnees.abonnements)} />
       </div>
+
+      <section className="card space-y-2 p-4">
+        <h2 className="font-display text-lg font-semibold">Parcours du questionnaire</h2>
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="rounded-xl bg-muted p-3">
+            <p className="font-display text-xl font-semibold">{quiz.commences}</p>
+            <p className="text-xs text-soft">commencés</p>
+          </div>
+          <div className="rounded-xl bg-muted p-3">
+            <p className="font-display text-xl font-semibold">{quiz.termines}</p>
+            <p className="text-xs text-soft">terminés</p>
+          </div>
+          <div className="rounded-xl bg-muted p-3">
+            <p className="font-display text-xl font-semibold">{quiz.clicsInscription}</p>
+            <p className="text-xs text-soft">vers inscription</p>
+          </div>
+        </div>
+        <p className="text-xs text-soft">
+          Comptage agrégé, sans réponse au questionnaire ni donnée concernant les enfants.
+        </p>
+      </section>
 
       <section className="card space-y-2 p-4">
         <h2 className="font-display text-lg font-semibold">Portée, vues, interactions</h2>

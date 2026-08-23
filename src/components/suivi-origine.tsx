@@ -6,6 +6,11 @@ import { lireOrigine, type Origine } from '@/lib/marketing/utm';
 const CLE_ORIGINE = 'czen_origine';
 const CLE_COMPTEE = 'czen_visite_comptee';
 
+/** Origine interne du questionnaire lorsqu'aucun contenu n'a précédé. */
+export const ORIGINE_QUIZ: Origine = {
+  source: 'site', campagne: 'quiz', contenu: 'quiz-resultat',
+};
+
 /**
  * Mémorise l'origine de la première visite et la signale une fois.
  *
@@ -71,5 +76,36 @@ export function origineMemorisee(): Record<string, string> {
     };
   } catch {
     return {};
+  }
+}
+
+/** Relit l'origine sous sa forme métier, sans exposer le stockage aux écrans. */
+export function lireOrigineMemorisee(): Origine | null {
+  try {
+    const brut = window.localStorage.getItem(CLE_ORIGINE);
+    if (!brut) return null;
+    const lu = JSON.parse(brut) as Partial<Origine>;
+    if (!lu.source) return null;
+    return {
+      source: lu.source,
+      campagne: lu.campagne ?? 'inconnue',
+      contenu: lu.contenu ?? 'inconnu',
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Retient une origine interne seulement si aucun contenu n'a déjà fait
+ * connaître l'application. L'attribution au premier contact reste intacte.
+ */
+export function memoriserOrigineSiAbsente(origine: Origine): void {
+  try {
+    if (!window.localStorage.getItem(CLE_ORIGINE)) {
+      window.localStorage.setItem(CLE_ORIGINE, JSON.stringify(origine));
+    }
+  } catch {
+    /* stockage indisponible : l'inscription reste possible */
   }
 }

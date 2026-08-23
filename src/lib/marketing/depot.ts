@@ -263,6 +263,22 @@ export async function lireMesures() {
   };
 }
 
+/** Totaux agrégés du questionnaire public, sans réponse ni identifiant. */
+export async function lireParcoursQuiz() {
+  const service = supabaseService();
+  if (!service) return { commences: 0, termines: 0, clicsInscription: 0 };
+  const { data } = await service
+    .from('marketing_parcours_quiz').select('etape, occurrences');
+  const totaux = { commences: 0, termines: 0, clicsInscription: 0 };
+  for (const ligne of data ?? []) {
+    const n = Number(ligne.occurrences ?? 0);
+    if (ligne.etape === 'commence') totaux.commences += n;
+    if (ligne.etape === 'termine') totaux.termines += n;
+    if (ligne.etape === 'clic_inscription') totaux.clicsInscription += n;
+  }
+  return totaux;
+}
+
 /** Poids courants par niche, tels que la boucle d'amélioration les a laissés. */
 export async function lirePoids(): Promise<Record<string, number>> {
   const service = supabaseService();

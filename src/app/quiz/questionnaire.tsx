@@ -18,9 +18,12 @@ import { MODELES, modele, schemaDeuxSemaines } from '@/lib/rythmes';
 import type { CustodyPattern } from '@/lib/custody';
 import {
   QUESTIONS, recommander, memoriserRythmeSuggere,
-  conseilDepenses, libelleEnfants,
+  conseilDepenses, libelleEnfants, conseilsRythme,
   type Reponses, type CleQuestion,
 } from '@/lib/quiz';
+import {
+  preparerInscriptionDepuisQuiz, signalerEtapeQuiz,
+} from '@/lib/marketing/parcours-quiz';
 
 /** Les deux parents du schéma, nommés du point de vue de qui répond. */
 const MOI = { nom: 'vous', initiale: 'V', couleur: 'navy' };
@@ -33,13 +36,15 @@ export function Questionnaire() {
   const termine = etape >= QUESTIONS.length;
 
   function repondre(cle: CleQuestion, valeur: string) {
+    if (etape === 0) signalerEtapeQuiz('commence');
     const suite = { ...reponses, [cle]: valeur } as Partial<Reponses>;
     setReponses(suite);
     setEtape(etape + 1);
-    // Le rythme n'est mémorisé qu'une fois les quatre réponses réunies :
+    // Le rythme n'est mémorisé qu'une fois les cinq réponses réunies :
     // une réponse partielle ne désigne rien.
     if (etape + 1 >= QUESTIONS.length) {
       memoriserRythmeSuggere(recommander(suite as Reponses).pattern);
+      signalerEtapeQuiz('termine');
     }
   }
 
@@ -137,6 +142,7 @@ function Resultat({ reponses, onRecommencer }: {
   const [choisi, setChoisi] = useState<CustodyPattern>(reco.pattern);
   const conseille = choisi === reco.pattern;
   const courant = modele(choisi);
+  const conseils = conseilsRythme(choisi);
 
   function changer(pattern: CustodyPattern) {
     setChoisi(pattern);
@@ -176,6 +182,28 @@ function Resultat({ reponses, onRecommencer }: {
             Revenir au rythme conseillé
           </button>
         )}
+      </article>
+
+      <article className="card space-y-4 p-5">
+        <div>
+          <h2 className="text-base font-bold text-ink">
+            Ce que ce rythme peut simplifier
+          </h2>
+          <ul className="mt-2 space-y-2 text-sm leading-relaxed text-soft">
+            {conseils.benefices.map((benefice) => (
+              <li key={benefice} className="flex gap-2">
+                <span aria-hidden className="font-bold text-navy-text">✓</span>
+                <span>{benefice}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="rounded-xl bg-muted p-3">
+          <h3 className="text-sm font-bold text-ink">Point à anticiper</h3>
+          <p className="mt-1 text-sm leading-relaxed text-soft">
+            {conseils.vigilance}
+          </p>
+        </div>
       </article>
 
       <article className="card space-y-2 p-5">
@@ -222,7 +250,11 @@ function Resultat({ reponses, onRecommencer }: {
       </section>
 
       <div className="space-y-3">
-        <Link href="/inscription" className="btn btn-primary w-full">
+        <Link
+          href="/inscription"
+          onClick={preparerInscriptionDepuisQuiz}
+          className="btn btn-primary w-full"
+        >
           Créer mon planning gratuitement
         </Link>
         <p className="text-center text-xs leading-relaxed text-soft">
