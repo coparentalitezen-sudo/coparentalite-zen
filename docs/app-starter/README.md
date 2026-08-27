@@ -31,6 +31,7 @@ GitHub, Vercel — sans le reconstruire.
 | [`12-EXEMPLE-SUIVI-COMPTES.md`](./12-EXEMPLE-SUIVI-COMPTES.md) | Épreuve de généricité sur une application de comptes |
 | [`13-RETOUR-EXPERIENCE-COPARENTALITE-ZEN.md`](./13-RETOUR-EXPERIENCE-COPARENTALITE-ZEN.md) | 30 problèmes vérifiés, causes, corrections, préventions |
 | [`14-INTERFACE.md`](./14-INTERFACE.md) | Layout, navigation, états, accessibilité, écriture |
+| [`15-TRAVAILLER-AVEC-CLAUDE-CODE.md`](./15-TRAVAILLER-AVEC-CLAUDE-CODE.md) | **Déléguer la construction à un agent** : dispositif, sessions, jalons, vérification |
 | [`CHECKLIST-NOUVELLE-APPLICATION.md`](./CHECKLIST-NOUVELLE-APPLICATION.md) | Checklist universelle, idée → commercialisation |
 | [`APP-STARTER-SPEC.md`](./APP-STARTER-SPEC.md) | **Plan de fabrication du dépôt template** |
 
@@ -41,6 +42,7 @@ GitHub, Vercel — sans le reconstruire.
 - **Comprendre la méthode** → `00-VISION.md` puis `01-ARCHITECTURE.md`
 - **Créer une application maintenant** → `02-INSTALLATION.md` + la checklist
 - **Construire réellement le starter** → `APP-STARTER-SPEC.md`
+- **Déléguer la construction à un agent** → `15-TRAVAILLER-AVEC-CLAUDE-CODE.md`
 - **Ne pas répéter nos erreurs** → `13-RETOUR-EXPERIENCE-COPARENTALITE-ZEN.md`
 
 ## État juridique de Coparentalité Zen (2026-08-28)
