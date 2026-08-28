@@ -188,7 +188,50 @@ Zen, avec cette consigne explicite :
 > `grep -ri "coparent\|foyer\|garde\|enfant" src/ supabase/` doit ne rien
 > renvoyer.
 
-## 7. Ce qui fait échouer une délégation
+## 7. Quand une brique semble absente du blueprint
+
+Cela arrivera, et c'est presque toujours le même malentendu. Le blueprint dit
+**pourquoi** et **quoi**, rarement **comment, ligne à ligne**. Il documente une
+architecture ; il ne contient pas le code.
+
+Face à un manque signalé par l'agent — ou constaté par toi — poser les
+questions dans cet ordre :
+
+**1. Est-ce vraiment absent, ou seulement décrit sans code ?**
+Chercher dans le sommaire. Exemple vécu : « la mise à jour de la PWA installée
+n'est pas prévue » — elle l'était, dans `06-PWA.md` § 2, mais sous forme de
+principe. L'agent, ne trouvant pas de code, a conclu à une absence et
+réimplémenté à sa façon. C'est la panne la plus probable de ce dispositif.
+
+**2. Le code existe-t-il dans Coparentalité Zen ?**
+`APP-STARTER-SPEC.md` § 2 donne, pour chaque brique, **le fichier source
+exact** et le traitement à appliquer (copie / généralisation / à écrire). Si la
+ligne existe et n'est pas marquée **N**, le code existe : il faut le lire, pas
+le réinventer.
+
+**C'est le remède structurel : donner à l'agent l'accès en lecture au dépôt
+Coparentalité Zen.** Sans cet accès, il produit une réimplémentation
+approximative de briques déjà éprouvées en production — et refait les erreurs
+documentées au chapitre 13. Consigne à lui donner :
+
+> `coparentalite-zen` est une **référence en lecture seule**. Avant
+> d'implémenter une brique du socle, consulte
+> `docs/app-starter/APP-STARTER-SPEC.md` § 2 : si la brique y figure avec un
+> fichier source, lis ce fichier et généralise-le. N'improvise une
+> implémentation que pour les lignes marquées **N** (à écrire).
+
+**3. Est-ce marqué « à écrire » ?**
+Les lignes **N** du § 2 et la liste des chantiers du § 3 recensent ce qui
+n'existe nulle part : ESLint, `error.tsx`, `verifier-config.ts`,
+`generer-theme.ts`, liste paginée, module d'import, graphiques. Là, l'agent
+doit effectivement créer — et sa production doit remonter dans le starter.
+
+**4. Est-ce un manque réel du blueprint ?**
+Alors il faut le corriger **dans le blueprint**, pas seulement dans
+l'application en cours. Sinon la prochaine application rencontrera le même
+trou. C'est la boucle de retour d'`APP-STARTER-SPEC.md` § 5.
+
+## 8. Ce qui fait échouer une délégation
 
 - **Un brief flou.** L'agent comble les trous sans le dire.
 - **Une session trop large.** « Construis le paiement » produit du volume non
@@ -202,7 +245,7 @@ Zen, avec cette consigne explicite :
 - **Ne pas faire remonter les enseignements.** Un défaut corrigé seulement
   dans l'application fille se représentera dans la suivante.
 
-## 8. Ce qui reste ta décision, jamais la sienne
+## 9. Ce qui reste ta décision, jamais la sienne
 
 Le problème résolu · la cible · le périmètre du MVP · le modèle économique et
 **où passe la limite** entre gratuit et payant · le ton et le vocabulaire ·

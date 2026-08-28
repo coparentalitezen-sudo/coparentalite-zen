@@ -77,6 +77,156 @@ caches.keys().then(noms => Promise.all(
 `ServiceWorker` détecte une nouvelle version et propose de recharger. Ne pas
 recharger d'autorité : l'utilisateur perdrait sa saisie en cours.
 
+### 2.1 Mécanisme complet de mise à jour — implémentation
+
+C'est la brique la plus souvent réinventée de travers, et son échec est
+silencieux : les utilisateurs restent sur une version ancienne pendant des
+jours sans que rien ne le signale. Voici les **cinq pièces** qui doivent
+toutes être présentes. Il en manque une et le mécanisme ne fonctionne pas.
+
+**Pièce 1 — Le fichier du worker change à chaque déploiement.**
+Le navigateur ne détecte une mise à jour que si l'octet du fichier `/sw.js`
+diffère. D'où la version injectée depuis le build (§ 2 ci-dessus). Un worker
+servi comme fichier statique inchangé ne déclenchera **jamais** de mise à
+jour.
+
+**Pièce 2 — Le worker sait s'activer à la demande.**
+
+```js
+// Sans cet écouteur, une nouvelle version reste bloquée en état « waiting »
+// jusqu'à ce que TOUS les onglets soient fermés — sur une PWA installée,
+// cela peut durer des semaines.
+self.addEventListener('message', (e) => {
+  if (e.data === 'SKIP_WAITING') self.skipWaiting();
+});
+```
+
+**Pièce 3 — Les anciens caches sont purgés à l'activation.**
+
+```js
+self.addEventListener('activate', (e) => {
+  e.waitUntil((async () => {
+    const noms = await caches.keys();
+    await Promise.all(
+      noms.filter((n) => n.startsWith(PREFIXE) && !n.endsWith(VERSION))
+          .map((n) => caches.delete(n))
+    );
+    // Pas de clients.claim() : prendre le contrôle d'un onglet déjà ouvert
+    // interrompt la navigation en cours.
+  })());
+});
+```
+
+**Pièce 4 — Le composant client**, monté dans le layout racine. Quatre
+responsabilités : enregistrer, détecter, **chercher une mise à jour au retour
+dans l'application**, recharger une seule fois.
+
+```tsx
+'use client';
+import { useEffect, useState } from 'react';
+
+export function ServiceWorker() {
+  const [enAttente, setEnAttente] = useState<ServiceWorker | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+    let annule = false;
+
+    const enregistrer = async () => {
+      try {
+        const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+
+        // Cas souvent oublié : une version était déjà prête avant ce montage.
+        if (reg.waiting) setEnAttente(reg.waiting);
+
+        reg.addEventListener('updatefound', () => {
+          const nouveau = reg.installing;
+          if (!nouveau) return;
+          nouveau.addEventListener('statechange', () => {
+            // « installed » AVEC un contrôleur actif = mise à jour.
+            // Sans contrôleur, c'est la première installation : ne rien proposer.
+            if (nouveau.state === 'installed'
+                && navigator.serviceWorker.controller && !annule) {
+              setEnAttente(nouveau);
+            }
+          });
+        });
+
+        // Pièce décisive sur mobile : une PWA installée n'est pas rechargée,
+        // elle est mise en arrière-plan. Sans cette recherche au retour,
+        // la mise à jour n'est jamais détectée.
+        const auRetour = () => {
+          if (document.visibilityState === 'visible') reg.update();
+        };
+        document.addEventListener('visibilitychange', auRetour);
+        return () => document.removeEventListener('visibilitychange', auRetour);
+      } catch {
+        // L'absence de service worker ne doit jamais empêcher l'usage.
+      }
+    };
+    enregistrer();
+
+    // Garde anti-boucle : sans elle, controllerchange peut recharger en boucle.
+    let recharge = false;
+    const onControllerChange = () => {
+      if (recharge) return;
+      recharge = true;
+      window.location.reload();
+    };
+    navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
+
+    return () => {
+      annule = true;
+      navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
+    };
+  }, []);
+
+  if (!enAttente) return null;
+
+  return (
+    <div role="status" className="fixed inset-x-4 bottom-24 z-50 mx-auto flex
+      max-w-md items-center gap-3 rounded-2xl bg-encre px-4 py-3 text-white shadow-lg">
+      <p className="min-w-0 flex-1 text-sm font-bold">
+        Une nouvelle version est disponible.
+      </p>
+      <button type="button"
+        className="shrink-0 rounded-xl bg-white px-3 py-2 text-sm font-bold text-encre"
+        onClick={() => enAttente.postMessage('SKIP_WAITING')}>
+        Actualiser
+      </button>
+    </div>
+  );
+}
+```
+
+**Pièce 5 — Le hash de version affiché dans l'en-tête.** Sans lui, impossible
+de savoir quelle version tourne réellement sur un appareil, ni de vérifier
+qu'une mise à jour a bien été prise. C'est aussi ce que les testeurs doivent
+joindre à chaque signalement.
+
+### 2.2 Ce qui fait échouer la mise à jour
+
+| Symptôme | Cause | Correction |
+|---|---|---|
+| Aucune invite ne s'affiche jamais | `/sw.js` identique d'un déploiement à l'autre | injecter la version du build dans le fichier |
+| L'invite s'affiche à la **première** installation | `navigator.serviceWorker.controller` non vérifié | ne proposer que s'il existe un contrôleur |
+| La nouvelle version reste bloquée | pas d'écouteur `SKIP_WAITING` | pièce 2 |
+| Sur mobile, rien ne se met à jour pendant des jours | pas de `reg.update()` au retour de veille | pièce 4, `visibilitychange` |
+| Rechargement en boucle | pas de garde sur `controllerchange` | drapeau `recharge` |
+| Anciens écrans après mise à jour | caches non purgés | pièce 3 |
+| La saisie en cours est perdue | rechargement imposé | ne jamais recharger sans action de l'utilisateur |
+
+### 2.3 Comment le vérifier
+
+Aucun de ces défauts n'apparaît en développement local. Test obligatoire, sur
+appareil réel :
+
+1. installer la PWA sur le téléphone ;
+2. déployer une modification visible (un texte suffit) ;
+3. mettre l'application en arrière-plan, attendre, y revenir ;
+4. l'invite doit apparaître ; appuyer sur « Actualiser » ;
+5. le hash de version doit avoir changé.
+
 ## 3. Icônes
 
 `python3 scripts/generer-icones.py` produit les 21 fichiers de `public/icons/`
