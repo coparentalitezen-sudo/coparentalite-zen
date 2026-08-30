@@ -49,6 +49,8 @@ export default function Foyer() {
   const { ctx, recharger } = useContexte();
   const [nom, setNom] = useState('');
   const [email, setEmail] = useState('');
+  /** Mode de protection de l'invitation. Les deux s'excluent en base. */
+  const [modeInvitation, setModeInvitation] = useState<'courriel' | 'code'>('courriel');
   const [lien, setLien] = useState<string | null>(null);
   const [codeInvitation, setCodeInvitation] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
@@ -236,19 +238,29 @@ export default function Foyer() {
   async function inviter(householdId: string) {
     setMsg(null); setMsgInvitation(null);
     const tel = normaliserTelephone(telSecond);
-    if (!email.trim() && !tel) {
-      setMsgInvitation({
-        kind: 'err',
-        text: 'Indiquez son adresse e-mail ou son numéro de téléphone.',
-      });
+
+    // Le mode choisi décide seul de ce qui part vers la base : transmettre
+    // l'adresse en mode « code » verrouillerait l'invitation sur un compte
+    // sans qu'aucun code ne soit engendré, et le parent invité se verrait
+    // refuser l'accès sans comprendre pourquoi.
+    const courriel = modeInvitation === 'courriel' ? email.trim() : '';
+
+    if (modeInvitation === 'courriel') {
+      if (!courriel) {
+        setMsgInvitation({ kind: 'err', text: 'Indiquez son adresse e-mail.' });
+        return;
+      }
+      if (!courriel.includes('@')) {
+        setMsgInvitation({ kind: 'err', text: 'Cette adresse e-mail semble incomplète.' });
+        return;
+      }
+    } else if (!tel) {
+      setMsgInvitation({ kind: 'err', text: 'Indiquez son numéro de téléphone.' });
       return;
     }
-    if (email.trim() && !email.includes('@')) {
-      setMsgInvitation({ kind: 'err', text: 'Cette adresse e-mail semble incomplète.' });
-      return;
-    }
+
     setBusy(true);
-    const r = await inviteParent(householdId, email, tel);
+    const r = await inviteParent(householdId, courriel, tel);
     setBusy(false);
     if (r.status === 'ok') {
       setLien(`${window.location.origin}/invitation/${r.data.jeton}`);
@@ -890,33 +902,47 @@ export default function Foyer() {
                 </p>
               )}
 
-              <p className="text-[12px] leading-snug text-soft/85">
-                Renseignez au moins l’un des deux. Le mode de protection en
-                dépend, et il est indiqué ci-dessous.
-              </p>
+              {/* Les deux protections s'excluent en base : une adresse
+                  verrouille l'invitation sur un compte et n'engendre aucun
+                  code. Laisser remplir les deux champs librement faisait
+                  chercher un code inexistant, ou produisait une invitation que
+                  le parent invité ne pouvait pas accepter. Le choix est donc
+                  posé d'emblée. */}
+              <fieldset>
+                <legend className="mb-2 text-sm font-bold">
+                  Comment protéger cette invitation ?
+                </legend>
+                <div className="grid grid-cols-2 gap-2">
+                  {([
+                    ['courriel', 'Par son adresse e-mail'],
+                    ['code', 'Par un code à six chiffres'],
+                  ] as const).map(([valeur, libelle]) => (
+                    <button key={valeur} type="button"
+                            aria-pressed={modeInvitation === valeur}
+                            className={`btn ${modeInvitation === valeur ? 'btn-primary' : 'btn-ghost'}`}
+                            onClick={() => { setModeInvitation(valeur); setMsgInvitation(null); }}>
+                      {libelle}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-2 rounded-xl bg-muted px-3 py-2 text-[12px] leading-snug text-soft">
+                  {modeInvitation === 'courriel'
+                    ? 'L’invitation ne pourra être acceptée que depuis un compte utilisant exactement cette adresse. Aucun code n’est nécessaire : vous transmettez le lien comme vous voulez.'
+                    : 'Un code à six chiffres sera engendré. Vous transmettez le lien par SMS, et le code séparément — de vive voix, par exemple.'}
+                </p>
+              </fieldset>
 
-              {/* Les deux modes s'excluent : avec une adresse, c'est le compte
-                  destinataire qui fait foi ; sans adresse, c'est un code à six
-                  chiffres. Ne pas l'annoncer laisse chercher un code qui
-                  n'existe pas. */}
-              <p className="rounded-xl bg-muted px-3 py-2 text-[12px] leading-snug text-soft">
-                {email.trim()
-                  ? 'Avec une adresse e-mail : aucun code ne sera généré. L’invitation ne pourra être acceptée que depuis le compte utilisant exactement cette adresse.'
-                  : normaliserTelephone(telSecond)
-                    ? 'Sans adresse e-mail : un code à six chiffres sera généré. Il vous faudra le transmettre séparément du lien.'
-                    : 'Avec une adresse e-mail, l’invitation se verrouille sur le compte correspondant. Avec le seul numéro, elle se protège par un code à six chiffres.'}
-              </p>
-
-              <label className="block">
-                <span className="mb-1 block text-sm font-bold">Son adresse e-mail</span>
-                <input type="email" inputMode="email" autoComplete="off"
-                       value={email} placeholder="prenom@exemple.fr"
-                       onChange={(e) => setEmail(e.target.value)} />
-                <span className="mt-1 block text-xs text-soft">
-                  L’invitation n’est alors valable que pour cette adresse : c’est la
-                  façon la plus sûre d’inviter.
-                </span>
-              </label>
+              {modeInvitation === 'courriel' && (
+                <label className="block">
+                  <span className="mb-1 block text-sm font-bold">Son adresse e-mail</span>
+                  <input type="email" inputMode="email" autoComplete="off"
+                         value={email} placeholder="prenom@exemple.fr"
+                         onChange={(e) => setEmail(e.target.value)} />
+                  <span className="mt-1 block text-xs text-soft">
+                    Ce doit être l’adresse avec laquelle il créera son compte.
+                  </span>
+                </label>
+              )}
 
               {/* Le numéro se saisit ici, avec l'adresse : le proposer
                   seulement après la création du lien reviendrait à cacher
@@ -924,6 +950,9 @@ export default function Foyer() {
               <label className="block">
                 <span className="mb-1 block text-sm font-bold">
                   Son numéro de téléphone
+                  {modeInvitation === 'courriel' && (
+                    <span className="font-normal text-soft"> (facultatif)</span>
+                  )}
                 </span>
                 <input type="tel" inputMode="tel" autoComplete="off"
                        maxLength={20} value={telSecond}
@@ -936,14 +965,15 @@ export default function Foyer() {
                 </span>
               </label>
 
-              {/* Sans adresse, le lien devient le seul secret : quiconque le
-                  reçoit entre dans le foyer. Le dire vaut mieux que de le taire. */}
-              {!email.trim() && normaliserTelephone(telSecond) && (
+              {/* Le lien seul ne suffit pas : le code le complète. Cette mise
+                  en garde affirmait le contraire, ce qui n'est plus vrai
+                  depuis que l'invitation sans adresse engendre un code. */}
+              {modeInvitation === 'code' && normaliserTelephone(telSecond) && (
                 <p className="rounded-xl bg-wait-bg px-3 py-2 text-[12px] leading-snug text-wait">
-                  Sans adresse e-mail, le lien suffit à rejoindre votre foyer :
-                  ne le transmettez qu’au bon numéro. Il expire au bout de sept
-                  jours, ne sert qu’une fois, et vous serez prévenu dès que
-                  quelqu’un l’aura utilisé.
+                  Ne transmettez pas le code dans le même message que le lien :
+                  séparés, un message intercepté ne donne accès à rien.
+                  L’invitation expire au bout de sept jours, ne sert qu’une
+                  fois, et vous serez prévenu dès que quelqu’un l’aura utilisée.
                 </p>
               )}
 
@@ -956,7 +986,9 @@ export default function Foyer() {
               )}
 
               <button className="btn btn-primary w-full"
-                      disabled={busy || (!email.trim() && !normaliserTelephone(telSecond))}
+                      disabled={busy || (modeInvitation === 'courriel'
+                        ? !email.trim()
+                        : !normaliserTelephone(telSecond))}
                       onClick={() => inviter(ctx.contexte.foyer.id)}>
                 {busy ? 'Création…' : 'Créer le lien d’invitation'}
               </button>
