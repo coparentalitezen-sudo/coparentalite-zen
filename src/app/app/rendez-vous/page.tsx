@@ -8,7 +8,7 @@ import { Icone } from '@/components/icons';
 import { useContexte } from '@/lib/use-contexte';
 import {
   listerRendezVous, listerCategoriesRdv, creerRendezVous, supprimerRendezVous,
-  cocherAffaire, ajouterAffaire,
+  modifierRendezVous, cocherAffaire, ajouterAffaire,
   type RendezVous, type CategorieRdv,
 } from '@/lib/actions';
 
@@ -23,6 +23,19 @@ function heureFr(iso: string) {
 /** Champ datetime-local vers ISO. */
 function versISO(valeur: string) {
   return new Date(valeur).toISOString();
+}
+/**
+ * ISO vers champ datetime-local.
+ *
+ * toISOString() ramènerait à UTC et décalerait l'heure affichée : un
+ * rendez-vous de 18:00 se rouvrirait à 16:00 en heure d'été. On compose donc
+ * la valeur à partir des composantes locales.
+ */
+function versChampLocal(iso: string) {
+  const d = new Date(iso);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+    + `T${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
 function ContenuRendezVous() {
@@ -44,6 +57,14 @@ function ContenuRendezVous() {
   const [busy, setBusy] = useState(false);
   const [erreurForm, setErreurForm] = useState<string | null>(null);
   const [ouvert, setOuvert] = useState<string | null>(null);
+  /** Rendez-vous en cours de modification, et champs modifiables. */
+  const [enEdition, setEnEdition] = useState<RendezVous | null>(null);
+  const [editTitre, setEditTitre] = useState('');
+  const [editDebut, setEditDebut] = useState('');
+  const [editLieu, setEditLieu] = useState('');
+  const [editNote, setEditNote] = useState('');
+  const [editAccompagnant, setEditAccompagnant] = useState('');
+  const [erreurEdition, setErreurEdition] = useState<string | null>(null);
 
   const membres = ctx.etat === 'pret' ? ctx.contexte.membres : [];
   const enfants = ctx.etat === 'pret' ? ctx.contexte.enfants : [];
@@ -93,6 +114,41 @@ function ContenuRendezVous() {
       setMsg('Rendez-vous ajouté. L’autre parent en est informé.');
       setFormOuvert(false); reinitialiser(); charger();
     } else if (r.status === 'error') setErreurForm(r.message);
+  }
+
+  function ouvrirEdition(r: RendezVous) {
+    // Tous les champs modifiables sont pré-remplis, y compris ceux qui ne
+    // seront pas touchés : la mise à jour remplace l'enregistrement entier,
+    // si bien qu'un champ laissé vide effacerait la valeur existante.
+    setEnEdition(r);
+    setEditTitre(r.titre);
+    setEditDebut(versChampLocal(r.debut));
+    setEditLieu(r.lieu ?? '');
+    setEditNote(r.note ?? '');
+    setEditAccompagnant(r.accompagnant ?? '');
+    setErreurEdition(null);
+  }
+
+  async function enregistrerEdition() {
+    if (!enEdition) return;
+    setErreurEdition(null);
+    if (!editTitre.trim()) { setErreurEdition('Donnez un intitulé au rendez-vous.'); return; }
+    if (!editDebut) { setErreurEdition('Indiquez la date et l’heure.'); return; }
+
+    setBusy(true);
+    const res = await modifierRendezVous({
+      id: enEdition.id,
+      titre: editTitre,
+      debut: versISO(editDebut),
+      lieu: editLieu || null,
+      note: editNote || null,
+      accompagnant: editAccompagnant || null,
+    });
+    setBusy(false);
+    if (res.status === 'ok') {
+      setMsg('Rendez-vous modifié. L’autre parent en est informé.');
+      setEnEdition(null); charger();
+    } else if (res.status === 'error') setErreurEdition(res.message);
   }
 
   async function retirer(r: RendezVous) {
@@ -296,7 +352,14 @@ function ContenuRendezVous() {
                     {rdvs.map((r) => (
                       <li key={r.id} className="py-3">
                         <button type="button"
-                          onClick={() => setOuvert(ouvert === r.id ? null : r.id)}
+                          onClick={() => {
+                            const ferme = ouvert === r.id;
+                            setOuvert(ferme ? null : r.id);
+                            // Replier la carte doit abandonner l'édition :
+                            // la rouvrir afficherait sinon des champs saisis
+                            // mais jamais enregistrés.
+                            if (ferme || enEdition?.id !== r.id) setEnEdition(null);
+                          }}
                           aria-expanded={ouvert === r.id}
                           className="flex w-full items-start gap-3 text-left">
                           <span aria-hidden
@@ -324,6 +387,85 @@ function ContenuRendezVous() {
                         </button>
 
                         {ouvert === r.id && (
+                          enEdition?.id === r.id ? (
+                            <div className="mt-2.5 space-y-3 pl-4">
+                              <label className="block">
+                                <span className="mb-1 block text-sm font-bold">Intitulé</span>
+                                <input type="text" maxLength={80} value={editTitre}
+                                       onChange={(e) => setEditTitre(e.target.value)} />
+                              </label>
+
+                              <label className="block">
+                                <span className="mb-1 block text-sm font-bold">Date et heure</span>
+                                <input type="datetime-local" value={editDebut}
+                                       onChange={(e) => setEditDebut(e.target.value)} />
+                              </label>
+
+                              <label className="block">
+                                <span className="mb-1 block text-sm font-bold">
+                                  Lieu <span className="font-normal text-soft">(facultatif)</span>
+                                </span>
+                                <input type="text" maxLength={80} value={editLieu}
+                                       onChange={(e) => setEditLieu(e.target.value)} />
+                              </label>
+
+                              <label className="block">
+                                <span className="mb-1 block text-sm font-bold">
+                                  Note <span className="font-normal text-soft">(facultatif)</span>
+                                </span>
+                                <input type="text" maxLength={200} value={editNote}
+                                       onChange={(e) => setEditNote(e.target.value)} />
+                              </label>
+
+                              <fieldset>
+                                <legend className="mb-1.5 text-sm font-bold">Qui accompagne</legend>
+                                <div className="flex flex-wrap gap-2">
+                                  <button type="button" aria-pressed={editAccompagnant === ''}
+                                    onClick={() => setEditAccompagnant('')}
+                                    className={`btn px-3 py-2 text-[13px] ${
+                                      editAccompagnant === '' ? 'btn-primary' : 'btn-ghost'}`}>
+                                    Le parent de garde
+                                  </button>
+                                  {membres.map((m) => (
+                                    <button key={m.profileId} type="button"
+                                      aria-pressed={editAccompagnant === m.profileId}
+                                      onClick={() => setEditAccompagnant(m.profileId)}
+                                      className={`btn px-3 py-2 text-[13px] ${
+                                        editAccompagnant === m.profileId ? 'btn-primary' : 'btn-ghost'}`}>
+                                      {m.nom}
+                                    </button>
+                                  ))}
+                                </div>
+                              </fieldset>
+
+                              {/* Le type, les enfants et les affaires ne sont pas
+                                  modifiables : la fonction de mise à jour ne les
+                                  touche pas. Les afficher ici laisserait croire
+                                  qu'ils ont été enregistrés. */}
+                              <p className="rounded-xl bg-muted px-3 py-2 text-[12px] leading-snug text-soft">
+                                Pour changer le type, les enfants concernés ou les
+                                affaires à prévoir, annulez ce rendez-vous et
+                                recréez-le.
+                              </p>
+
+                              {erreurEdition && (
+                                <p role="alert" className="rounded-xl bg-err-bg px-3 py-2 text-sm font-bold text-err">
+                                  {erreurEdition}
+                                </p>
+                              )}
+
+                              <div className="flex gap-2">
+                                <button type="button" className="btn btn-primary flex-1"
+                                        disabled={busy} onClick={enregistrerEdition}>
+                                  {busy ? 'Enregistrement…' : 'Enregistrer'}
+                                </button>
+                                <button type="button" className="btn btn-ghost shrink-0 px-4"
+                                        onClick={() => setEnEdition(null)}>
+                                  Annuler
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
                           <div className="mt-2.5 space-y-2 pl-4">
                             {r.accompagnantNom && (
                               <p className="text-[13px]">
@@ -341,11 +483,18 @@ function ContenuRendezVous() {
                                 </ul>
                               </div>
                             )}
-                            <button type="button" className="text-[13px] font-bold text-err underline"
-                                    onClick={() => retirer(r)}>
-                              Annuler ce rendez-vous
-                            </button>
+                            <div className="flex flex-wrap items-center gap-4">
+                              <button type="button" className="text-[13px] font-bold underline"
+                                      onClick={() => ouvrirEdition(r)}>
+                                Modifier ce rendez-vous
+                              </button>
+                              <button type="button" className="text-[13px] font-bold text-err underline"
+                                      onClick={() => retirer(r)}>
+                                Annuler ce rendez-vous
+                              </button>
+                            </div>
                           </div>
+                          )
                         )}
                       </li>
                     ))}
