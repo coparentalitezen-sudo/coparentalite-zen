@@ -88,10 +88,15 @@ export default function Enfants() {
                   )}
                 </span>
               </span>
-              <button type="button" className="min-h-11 text-sm font-bold text-soft underline"
-                      onClick={() => onArchiver(e.id, e.prenom)}>
-                Archiver
-              </button>
+              <span className="flex items-center gap-3">
+                <Link href={`/app/scolarite?enfant=${e.id}`} className="min-h-11 text-sm font-bold text-soft/85 underline">
+                  Emploi du temps
+                </Link>
+                <button type="button" className="min-h-11 text-sm font-bold text-soft underline"
+                        onClick={() => onArchiver(e.id, e.prenom)}>
+                  Archiver
+                </button>
+              </span>
             </li>
           ))}
         </ul>
