@@ -14,17 +14,46 @@ import { anneeScolaireDe } from '@/lib/scolarite/edt';
 import { checkFile, formatBytes } from '@/lib/files';
 
 const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
-const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
+// Filtre grossier avant même de tenter de charger l'image — la vraie limite
+// vient de comprimerPhoto ci-dessous.
+const MAX_PHOTO_BYTES = 30 * 1024 * 1024;
+// Les fonctions serverless Vercel refusent une requête au-delà d'environ
+// 4,5 Mo. Une photo d'iPhone dépasse déjà cette taille en JPEG brut, avant
+// même l'inflation d'environ 33 % du passage en base64 — sans compression,
+// l'envoi échoue avant même d'atteindre la route, avec un message d'erreur
+// réseau trompeur (vécu en test réel le 2026-09-03).
+const CIBLE_BASE64_OCTETS = 3.2 * 1024 * 1024;
 
-function fileVersBase64(file: File): Promise<string> {
+/**
+ * Redimensionne et réencode la photo en JPEG côté navigateur avant l'envoi.
+ * Réduit la qualité par paliers jusqu'à tenir sous la limite de taille de
+ * requête serverless — un emploi du temps est du texte structuré, la perte
+ * de qualité à ce niveau reste sans effet sur la lisibilité.
+ */
+function comprimerPhoto(file: File, maxCote = 1600): Promise<string> {
   return new Promise((resolve, reject) => {
-    const lecteur = new FileReader();
-    lecteur.onload = () => {
-      const resultat = String(lecteur.result);
-      resolve(resultat.slice(resultat.indexOf(',') + 1));
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      const echelle = Math.min(1, maxCote / Math.max(image.width, image.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(image.width * echelle);
+      canvas.height = Math.round(image.height * echelle);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { reject(new Error('Compression impossible sur cet appareil')); return; }
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+      let qualite = 0.85;
+      let dataUrl = canvas.toDataURL('image/jpeg', qualite);
+      while (dataUrl.length > CIBLE_BASE64_OCTETS && qualite > 0.4) {
+        qualite -= 0.15;
+        dataUrl = canvas.toDataURL('image/jpeg', qualite);
+      }
+      resolve(dataUrl.slice(dataUrl.indexOf(',') + 1));
     };
-    lecteur.onerror = () => reject(lecteur.error ?? new Error('Lecture du fichier impossible'));
-    lecteur.readAsDataURL(file);
+    image.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Lecture de la photo impossible')); };
+    image.src = url;
   });
 }
 
@@ -90,8 +119,8 @@ function ContenuScolarite() {
     setErreurPhoto(null);
     setAnalyse(true);
     try {
-      const base64 = await fileVersBase64(photo);
-      const r = await importerPhotoEdt(enfantId, base64, photo.type, anneeScolaire);
+      const base64 = await comprimerPhoto(photo);
+      const r = await importerPhotoEdt(enfantId, base64, 'image/jpeg', anneeScolaire);
       if (r.status === 'ok') {
         if (r.data.creneaux.length === 0) {
           setErreurPhoto('Aucun créneau n’a été reconnu sur cette photo. Reprenez-la, si possible bien à plat et lisible.');
@@ -102,7 +131,7 @@ function ContenuScolarite() {
         setErreurPhoto(r.message);
       }
     } catch {
-      setErreurPhoto('La lecture de la photo a échoué.');
+      setErreurPhoto('La compression ou la lecture de la photo a échoué. Réessayez, avec une photo moins volumineuse si possible.');
     } finally {
       setAnalyse(false);
     }
