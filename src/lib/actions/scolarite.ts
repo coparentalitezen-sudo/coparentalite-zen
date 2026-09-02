@@ -3,7 +3,7 @@
 /**
  * Emploi du temps scolaire (import photo).
  *
- * Lecture de l'image et appel à Claude en vision : passe par notre propre
+ * Lecture de l'image et appel à Gemini en vision : passe par notre propre
  * route API (/api/scolarite/import-edt), jamais d'appel direct au
  * fournisseur depuis le navigateur (clé secrète). Écriture définitive :
  * uniquement après relecture/validation humaine côté écran, via

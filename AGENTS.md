@@ -54,7 +54,7 @@ Aucune dépendance d'interface ajoutée : les icônes sont des tracés SVG maiso
 | `/app/plus` | `app/plus/page.tsx` | menu |
 | `/app/offre` | `app/offre/page.tsx` | offre, extensions, abonnement, achats |
 | `/app/scolarite` | `app/scolarite/page.tsx` | import photo de l'emploi du temps, relecture, validation |
-| `/api/scolarite/import-edt` | `api/scolarite/import-edt/route.ts` | lecture de la photo par Claude en vision, jamais stockée |
+| `/api/scolarite/import-edt` | `api/scolarite/import-edt/route.ts` | lecture de la photo par Gemini en vision, jamais stockée |
 | `/api/paiement` | `api/paiement/route.ts` | ouverture d'un paiement Stripe |
 | `/api/paiement/portail` | `api/paiement/portail/route.ts` | portail de gestion |
 | `/api/stripe/webhook` | `api/stripe/webhook/route.ts` | réception des événements |

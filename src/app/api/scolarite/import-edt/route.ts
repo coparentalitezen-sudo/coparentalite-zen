@@ -7,12 +7,21 @@ import { parserReponseExtraction, ErreurExtraction, anneeScolaireDe } from '@/li
 /**
  * Lecture d'un emploi du temps scolaire par photo.
  *
- * N'ÉCRIT JAMAIS EN BASE : cette route lit l'image, interroge Claude en
+ * N'ÉCRIT JAMAIS EN BASE : cette route lit l'image, interroge Gemini en
  * vision, renvoie le résultat au client. La relecture/validation humaine et
  * l'enregistrement définitif se font ensuite via l'action
  * `enregistrerImportEdt` (RPC `enregistrer_edt_import`), jamais ici — voir
  * ÉTAPE 4 de la demande : « Ne jamais écrire en base sans validation
  * humaine ».
+ *
+ * POURQUOI GEMINI PLUTÔT QU'ANTHROPIC : la facturation Anthropic exige une
+ * carte bancaire, indisponible pour ce déploiement. L'API Gemini (Google AI
+ * Studio) offre un palier gratuit sans carte, avec une qualité de lecture
+ * suffisante pour ce cas d'usage (texte structuré, pas de raisonnement
+ * complexe). Le contrat de sortie (JSON strict défini par PROMPT_SYSTEME) et
+ * le parsing défensif (`parserReponseExtraction`) restent inchangés — seul
+ * l'appel HTTP change de fournisseur, donc de remplacer Gemini par un autre
+ * fournisseur plus tard ne touchera que ce fichier.
  *
  * RGPD : la photo contient le nom de l'enfant et son établissement.
  * Traitement entièrement en mémoire, jamais d'upload bucket, jamais de
@@ -25,7 +34,9 @@ import { parserReponseExtraction, ErreurExtraction, anneeScolaireDe } from '@/li
  */
 export const maxDuration = 60;
 
-const MODELE = 'claude-sonnet-4-6';
+// Alias maintenu à jour par Google vers le modèle Flash multimodal courant —
+// évite de figer un numéro de version qui finira par être retiré.
+const MODELE = 'gemini-flash-latest';
 
 const PROMPT_SYSTEME = `Tu lis un emploi du temps scolaire français (collège ou lycée) photographié.
 Réponds UNIQUEMENT avec un objet JSON strict, sans balise markdown, sans texte avant ou après :
@@ -45,8 +56,8 @@ function versJpegBase64(imageBase64: string, mimeType: string): string {
 }
 
 export async function POST(requete: Request) {
-  const cleAnthropic = process.env.ANTHROPIC_API_KEY;
-  if (!cleAnthropic) {
+  const cleGemini = process.env.GEMINI_API_KEY;
+  if (!cleGemini) {
     return NextResponse.json(
       { message: 'La lecture automatique n’est pas encore activée sur cette installation.' },
       { status: 503 },
@@ -86,8 +97,9 @@ export async function POST(requete: Request) {
 
   const anneeScolaire = corps.anneeScolaire || anneeScolaireDe(new Date());
 
-  // Barrière avant l'appel payant à Claude : un foyer non premium ou déjà
-  // au quota ne doit jamais déclencher la dépense.
+  // Barrière avant l'appel à Gemini : un foyer non premium ou déjà au quota
+  // ne doit jamais déclencher l'appel, même gratuit — le quota reste la
+  // seule garantie que l'usage du palier gratuit reste sous contrôle.
   const { data: etat, error: erreurEtat } = await supabase.rpc('edt_scolaire_etat', {
     p_household: enfant.household_id, p_child: childId, p_annee: anneeScolaire,
   });
@@ -111,38 +123,43 @@ export async function POST(requete: Request) {
   try {
     const jpegBase64 = versJpegBase64(imageBase64, mimeType);
 
-    const reponse = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': cleAnthropic,
-        'anthropic-version': '2023-06-01',
+    const reponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${MODELE}:generateContent`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          // En-tête plutôt que ?key=... en query string : évite que la clé
+          // se retrouve dans un journal d'accès (proxy, CDN) qui logue les URL.
+          'x-goog-api-key': cleGemini,
+        },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: PROMPT_SYSTEME }] },
+          contents: [{
+            role: 'user',
+            parts: [
+              { inline_data: { mime_type: 'image/jpeg', data: jpegBase64 } },
+              { text: 'Lis cet emploi du temps et renvoie le JSON demandé.' },
+            ],
+          }],
+          generationConfig: { responseMimeType: 'application/json' },
+        }),
       },
-      body: JSON.stringify({
-        model: MODELE,
-        max_tokens: 2048,
-        system: PROMPT_SYSTEME,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: jpegBase64 } },
-            { type: 'text', text: 'Lis cet emploi du temps et renvoie le JSON demandé.' },
-          ],
-        }],
-      }),
-    });
+    );
 
     if (!reponse.ok) {
       const detail = await reponse.text().catch(() => '');
-      console.error('[import-edt] Anthropic', reponse.status, detail);
+      console.error('[import-edt] Gemini', reponse.status, detail);
       return NextResponse.json(
         { message: 'La lecture du ticket n’a pas abouti. Réessayez dans un instant.' },
         { status: 502 },
       );
     }
 
-    const corpsAnthropic = (await reponse.json()) as { content?: { type: string; text?: string }[] };
-    const texte = corpsAnthropic.content?.find((b) => b.type === 'text')?.text;
+    const corpsGemini = (await reponse.json()) as {
+      candidates?: { content?: { parts?: { text?: string }[] } }[];
+    };
+    const texte = corpsGemini.candidates?.[0]?.content?.parts?.find((p) => p.text)?.text;
     if (!texte) {
       return NextResponse.json({ message: 'Réponse de lecture vide.' }, { status: 502 });
     }
