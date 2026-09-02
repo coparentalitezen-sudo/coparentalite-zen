@@ -134,11 +134,14 @@ export async function POST(requete: Request) {
           'x-goog-api-key': cleGemini,
         },
         body: JSON.stringify({
-          system_instruction: { parts: [{ text: PROMPT_SYSTEME }] },
+          // L'API REST Gemini attend du camelCase (systemInstruction,
+          // inlineData, mimeType) — le snake_case des exemples protobuf
+          // n'est pas accepté ici et fait échouer silencieusement la requête.
+          systemInstruction: { parts: [{ text: PROMPT_SYSTEME }] },
           contents: [{
             role: 'user',
             parts: [
-              { inline_data: { mime_type: 'image/jpeg', data: jpegBase64 } },
+              { inlineData: { mimeType: 'image/jpeg', data: jpegBase64 } },
               { text: 'Lis cet emploi du temps et renvoie le JSON demandé.' },
             ],
           }],
