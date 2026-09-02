@@ -55,7 +55,7 @@ test('garde d’authentification : /app/* renvoie vers la connexion', async ({ p
 
 test('toutes les routes protégées sont bien gardées', async ({ page }) => {
   exigeBase();
-  for (const route of ['/app/planning', '/app/depenses', '/app/ajouter', '/app/plus', '/app/foyer', '/app/enfants', '/app/exceptions', '/app/offre', '/app/vacances', '/app/notifications', '/app/notifications/reglages', '/app/rendez-vous']) {
+  for (const route of ['/app/planning', '/app/depenses', '/app/ajouter', '/app/plus', '/app/foyer', '/app/enfants', '/app/exceptions', '/app/offre', '/app/vacances', '/app/notifications', '/app/notifications/reglages', '/app/rendez-vous', '/app/scolarite']) {
     // on attend la fin de chaque navigation : enchaîner sans attendre annulerait
     // la redirection en cours (comportement de navigateur, pas de l'application)
     await page.goto(route, { waitUntil: 'load' });
@@ -194,6 +194,23 @@ test('parcours guidé : l’invitation est présentée en dernier', async ({ pag
 
 test('rappels : la programmation exige le secret de tâche planifiée', async ({ request }) => {
   const r = await request.get('/api/rappels');
+  expect([401, 503]).toContain(r.status());
+  expect(r.status()).not.toBe(200);
+});
+
+/**
+ * Emploi du temps scolaire (import photo) : le parcours complet import →
+ * relecture → validation → affichage planning exige un compte réel avec un
+ * foyer premium et un enfant — hors de portée de cette suite (voir l'en-tête
+ * du fichier). Il est couvert par les assertions SQL rejouables
+ * (supabase/tests/scolarite_test.sql) et à vérifier manuellement une fois la
+ * fonctionnalité activée. Ici, on ne prouve que la barrière d'accès :
+ * ni la page ni la route ne doivent rien laisser passer sans session.
+ */
+test('emploi du temps scolaire : la route d’import refuse un appel non authentifié', async ({ request }) => {
+  const r = await request.post('/api/scolarite/import-edt', {
+    data: { childId: 'x', imageBase64: 'AA==', mimeType: 'image/jpeg' },
+  });
   expect([401, 503]).toContain(r.status());
   expect(r.status()).not.toBe(200);
 });
