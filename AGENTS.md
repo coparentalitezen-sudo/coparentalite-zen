@@ -53,6 +53,8 @@ Aucune dépendance d'interface ajoutée : les icônes sont des tracés SVG maiso
 | `/app/foyer` | `app/foyer/page.tsx` | membres, rythme de garde, invitation, RGPD, suppressions |
 | `/app/plus` | `app/plus/page.tsx` | menu |
 | `/app/offre` | `app/offre/page.tsx` | offre, extensions, abonnement, achats |
+| `/app/scolarite` | `app/scolarite/page.tsx` | import photo de l'emploi du temps, relecture, validation |
+| `/api/scolarite/import-edt` | `api/scolarite/import-edt/route.ts` | lecture de la photo par Claude en vision, jamais stockée |
 | `/api/paiement` | `api/paiement/route.ts` | ouverture d'un paiement Stripe |
 | `/api/paiement/portail` | `api/paiement/portail/route.ts` | portail de gestion |
 | `/api/stripe/webhook` | `api/stripe/webhook/route.ts` | réception des événements |
@@ -90,6 +92,9 @@ découpage interne peut évoluer sans rien casser.
 | `money.ts` | répartition au plus fort reste, solde, formulations neutres |
 | `serenite.ts` | score de complétude administrative du foyer (présentation seule) |
 | `files.ts` | validation des justificatifs, chemins de stockage sûrs |
+| `actions/scolarite.ts` | emploi du temps scolaire : état/quota, créneaux, import, enregistrement |
+| `scolarite/edt.ts` | parsing défensif de la réponse Claude, année scolaire, semaines A/B — pur |
+| `scolarite/jours-feries.ts` | jours fériés de France métropolitaine, calcul pur |
 | `actions.ts` | **seule** couche d'accès aux données ; aucun composant n'appelle Supabase directement |
 | `use-contexte.tsx` | chargement du foyer courant (membres, enfants, catégories) |
 | `supabase/client.ts`, `server.ts` | création des clients |
@@ -474,6 +479,26 @@ commits de retard sur `origin/develop` : la moitié des tests (286 au lieu de
 536) et un correctif déjà résolu en amont sont ressortis comme un problème
 critique. Rien ne le signale — le code se construit et les tests passent,
 seulement sur une version plus ancienne.
+
+**`plans.limits jsonb` existe depuis la genèse mais restait vide — c'est
+désormais le mécanisme de feature flag de fait.** Ce dépôt n'a pas de système
+de feature flags dédié (vérifié par recherche exhaustive). L'emploi du temps
+scolaire (migration `00050_edt_scolaire.sql`) y range `edt_scolaire_enabled`
+et `edt_scolaire_quota_annuel` plutôt que d'en inventer un nouveau. Un futur
+agent qui chercherait « le » système de flags ne trouvera que cette colonne :
+c'est normal, il n'y en a pas d'autre. Le contrôle réel reste
+`household_entitlement()` (horizon de date) pour tout ce qui dépend d'une
+date ; `plans.limits` sert aux réglages qui ne sont pas des horizons (quotas,
+interrupteurs premium).
+
+**Une table avec `updated_at` n'a pas forcément de trigger qui la tient à
+jour.** `00001_schema.sql` attache `set_updated_at()` en boucle une seule
+fois, à la création du dépôt — les tables ajoutées depuis doivent l'attacher
+explicitement (`drop trigger if exists … ; create trigger …`). Certaines
+migrations gèrent `updated_at` à la main dans leurs upserts à la place (ex.
+`00049_parcours_quiz.sql`) : ne pas en déduire que le trigger n'est plus la
+convention — vérifier une migration récente qui crée vraiment une table
+(ex. `00046_paiement_partage.sql`, `00050_edt_scolaire.sql`) avant de choisir.
 
 **Protocole pour tout agent qui travaille sur ce dépôt :**
 1. `git fetch origin && git reset --hard origin/develop` en première commande
