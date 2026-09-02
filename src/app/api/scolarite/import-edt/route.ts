@@ -153,8 +153,12 @@ export async function POST(requete: Request) {
     if (!reponse.ok) {
       const detail = await reponse.text().catch(() => '');
       console.error('[import-edt] Gemini', reponse.status, detail);
+      // DIAGNOSTIC TEMPORAIRE (à retirer une fois l'intégration Gemini
+      // vérifiée en conditions réelles — aucun journal Vercel accessible
+      // pendant la mise au point) : le détail Google ne contient jamais la
+      // clé, seulement la nature du refus (clé invalide, modèle inconnu…).
       return NextResponse.json(
-        { message: 'La lecture du ticket n’a pas abouti. Réessayez dans un instant.' },
+        { message: `Gemini ${reponse.status} : ${detail.slice(0, 300)}` },
         { status: 502 },
       );
     }
@@ -179,9 +183,7 @@ export async function POST(requete: Request) {
     }
     const message = e instanceof Error ? e.message : 'Erreur inattendue';
     console.error('[import-edt]', message);
-    return NextResponse.json(
-      { message: 'La lecture du ticket n’a pas abouti. Réessayez dans un instant.' },
-      { status: 502 },
-    );
+    // Voir la note DIAGNOSTIC TEMPORAIRE plus haut.
+    return NextResponse.json({ message: `Erreur serveur : ${message}` }, { status: 502 });
   }
 }
