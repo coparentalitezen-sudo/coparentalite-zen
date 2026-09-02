@@ -23,6 +23,7 @@ export * from './privacy';
 export * from './premium';
 export * from './partage';
 export * from './vacances';
+export * from './scolarite';
 export * from './localisation';
 export * from './notifications';
 export * from './rendez-vous';
