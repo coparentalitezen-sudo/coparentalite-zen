@@ -9,11 +9,14 @@ import { BandeauHorizon, dansHorizon } from '@/components/premium';
 import { useContexte } from '@/lib/use-contexte';
 import {
   getRegleGarde, listerExceptions, getOffre, listerVacances, listerRendezVous,
+  listerCreneauxFoyer,
   type RegleGarde, type ExceptionGarde, type Offre, type VacancesScolaires,
-  type RendezVous,
+  type RendezVous, type CreneauFoyer,
 } from '@/lib/actions';
 import { buildDayMap, journeesPartagees, addDays, isoWeek, dernierJourTenu,
   type Source, type ExceptionOverride, type JourneePartagee } from '@/lib/custody';
+import { anneeScolaireDe, semaineAbDe } from '@/lib/scolarite/edt';
+import { estJourFerie } from '@/lib/scolarite/jours-feries';
 
 const MOIS = ['janvier','février','mars','avril','mai','juin',
               'juillet','août','septembre','octobre','novembre','décembre'];
@@ -46,6 +49,7 @@ function ContenuPlanning() {
   const [erreurExceptions, setErreurExceptions] = useState<string | null>(null);
   const [partagees, setPartagees] = useState<Map<string, JourneePartagee>>(new Map());
   const [rendezVous, setRendezVous] = useState<RendezVous[]>([]);
+  const [creneauxScolaires, setCreneauxScolaires] = useState<CreneauFoyer[]>([]);
 
   const membres = ctx.etat === 'pret' ? ctx.contexte.membres : [];
   const enfants = ctx.etat === 'pret' ? ctx.contexte.enfants : [];
@@ -85,6 +89,12 @@ function ContenuPlanning() {
     // garde, un échec de chargement ne doit donc rien vider.
     listerRendezVous(hid, premierJour, dernierJour).then((r) => {
       if (r.status === 'ok') setRendezVous(r.data);
+    });
+    // Emploi du temps scolaire : superposition informative uniquement — une
+    // absence de données ici (offre non premium, rien d'importé) ne doit
+    // jamais dégrader le reste du planning.
+    listerCreneauxFoyer(hid, anneeScolaireDe(new Date())).then((r) => {
+      if (r.status === 'ok') setCreneauxScolaires(r.data);
     });
   }, [ctx, premierJour, dernierJour]);
 
@@ -160,6 +170,23 @@ function ContenuPlanning() {
 
   const rdvDuJour = (jour: string) =>
     rendezVous.filter((r) => r.debut.slice(0, 10) === jour);
+
+  /**
+   * Créneaux scolaires d'un jour donné. Jamais affichés pendant les vacances
+   * ou un jour férié (ÉTAPE 5) — un créneau porteur d'une semaine A/B dont la
+   * configuration est incomplète est masqué plutôt que deviné.
+   */
+  const creneauxDuJour = useCallback((jour: string): CreneauFoyer[] => {
+    if (joursVacances.has(jour) || estJourFerie(jour)) return [];
+    const js = new Date(`${jour}T12:00:00Z`).getUTCDay();
+    if (js < 1 || js > 5) return [];
+    return creneauxScolaires.filter((c) => {
+      if (c.jourSemaine !== js) return false;
+      if (!c.semaineAb) return true;
+      if (!c.semaineAbActive || !c.dateAncrageSemaineA) return false;
+      return semaineAbDe(jour, c.dateAncrageSemaineA) === c.semaineAb;
+    }).sort((a, b) => a.heureDebut.localeCompare(b.heureDebut));
+  }, [creneauxScolaires, joursVacances]);
 
   const membre = (id: string) => membres.find((m) => m.profileId === id);
   const nom = (id: string) => membre(id)?.nom ?? 'Parent';
@@ -245,6 +272,7 @@ function ContenuPlanning() {
                     // haut, après-midi en bas.
                     const transition = couvert ? partagees.get(d) : undefined;
                     const mMatin = transition ? membre(transition.matin) : undefined;
+                    const ecole = creneauxDuJour(d);
                     const teinte = (mem?: { couleur: string }) =>
                       mem?.couleur === 'coral' ? 'bg-p2-bg' : 'bg-p1-bg';
                     return (
@@ -259,6 +287,7 @@ function ContenuPlanning() {
                           vacancesExc ? 'vacances définies par les parents' : null,
                           ponctuel ? 'changement ponctuel' : null,
                           joursVacances.has(d) ? 'vacances scolaires' : null,
+                          ecole.length > 0 ? `sortie des cours à ${ecole[ecole.length - 1].heureFin}` : null,
                         ].filter(Boolean).join(', ')}
                         className={`relative aspect-square overflow-hidden border-b border-r border-line p-1 text-left ${
                           transition ? '' : fond}
@@ -296,6 +325,11 @@ function ContenuPlanning() {
                           <span aria-hidden
                             className="absolute bottom-0.5 left-0.5 z-10 h-1.5 w-1.5 rounded-full bg-[#6741B8]"
                             title="Rendez-vous" />
+                        )}
+                        {ecole.length > 0 && (
+                          <span aria-hidden
+                            className="absolute bottom-0.5 left-2.5 z-10 h-1.5 w-1.5 rounded-full bg-[#2E8B57]"
+                            title={`Sortie des cours à ${ecole[ecole.length - 1].heureFin}`} />
                         )}
                         {transition && mMatin && m ? (
                           <span className="relative z-10 mt-0.5 flex flex-col text-[9px] font-black leading-[1.15]">
@@ -364,6 +398,12 @@ function ContenuPlanning() {
                       <span className="absolute bottom-1 left-1 h-1.5 w-1.5 rounded-full bg-[#6741B8]" />
                     </span>
                     Rendez-vous — pastille violette, sans effet sur la garde
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span aria-hidden className="relative h-5 w-5 shrink-0 rounded-md bg-muted">
+                      <span className="absolute bottom-1 left-2.5 h-1.5 w-1.5 rounded-full bg-[#2E8B57]" />
+                    </span>
+                    École — pastille verte, masquée pendant les vacances et jours fériés
                   </li>
                 </ul>
               </section>
@@ -457,6 +497,29 @@ function ContenuPlanning() {
                       </li>
                     </ul>
                   )}
+
+                  {(() => {
+                    const ecole = creneauxDuJour(jourOuvert);
+                    if (ecole.length === 0) return null;
+                    const recupere = parJour.get(jourOuvert);
+                    const derniereSortie = ecole[ecole.length - 1].heureFin;
+                    return (
+                      <ul className="border-t border-line-soft pt-2.5">
+                        {ecole.map((c, i) => (
+                          <li key={c.id ?? i} className="text-[13px] leading-snug">
+                            <span className="font-bold">{c.heureDebut}–{c.heureFin}</span>
+                            {c.matiere && <span> · {c.matiere}</span>}
+                            {c.salle && <span className="text-soft/85"> · salle {c.salle}</span>}
+                          </li>
+                        ))}
+                        {recupere && (
+                          <li className="mt-1 text-[13px] font-bold text-ok">
+                            Sortie des cours à {derniereSortie} — récupéré·e par {nom(recupere.parentId)}
+                          </li>
+                        )}
+                      </ul>
+                    );
+                  })()}
 
                   {vacancesDuJour(jourOuvert).length > 0 && (
                     <ul className="border-t border-line-soft pt-2.5">
