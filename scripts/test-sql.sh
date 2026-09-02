@@ -129,7 +129,7 @@ echo ""
 echo "Jeux d'essai"
 # Ordre imposé : rls_fixtures crée les foyers, les profils et les helpers dont
 # les deux autres dépendent. L'ordre alphabétique ne convient pas.
-for nom in rls_fixtures invitation_fixtures flows_fixtures; do
+for nom in rls_fixtures invitation_fixtures flows_fixtures scolarite_fixtures; do
   fichier="$TESTS/$nom.sql"
   [ -f "$fichier" ] || continue
   if admin -d "$GABARIT" -f "$fichier" > /dev/null 2>&1; then
