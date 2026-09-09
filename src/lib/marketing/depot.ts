@@ -157,6 +157,9 @@ export async function enregistrerSemaine(date: Date, base: string): Promise<Cont
       appel_action: c.appelAction,
       prevu_le: dateDuJour(date, c.jour),
       statut: 'en_attente',
+      // Seul chemin d'écriture aujourd'hui : genererSemaine est déterministe,
+      // l'agent rédacteur (redacteur.ts) n'est pas encore branché ici.
+      source: 'deterministe',
     }, { onConflict: 'reference', ignoreDuplicates: true });
 
     if (erreurContenu) {

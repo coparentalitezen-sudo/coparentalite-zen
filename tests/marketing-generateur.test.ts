@@ -55,6 +55,21 @@ describe('génération d’une semaine', () => {
     expect(new Set(refs).size).toBe(7);
     for (const r of refs) expect(r).toMatch(/^2026s34-(reel|carrousel|publication)-[1-7]$/);
   });
+
+  it('construit la référence sans dépendre du texte — la clé d’anti-doublon reste valable si le texte devient variable', () => {
+    // enregistrerSemaine (depot.ts) écarte les doublons par un upsert sur
+    // « reference » : cette clé doit donc rester la même quel que soit le
+    // texte du contenu. C'est déjà vrai aujourd'hui (elle ne dépend que de
+    // l'année, la semaine, le format et le rang), et cette propriété est ce
+    // qui permettra à l'agent rédacteur (redacteur.ts) d'écrire un texte
+    // différent d'un essai à l'autre sans jamais produire deux lignes pour le
+    // même créneau : la référence assignée par genererSemaine ne change pas,
+    // que le texte vienne de la banque de sujets ou d'un modèle de langage.
+    for (const c of semaine) {
+      expect(c.reference).toBe(`2026s34-${c.format}-${semaine.indexOf(c) + 1}`);
+      expect(c.reference).toMatch(/^\d{4}s\d{2}-(reel|carrousel|publication)-\d$/);
+    }
+  });
 });
 
 describe('exigences éditoriales de chaque contenu', () => {

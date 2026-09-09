@@ -67,6 +67,17 @@ const MOTIFS: Motif[] = [
 ];
 
 /**
+ * Les interdictions, en phrases lisibles — dérivées de MOTIFS, jamais
+ * réécrites à part.
+ *
+ * Sert à composer le prompt système de redacteur.ts : la même source décrit
+ * ce qu'un texte ne doit pas faire et ce que le code vérifie ensuite, de sorte
+ * qu'ajouter une interdiction ici la fait apparaître aux deux endroits sans
+ * rien dupliquer.
+ */
+export const DESCRIPTIONS_INTERDICTIONS: readonly string[] = MOTIFS.map((m) => m.description);
+
+/**
  * Minuscules, sans accents, sans apostrophe : les motifs n'ont à couvrir
  * qu'une seule graphie. L'apostrophe typographique (’) est celle du reste
  * du dépôt (banque.ts, CGU) ; l'ignorer plutôt que la distinguer de la
