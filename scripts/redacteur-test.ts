@@ -18,8 +18,22 @@
  * quel, ce qui reste une façon valable de vérifier le repli (et de le voir
  * consigné).
  *
+ * .env.local n'est PAS chargé automatiquement ici : Next.js le fait pour
+ * l'application (webpack), mais un script lancé par tsx est du Node nu, sans
+ * ce chargement implicite. D'où l'appel explicite ci-dessous, avant tout
+ * import qui pourrait lire une variable d'environnement — silencieux si le
+ * fichier n'existe pas (CI, ou une configuration entièrement par variables
+ * d'environnement système), pour ne jamais faire échouer le script à cause
+ * d'un fichier optionnel absent.
+ *
  * Lancement : npm run redacteur:test
  */
+
+try {
+  process.loadEnvFile('.env.local');
+} catch (e) {
+  if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
+}
 
 import { BANQUE } from '../src/lib/marketing/banque';
 import { rediger, libelleJournal, type Idee } from '../src/lib/marketing/redacteur';
