@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
-  rediger, construirePromptSysteme, estActif, quotaMax, sousQuota, MODELE,
-  type Idee, type AppelRedacteur,
+  rediger, construirePromptSysteme, estActif, quotaMax, sousQuota, libelleJournal, MODELE,
+  type Idee, type AppelRedacteur, type ResultatRedaction,
 } from '../src/lib/marketing/redacteur';
 import { BANQUE } from '../src/lib/marketing/banque';
 import { DESCRIPTIONS_INTERDICTIONS } from '../src/lib/marketing/garde-fous';
@@ -131,5 +131,43 @@ describe('repli — rejet par les garde-fous', () => {
     const r = await rediger(IDEE, 0, null, { appel });
     expect(r.motif).toBe('garde_fous');
     expect(r.violations?.[0].champ).toBe('texte_alt');
+  });
+});
+
+describe('traduction vers le journal — journal_redacteur', () => {
+  it('un succès devient "succes", sans motif', () => {
+    const r: ResultatRedaction = { source: 'llm', sortie: { titre: 't', description: 'd', texte_alt: 'a' } };
+    expect(libelleJournal(r)).toEqual({ resultat: 'succes', motif: null });
+  });
+
+  it('quota_depasse devient "quota_atteint"', () => {
+    const r: ResultatRedaction = { source: 'deterministe', sortie: null, motif: 'quota_depasse' };
+    expect(libelleJournal(r)).toEqual({ resultat: 'quota_atteint', motif: null });
+  });
+
+  it('echec_api porte le message d’erreur en motif', () => {
+    const r: ResultatRedaction = {
+      source: 'deterministe', sortie: null, motif: 'echec_api', erreur: 'réseau indisponible',
+    };
+    expect(libelleJournal(r)).toEqual({ resultat: 'echec_api', motif: 'réseau indisponible' });
+  });
+
+  it('json_invalide n’a pas de motif détaillé', () => {
+    const r: ResultatRedaction = { source: 'deterministe', sortie: null, motif: 'json_invalide' };
+    expect(libelleJournal(r)).toEqual({ resultat: 'json_invalide', motif: null });
+  });
+
+  it('garde_fous devient "rejet_garde_fous" et nomme la règle déclenchée', () => {
+    const r: ResultatRedaction = {
+      source: 'deterministe', sortie: null, motif: 'garde_fous',
+      violations: [{
+        categorie: 'promesse_disparition_conflits',
+        description: 'Promet la disparition ou l’absence totale de conflit.',
+        champ: 'description', extrait: '...',
+      }],
+    };
+    const { resultat, motif } = libelleJournal(r);
+    expect(resultat).toBe('rejet_garde_fous');
+    expect(motif).toContain('promesse_disparition_conflits');
   });
 });

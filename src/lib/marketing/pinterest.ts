@@ -1,5 +1,6 @@
 import { genererSemaine, type Contenu } from './generateur';
 import { construireLien } from './utm';
+import { validerContenu } from './garde-fous';
 
 const REFERENCE = /^(\d{4})s(\d{2})-(reel|carrousel|publication)-([1-7])$/;
 
@@ -23,6 +24,35 @@ export function contenuPinterest(reference: string, base: string): Contenu | nul
   const date = dateDepuisReference(reference);
   if (!date) return null;
   return genererSemaine(date, base).find((contenu) => contenu.reference === reference) ?? null;
+}
+
+export interface ParametresDiffusion {
+  actif: boolean;
+  mode: 'validation' | 'automatique';
+}
+
+/**
+ * Contenus effectivement présents dans le flux, à l'instant présent.
+ *
+ * Source unique pour cette décision : la route pinterest.xml et le tableau de
+ * bord d'administration (« Contenus de la semaine ») l'appellent tous les
+ * deux, pour qu'un contenu affiché « publié » sur l'un le soit réellement
+ * sur l'autre.
+ */
+export function contenusPublies(
+  contenus: Contenu[],
+  statuts: Record<string, { statut: string }>,
+  parametres: ParametresDiffusion | null,
+): Contenu[] {
+  if (!parametres?.actif) return [];
+  const eligibles = parametres.mode === 'automatique'
+    ? contenus
+    : contenus.filter((contenu) =>
+      ['valide', 'publie'].includes(statuts[contenu.reference]?.statut ?? ''));
+  // Dernier filet avant que Pinterest ne relise le flux : même validé par une
+  // personne, même en mode automatique, un contenu qui viole un garde-fou
+  // éditorial n'est jamais considéré publié.
+  return eligibles.filter((contenu) => validerContenu(contenu).ok);
 }
 
 export function lienConseilPinterest(base: string, reference: string): string {

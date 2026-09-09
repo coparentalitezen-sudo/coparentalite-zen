@@ -1,6 +1,7 @@
 import 'server-only';
 import { supabaseService } from '@/lib/supabase/server';
 import { genererSemaine, semaineIso, type Contenu } from './generateur';
+import { contenusPublies } from './pinterest';
 
 /**
  * Accès aux données du dispositif.
@@ -171,7 +172,7 @@ export async function enregistrerSemaine(date: Date, base: string): Promise<Cont
 }
 
 /** Date réelle du jour de la semaine visé, au format ISO. */
-function dateDuJour(reference: Date, jour: number): string {
+export function dateDuJour(reference: Date, jour: number): string {
   const d = new Date(reference);
   const decalage = (jour === 0 ? 7 : jour) - (d.getDay() === 0 ? 7 : d.getDay());
   d.setDate(d.getDate() + decalage);
@@ -584,4 +585,137 @@ export async function lireDernierLearnings(): Promise<Learnings | null> {
     .maybeSingle();
   if (!data) return null;
   return { genereLe: data.genere_le, nbPins: data.nb_pins, bloc: data.bloc };
+}
+
+export interface LigneContenuTableau {
+  reference: string;
+  date: string;
+  niche: string;
+  categorie: string;
+  source: string;
+  titre: string;
+  statut: 'généré' | 'publié' | 'épingle trouvée' | 'mesuré';
+}
+
+/**
+ * Contenus de la semaine en cours, avec leur état d'avancement réel.
+ *
+ * L'échelle est cumulative — généré, puis publié, puis épingle trouvée, puis
+ * mesuré — et chaque palier suppose le précédent : une épingle trouvée sans
+ * être passée par « publié » serait un signe d'incohérence, pas un état
+ * normal, mais l'affichage reste correct dans les deux cas puisque chaque
+ * condition est vérifiée indépendamment.
+ *
+ * « Publié » réutilise contenusPublies (pinterest.ts) : la même fonction qui
+ * décide de ce que Pinterest reçoit décide de ce qui s'affiche ici comme
+ * publié, pour que les deux ne divergent jamais.
+ */
+export async function lireContenusSemaine(date: Date, base: string): Promise<LigneContenuTableau[]> {
+  const contenus = genererSemaine(date, base);
+  const semaine = `${date.getFullYear()}s${String(semaineIso(date)).padStart(2, '0')}`;
+
+  const service = supabaseService();
+  if (!service) {
+    return contenus.map((c) => ({
+      reference: c.reference, date: dateDuJour(date, c.jour), niche: c.niche,
+      categorie: c.categorie, source: 'deterministe', titre: c.accroche, statut: 'généré',
+    }));
+  }
+
+  const [statuts, parametres, { data: lignes }] = await Promise.all([
+    lireStatuts(contenus.map((c) => c.reference)),
+    lireParametres(),
+    service.from('marketing_contenus')
+      .select('reference, source, accroche, pin_id, pin_stats(id)')
+      .like('reference', `${semaine}-%`),
+  ]);
+
+  type LigneBrute = { reference: string; source: string; accroche: string; pin_id: string | null; pin_stats: { id: string }[] | null };
+  const parReference = new Map(((lignes ?? []) as LigneBrute[]).map((l) => [l.reference, l]));
+  const publiees = new Set(contenusPublies(contenus, statuts, parametres).map((c) => c.reference));
+
+  return contenus.map((c) => {
+    const ligne = parReference.get(c.reference);
+    const mesure = (ligne?.pin_stats?.length ?? 0) > 0;
+    const statut: LigneContenuTableau['statut'] =
+      mesure ? 'mesuré'
+        : ligne?.pin_id ? 'épingle trouvée'
+          : publiees.has(c.reference) ? 'publié'
+            : 'généré';
+    return {
+      reference: c.reference,
+      date: dateDuJour(date, c.jour),
+      niche: c.niche,
+      categorie: c.categorie,
+      source: ligne?.source ?? 'deterministe',
+      titre: ligne?.accroche ?? c.accroche,
+      statut,
+    };
+  });
+}
+
+/** Consigne l'issue d'un appel à l'agent rédacteur — succès ou l'un des replis. */
+export async function consignerRedaction(resultat: string, motif: string | null): Promise<boolean> {
+  const service = supabaseService();
+  if (!service) return false;
+  const { error } = await service.from('journal_redacteur').insert({ resultat, motif });
+  return !error;
+}
+
+export interface LigneJournalRedacteur {
+  date: string;
+  resultat: string;
+  motif: string | null;
+}
+
+/** Les dernières lignes du journal, du plus récent au plus ancien. */
+export async function lireJournalRedacteur(limite = 20): Promise<LigneJournalRedacteur[]> {
+  const service = supabaseService();
+  if (!service) return [];
+  const { data } = await service.from('journal_redacteur')
+    .select('date, resultat, motif')
+    .order('date', { ascending: false })
+    .limit(limite);
+  return data ?? [];
+}
+
+export interface EtatCollectePinterest {
+  derniereCollecte: string | null;
+  epinglesMesureesDerniereFois: number;
+  epinglesSansPinId: number;
+}
+
+/**
+ * État de la dernière collecte Pinterest.
+ *
+ * « Dernier passage » reprend learnings.genere_le : executerBouclePinterest
+ * écrit toujours un bilan d'apprentissages en fin de passage, même sans
+ * nouvelle épingle mesurée, ce qui en fait un horodatage fiable sans ajouter
+ * de table dédiée. Le compte de la dernière collecte se lit dans pin_stats,
+ * à la date de relevé la plus récente ; celui des épingles non rattachées
+ * réutilise contenusSansPinId, la requête déjà utilisée par la découverte.
+ */
+export async function etatCollectePinterest(): Promise<EtatCollectePinterest> {
+  const service = supabaseService();
+  if (!service) return { derniereCollecte: null, epinglesMesureesDerniereFois: 0, epinglesSansPinId: 0 };
+
+  const [{ data: dernierLearnings }, { data: dernierReleve }, sansPinId] = await Promise.all([
+    service.from('learnings').select('genere_le').order('genere_le', { ascending: false }).limit(1).maybeSingle(),
+    service.from('pin_stats').select('collecte_le').order('collecte_le', { ascending: false }).limit(1).maybeSingle(),
+    contenusSansPinId(),
+  ]);
+
+  let epinglesMesureesDerniereFois = 0;
+  if (dernierReleve?.collecte_le) {
+    const { count } = await service.from('pin_stats')
+      .select('id', { count: 'exact', head: true })
+      .eq('collecte_le', dernierReleve.collecte_le);
+    epinglesMesureesDerniereFois = count ?? 0;
+  }
+
+  return {
+    derniereCollecte: dernierLearnings?.genere_le ?? null,
+    epinglesMesureesDerniereFois,
+    epinglesSansPinId: sansPinId.length,
+  };
 }

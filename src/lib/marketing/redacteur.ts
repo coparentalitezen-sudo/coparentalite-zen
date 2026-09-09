@@ -14,11 +14,11 @@ import { validerTexte, DESCRIPTIONS_INTERDICTIONS, type Violation } from './gard
  * courte (titre, description, texte alternatif) et strictement typée.
  *
  * PAS DE 'server-only' ICI, DÉLIBÉRÉMENT
- * Contrairement à depot.ts (qui touche Supabase et ne doit jamais être
- * importé depuis un composant client), ce module est un client d'API au
- * même titre que meta.ts ou pinterest-api.ts — aucun des deux n'a ce garde
- * non plus. C'est aussi ce qui permet à scripts/redacteur-test.ts de
- * l'importer directement, sans lancer Next.js.
+ * Contrairement à depot.ts ou stats-collecte.ts (qui touchent Supabase et ne
+ * doivent jamais être importés depuis un composant client), ce module est un
+ * client d'API au même titre que meta.ts ou pinterest-api.ts — aucun des deux
+ * n'a ce garde non plus. C'est aussi ce qui permet à scripts/redacteur-test.ts
+ * de l'importer directement, sans lancer Next.js.
  *
  * TOUT REPLI EST SILENCIEUX, PAR CONCEPTION
  * Échec d'appel, JSON invalide, rejet par les garde-fous, quota dépassé :
@@ -57,6 +57,8 @@ export interface ResultatRedaction {
   sortie: SortieRedacteur | null;
   motif?: MotifRepli;
   violations?: Violation[];
+  /** Message d'erreur expurgé, uniquement renseigné pour motif === 'echec_api'. */
+  erreur?: string;
 }
 
 /** L'agent est-il autorisé à s'exécuter ? Faux tant que personne ne l'active explicitement. */
@@ -187,8 +189,9 @@ export async function rediger(
     });
     sortieBrute = reponse.parsed_output;
   } catch (e) {
-    console.info(`[redacteur] échec d’appel API — repli déterministe : ${e instanceof Error ? e.message : String(e)}`);
-    return { source: 'deterministe', sortie: null, motif: 'echec_api' };
+    const message = e instanceof Error ? e.message : String(e);
+    console.info(`[redacteur] échec d’appel API — repli déterministe : ${message}`);
+    return { source: 'deterministe', sortie: null, motif: 'echec_api', erreur: message.slice(0, 300) };
   }
 
   if (!sortieBrute) {
@@ -209,4 +212,36 @@ export async function rediger(
   }
 
   return { source: 'llm', sortie: sortieBrute };
+}
+
+/** Les cinq issues admises par journal_redacteur (migration 00047). */
+export type ResultatJournal = 'succes' | 'echec_api' | 'json_invalide' | 'rejet_garde_fous' | 'quota_atteint';
+
+/**
+ * Traduit un résultat de rediger() en ligne de journal — pure, sans base de
+ * données, pour rester utilisable aussi bien par redacteur-consigne.ts
+ * (le futur point d'intégration réel) que par scripts/redacteur-test.ts
+ * (qui n'importe jamais un module 'server-only').
+ */
+export function libelleJournal(resultat: ResultatRedaction): { resultat: ResultatJournal; motif: string | null } {
+  if (resultat.source === 'llm') return { resultat: 'succes', motif: null };
+
+  switch (resultat.motif) {
+    case 'quota_depasse':
+      return { resultat: 'quota_atteint', motif: null };
+    case 'echec_api':
+      return { resultat: 'echec_api', motif: resultat.erreur ?? null };
+    case 'json_invalide':
+      return { resultat: 'json_invalide', motif: null };
+    case 'garde_fous':
+      return {
+        resultat: 'rejet_garde_fous',
+        motif: (resultat.violations ?? [])
+          .map((v) => `${v.categorie} — ${v.description}`)
+          .join(' ; ') || null,
+      };
+    default:
+      // Ne devrait pas arriver : source déterministe sans motif reconnu.
+      return { resultat: 'echec_api', motif: 'motif de repli non reconnu' };
+  }
 }

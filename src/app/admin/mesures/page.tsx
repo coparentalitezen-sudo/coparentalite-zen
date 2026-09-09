@@ -4,6 +4,7 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { estAdministrateur } from '@/lib/marketing/administration';
 import {
   lireMesures, lireBilans, lireParcoursQuiz, lireDernierLearnings,
+  lireContenusSemaine, lireJournalRedacteur, etatCollectePinterest,
 } from '@/lib/marketing/depot';
 import {
   performances, regrouper, entonnoir, meilleuresAccroches,
@@ -41,8 +42,11 @@ export default async function PageMesures() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!estAdministrateur(user?.email)) notFound();
 
-  const [donnees, bilans, quiz, learnings] = await Promise.all([
+  const base = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://coparentalitezen.fr';
+
+  const [donnees, bilans, quiz, learnings, contenusSemaine, journalRedacteur, collectePinterest] = await Promise.all([
     lireMesures(), lireBilans(3), lireParcoursQuiz(), lireDernierLearnings(),
+    lireContenusSemaine(new Date(), base), lireJournalRedacteur(20), etatCollectePinterest(),
   ]);
   if (!donnees) notFound();
 
@@ -72,6 +76,83 @@ export default async function PageMesures() {
           precision={`${tunnel.tauxInscription} % des clics`} />
         <Bloc titre="Abonnements en cours" valeur={String(donnees.abonnements)} />
       </div>
+
+      <section className="card space-y-3 p-4">
+        <h2 className="font-display text-lg font-semibold">Contenus de la semaine</h2>
+        {contenusSemaine.length === 0 ? (
+          <p className="text-sm text-soft">Rien de généré pour cette semaine.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-line text-xs uppercase text-soft">
+                  <th className="py-1 pr-3 font-bold">Date</th>
+                  <th className="py-1 pr-3 font-bold">Niche</th>
+                  <th className="py-1 pr-3 font-bold">Catégorie</th>
+                  <th className="py-1 pr-3 font-bold">Source</th>
+                  <th className="py-1 pr-3 font-bold">Titre</th>
+                  <th className="py-1 font-bold">Statut</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {contenusSemaine.map((c) => (
+                  <tr key={c.reference}>
+                    <td className="whitespace-nowrap py-1.5 pr-3">{c.date}</td>
+                    <td className="py-1.5 pr-3">{c.niche}</td>
+                    <td className="py-1.5 pr-3">{c.categorie}</td>
+                    <td className="py-1.5 pr-3">{c.source}</td>
+                    <td className="max-w-[16rem] truncate py-1.5 pr-3" title={c.titre}>{c.titre}</td>
+                    <td className="whitespace-nowrap py-1.5">{c.statut}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="text-xs text-soft">
+          Statut déduit des données existantes, pas déclaré : généré → publié (présent dans
+          le flux RSS) → épingle trouvée (id Pinterest connu) → mesuré (au moins un relevé
+          dans pin_stats).
+        </p>
+      </section>
+
+      <section className="card space-y-3 p-4">
+        <h2 className="font-display text-lg font-semibold">Journal du rédacteur</h2>
+        {journalRedacteur.length === 0 ? (
+          <p className="text-sm text-soft">
+            Aucun appel enregistré. L’agent n’est pas encore branché sur le pipeline :
+            lancer <code>npm run redacteur:test</code> consigne un premier essai ici.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-line text-xs uppercase text-soft">
+                  <th className="py-1 pr-3 font-bold">Date</th>
+                  <th className="py-1 pr-3 font-bold">Résultat</th>
+                  <th className="py-1 font-bold">Motif</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {journalRedacteur.map((l, i) => (
+                  <tr key={i}>
+                    <td className="whitespace-nowrap py-1.5 pr-3">
+                      {new Date(l.date).toLocaleString('fr-FR')}
+                    </td>
+                    <td className="whitespace-nowrap py-1.5 pr-3">{l.resultat}</td>
+                    <td className="py-1.5">{l.motif ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="text-xs text-soft">
+          Chaque appel à l’agent rédacteur laisse une ligne, succès ou repli — c’est ce qui
+          rend visible un repli autrement silencieux (échec d’appel, JSON non conforme,
+          rejet par un garde-fou éditorial, quota hebdomadaire atteint).
+        </p>
+      </section>
 
       <section className="card space-y-2 p-4">
         <h2 className="font-display text-lg font-semibold">Parcours du questionnaire</h2>
@@ -200,6 +281,25 @@ export default async function PageMesures() {
           Ce bloc n’ajuste rien automatiquement : la génération des contenus est
           déterministe et ne dépend d’aucun modèle de langage. Il est écrit pour guider
           la validation manuelle des prochains contenus, avant leur publication.
+        </p>
+      </section>
+
+      <section className="card space-y-3 p-4">
+        <h2 className="font-display text-lg font-semibold">Dernière collecte Pinterest</h2>
+        <div className="grid grid-cols-3 gap-3">
+          <Bloc titre="Dernier passage" valeur={
+            collectePinterest.derniereCollecte
+              ? new Date(collectePinterest.derniereCollecte).toLocaleDateString('fr-FR')
+              : '—'
+          } />
+          <Bloc titre="Épingles mesurées" valeur={String(collectePinterest.epinglesMesureesDerniereFois)} />
+          <Bloc titre="Sans id Pinterest" valeur={String(collectePinterest.epinglesSansPinId)} />
+        </div>
+        <p className="text-xs text-soft">
+          « Épingles mesurées » compte les relevés du jour de la dernière collecte
+          (pin_stats). « Sans id Pinterest » compte les contenus que la découverte n’a
+          pas encore rattachés à une épingle — c’est la file que decouvrirEpingles
+          essaiera de résorber au prochain passage.
         </p>
       </section>
 
