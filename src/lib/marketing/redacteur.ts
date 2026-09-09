@@ -103,6 +103,13 @@ export function construirePromptSysteme(blocLearnings: string | null): string {
       + 'vérifierait. »',
     `« ${MARQUE[1].corps} »`,
     '',
+    'Format attendu :',
+    '- titre : commence par la requête telle que les gens la tapent dans la recherche '
+      + 'Pinterest (ex. « calendrier garde alternée », « vacances scolaires parents '
+      + 'séparés ») — le mot-clé d’abord, l’angle éditorial ensuite, jamais l’inverse.',
+    '- description : les 60 premiers caractères doivent se suffire à eux-mêmes et porter '
+      + 'l’essentiel — Pinterest tronque au-delà, le reste peut être perdu par le lecteur.',
+    '',
     'Interdictions strictes — le texte sera aussi vérifié par du code après coup, mais ne '
       + 'les enfreins pas :',
     interdictions,

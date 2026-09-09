@@ -72,6 +72,16 @@ describe('prompt système', () => {
   it('n’ajoute rien quand il n’y a pas encore de bloc', () => {
     expect(construirePromptSysteme(null)).not.toContain('Apprentissages');
   });
+
+  it('demande un titre en requête de recherche, angle après le mot-clé', () => {
+    const prompt = construirePromptSysteme(null);
+    expect(prompt).toContain('requête telle que les gens la tapent dans la recherche Pinterest');
+    expect(prompt).toContain('le mot-clé d’abord, l’angle éditorial ensuite');
+  });
+
+  it('demande une description autonome sur ses 60 premiers caractères', () => {
+    expect(construirePromptSysteme(null)).toContain('60 premiers caractères');
+  });
 });
 
 describe('rédaction — chemin heureux', () => {

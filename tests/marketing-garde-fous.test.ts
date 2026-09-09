@@ -69,6 +69,30 @@ describe('respect des deux parents', () => {
   });
 });
 
+describe('affirmation sur les prix ou les économies', () => {
+  it('bloque un montant chiffré en euros', () => {
+    const v = validerTexte('Un abonnement à 4,99 € par mois.');
+    expect(v[0].categorie).toBe('affirmation_prix_economies');
+  });
+
+  it('bloque une promesse d’économie explicite', () => {
+    expect(validerTexte('Économisez dès aujourd’hui avec Coparentalité Zen.')).not.toHaveLength(0);
+  });
+
+  it('bloque « gratuit » rattaché à l’application', () => {
+    expect(validerTexte('Profitez-en gratuitement avec notre application.')).not.toHaveLength(0);
+  });
+
+  it('laisse passer « moins cher » employé au sens large, comme dans banque.ts', () => {
+    expect(validerTexte('Décider en novembre coûte moins cher que décider en février.')).toEqual([]);
+    expect(validerTexte('Prévoir les trajets assez tôt pour qu’ils coûtent moins cher.')).toEqual([]);
+  });
+
+  it('laisse passer les « frais » au sens neutre de dépenses partagées', () => {
+    expect(validerTexte('Les frais s’accumulent et plus personne ne sait qui a payé quoi.')).toEqual([]);
+  });
+});
+
 describe('validation d’un contenu complet', () => {
   it('accepte un contenu neutre', () => {
     expect(validerContenu(contenuAvec({})).ok).toBe(true);

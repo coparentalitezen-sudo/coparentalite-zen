@@ -17,6 +17,14 @@
  *  3. Respect des deux parents : aucun contenu ne désigne un parent comme
  *     fautif ni ne prend parti — la même règle que banque.ts s'impose déjà en
  *     commentaire pour la matière écrite à la main.
+ *  4. Pas d'affirmation sur les prix ou les économies : le prix réel vit dans
+ *     la table plans (voir .env.example), jamais dans un texte produit ici —
+ *     ni un chiffre en euros, ni une promesse d'économie liée à l'application,
+ *     qu'aucun de ces modules n'a les moyens de vérifier. Ne bloque pas
+ *     « moins cher » employé au sens large (deux sujets de banque.ts l'emploient
+ *     pour un coût de temps ou de trajet, pas pour le prix de l'application) —
+ *     seuls un montant chiffré ou une économie explicitement rattachée à
+ *     l'application ou à un abonnement sont visés.
  *
  * DES EXPRESSIONS PRÉCISES, PAS DES MOTS ISOLÉS
  * Bloquer le mot « loi » ou « conflit » condamnerait des phrases légitimes du
@@ -32,7 +40,8 @@ import type { Contenu } from './generateur';
 export type CategorieInterdiction =
   | 'conseil_juridique_personnalise'
   | 'promesse_disparition_conflits'
-  | 'partialite_parent';
+  | 'partialite_parent'
+  | 'affirmation_prix_economies';
 
 interface Motif {
   categorie: CategorieInterdiction;
@@ -63,6 +72,12 @@ const MOTIFS: Motif[] = [
     categorie: 'partialite_parent',
     description: 'Désigne un parent comme fautif ou prend parti contre lui.',
     expression: /\b(lautre parent (a tort|ment|est fautif|ne comprend rien)|(mauvais|mechant|meilleur) parent|prouvez que lautre parent|contre lautre parent|votre ex (a tort|ment))\b/,
+  },
+  // ---------- 4. Affirmation sur les prix ou les économies ----------
+  {
+    categorie: 'affirmation_prix_economies',
+    description: 'Affirme un prix ou une économie liée à l’application, jamais vérifiés par ce module.',
+    expression: /\d+\s?€|\d+\s?euros?\b|\b(economisez|economie[sz]? (garanti|immediat)|abonnement gratuit|gratuit(ement)? avec (l|notre) application|sans frais|reduit vos depenses|reduisez vos depenses|baisse vos depenses)\b/,
   },
 ];
 
