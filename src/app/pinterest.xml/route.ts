@@ -3,6 +3,7 @@ import {
   lireParametresPlateforme, lireStatuts, publicationAutorisee,
 } from '@/lib/marketing/depot';
 import { creerFluxPinterest } from '@/lib/marketing/pinterest';
+import { validerContenu } from '@/lib/marketing/garde-fous';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,12 +15,16 @@ export async function GET() {
     lireParametresPlateforme('pinterest'),
     publicationAutorisee('pinterest'),
   ]);
-  const publiables = autorisation.autorisee && parametres
+  const eligibles = autorisation.autorisee && parametres
     ? parametres.mode === 'automatique'
       ? contenus
       : contenus.filter((contenu) =>
         ['valide', 'publie'].includes(statuts[contenu.reference]?.statut ?? ''))
     : [];
+  // Dernier filet avant que Pinterest ne relise le flux : même validé par une
+  // personne, même en mode automatique, un contenu qui viole un garde-fou
+  // éditorial n'apparaît jamais dans le flux public.
+  const publiables = eligibles.filter((contenu) => validerContenu(contenu).ok);
   const flux = creerFluxPinterest(publiables, base);
 
   return new Response(flux, {

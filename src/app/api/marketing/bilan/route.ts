@@ -3,6 +3,7 @@ import { lireMesures, lirePoids, ecrirePoids, enregistrerBilan } from '@/lib/mar
 import { performances, regrouper } from '@/lib/marketing/mesures';
 import { ajusterPoids, redigerBilan } from '@/lib/marketing/bilan';
 import { semaineIso } from '@/lib/marketing/generateur';
+import { executerBouclePinterest } from '@/lib/marketing/stats-collecte';
 
 /**
  * Boucle d'amélioration hebdomadaire.
@@ -13,6 +14,15 @@ import { semaineIso } from '@/lib/marketing/generateur';
  * Exécutée après la détection du lundi matin, de sorte que les poids ajustés
  * s'appliquent à la production de la semaine qui commence, et non à celle qui
  * vient de s'écouler.
+ *
+ * ENCHAÎNE AUSSI LA BOUCLE PINTEREST
+ * Elle n'a pas sa propre tâche planifiée : le compte Vercel Hobby de ce
+ * projet n'autorise qu'une exécution quotidienne par tâche et en déclare déjà
+ * six dans vercel.json (voir AGENTS.md, « Tâches planifiées »). Plutôt que
+ * d'en risquer une septième, la boucle Pinterest s'exécute à la fin de celle-
+ * ci. Un échec ou une absence de configuration Pinterest ne fait jamais
+ * échouer cette route : le bilan Meta doit continuer à se produire même si
+ * Pinterest n'est pas encore connecté.
  */
 function reponseJSON(corps: unknown, statut = 200) {
   return new NextResponse(JSON.stringify(corps), {
@@ -63,11 +73,20 @@ export async function GET(requete: Request) {
     ajustements, appliques, parNiche,
   });
 
+  const pinterest = await executerBouclePinterest();
+
   return reponseJSON({
     semaine,
     ajustements_decides: ajustements.length,
     ajustements_appliques: appliques,
     bilan_enregistre: enregistre,
     texte,
+    pinterest: {
+      configure: pinterest.configure,
+      epingles_decouvertes: pinterest.decouverte?.epinglesTrouvees ?? 0,
+      epingles_mesurees: pinterest.collecte?.epinglesMesurees ?? 0,
+      nb_pins_pour_apprentissage: pinterest.nbPins,
+      learnings_enregistres: pinterest.learningsEnregistres,
+    },
   });
 }

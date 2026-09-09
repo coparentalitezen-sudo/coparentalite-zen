@@ -399,3 +399,186 @@ export async function conclurePublication(
     updated_at: new Date().toISOString(),
   }).eq('id', id);
 }
+
+// ============================================================
+// Boucle d'amélioration Pinterest
+// ============================================================
+
+export interface ContenuSansPin {
+  reference: string;
+}
+
+/**
+ * Contenus dont l'épingle Pinterest n'est pas encore identifiée.
+ *
+ * Aucun filtre par statut : un contenu peut avoir été exposé au flux RSS en
+ * mode « automatique » sans être passé par « valide ». Ce qui décide qu'une
+ * référence est réellement rattachable, c'est qu'une épingle existante la
+ * porte dans son lien (associerEpingles) — pas ce filtre, qui ne sert qu'à
+ * borner la requête.
+ */
+export async function contenusSansPinId(): Promise<ContenuSansPin[]> {
+  const service = supabaseService();
+  if (!service) return [];
+  const { data } = await service.from('marketing_contenus')
+    .select('reference')
+    .is('pin_id', null)
+    .not('reference', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(500);
+  return (data ?? [])
+    .map((c) => ({ reference: c.reference ?? '' }))
+    .filter((c) => c.reference);
+}
+
+/**
+ * Enregistre l'épingle retrouvée pour un contenu.
+ *
+ * La condition « pin_id est encore vide » protège contre une découverte
+ * concurrente : la première écriture gagne, la seconde ne touche plus rien
+ * plutôt que d'écraser un id déjà correct par un autre trouvé au même passage.
+ */
+export async function enregistrerPinId(
+  reference: string, pinId: string, creeLe: Date | null,
+): Promise<boolean> {
+  const service = supabaseService();
+  if (!service) return false;
+  const { data, error } = await service.from('marketing_contenus')
+    .update({
+      pin_id: pinId,
+      pin_cree_le: creeLe ? creeLe.toISOString() : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('reference', reference)
+    .is('pin_id', null)
+    .select('reference');
+  return !error && (data?.length ?? 0) > 0;
+}
+
+export interface ContenuACollecter {
+  contenuId: string;
+  pinId: string;
+  pinCreeLe: Date;
+}
+
+/** Contenus dont l'épingle est connue et dont l'âge peut donc être calculé. */
+export async function contenusPourCollecte(): Promise<ContenuACollecter[]> {
+  const service = supabaseService();
+  if (!service) return [];
+  const { data } = await service.from('marketing_contenus')
+    .select('id, pin_id, pin_cree_le')
+    .not('pin_id', 'is', null)
+    .not('pin_cree_le', 'is', null);
+  return (data ?? [])
+    .filter((c): c is { id: string; pin_id: string; pin_cree_le: string } =>
+      Boolean(c.pin_id && c.pin_cree_le))
+    .map((c) => ({ contenuId: c.id, pinId: c.pin_id, pinCreeLe: new Date(c.pin_cree_le) }));
+}
+
+export interface LignePinStats {
+  pinId: string;
+  contenuId: string;
+  joursDepuisPub: number;
+  impressions: number;
+  saves: number;
+  pinClicks: number;
+  outboundClicks: number;
+}
+
+/** Enregistre les relevés du jour. Rejouable : une seconde collecte le même jour remplace, sans dupliquer. */
+export async function ecrirePinStats(lignes: LignePinStats[]): Promise<number> {
+  const service = supabaseService();
+  if (!service || lignes.length === 0) return 0;
+  const jour = new Date().toISOString().slice(0, 10);
+  const { data, error } = await service.from('pin_stats')
+    .upsert(
+      lignes.map((l) => ({
+        pin_id: l.pinId,
+        contenu_id: l.contenuId,
+        collecte_le: jour,
+        jours_depuis_pub: l.joursDepuisPub,
+        impressions: l.impressions,
+        saves: l.saves,
+        pin_clicks: l.pinClicks,
+        outbound_clicks: l.outboundClicks,
+      })),
+      { onConflict: 'pin_id,collecte_le', ignoreDuplicates: false },
+    )
+    .select('pin_id');
+  return error ? 0 : (data?.length ?? 0);
+}
+
+export interface MesurePinBrute {
+  pinId: string;
+  pilier: string;
+  famille: string;
+  impressions: number;
+  saves: number;
+  pinClicks: number;
+  outboundClicks: number;
+}
+
+/**
+ * Dernier relevé de chaque épingle, avec son pilier (niche) et sa famille de
+ * modèle (catégorie).
+ *
+ * Un relevé par épingle, pas tout l'historique : classer une épingle sur son
+ * état le plus récent plutôt que sur la moyenne de ses relevés évite qu'une
+ * épingle mesurée dix fois pèse dix fois plus qu'une épingle mesurée une fois.
+ */
+export async function lireMesuresPinterest(): Promise<MesurePinBrute[]> {
+  const service = supabaseService();
+  if (!service) return [];
+  const { data } = await service.from('pin_stats')
+    .select(`
+      pin_id, collecte_le, impressions, saves, pin_clicks, outbound_clicks,
+      marketing_contenus(categorie, marketing_opportunites(niche_id))
+    `)
+    .order('collecte_le', { ascending: false });
+
+  const dejaVues = new Set<string>();
+  const mesures: MesurePinBrute[] = [];
+  for (const ligne of data ?? []) {
+    if (!ligne.pin_id || dejaVues.has(ligne.pin_id)) continue;
+    dejaVues.add(ligne.pin_id);
+    const contenu = ligne.marketing_contenus as unknown as
+      { categorie?: string; marketing_opportunites?: { niche_id?: string } } | null;
+    mesures.push({
+      pinId: ligne.pin_id,
+      pilier: contenu?.marketing_opportunites?.niche_id ?? 'inconnue',
+      famille: contenu?.categorie ?? 'inconnue',
+      impressions: ligne.impressions ?? 0,
+      saves: ligne.saves ?? 0,
+      pinClicks: ligne.pin_clicks ?? 0,
+      outboundClicks: ligne.outbound_clicks ?? 0,
+    });
+  }
+  return mesures;
+}
+
+/** Enregistre un bilan d'apprentissages, sans jamais en écraser un ancien. */
+export async function enregistrerLearnings(nbPins: number, bloc: string): Promise<boolean> {
+  const service = supabaseService();
+  if (!service) return false;
+  const { error } = await service.from('learnings').insert({ nb_pins: nbPins, bloc });
+  return !error;
+}
+
+export interface Learnings {
+  genereLe: string;
+  nbPins: number;
+  bloc: string;
+}
+
+/** Bilan d'apprentissages le plus récent, pour affichage dans /admin/mesures. */
+export async function lireDernierLearnings(): Promise<Learnings | null> {
+  const service = supabaseService();
+  if (!service) return null;
+  const { data } = await service.from('learnings')
+    .select('genere_le, nb_pins, bloc')
+    .order('genere_le', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!data) return null;
+  return { genereLe: data.genere_le, nbPins: data.nb_pins, bloc: data.bloc };
+}

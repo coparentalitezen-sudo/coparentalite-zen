@@ -2,7 +2,9 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { supabaseServer } from '@/lib/supabase/server';
 import { estAdministrateur } from '@/lib/marketing/administration';
-import { lireMesures, lireBilans, lireParcoursQuiz } from '@/lib/marketing/depot';
+import {
+  lireMesures, lireBilans, lireParcoursQuiz, lireDernierLearnings,
+} from '@/lib/marketing/depot';
 import {
   performances, regrouper, entonnoir, meilleuresAccroches,
 } from '@/lib/marketing/mesures';
@@ -39,8 +41,8 @@ export default async function PageMesures() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!estAdministrateur(user?.email)) notFound();
 
-  const [donnees, bilans, quiz] = await Promise.all([
-    lireMesures(), lireBilans(3), lireParcoursQuiz(),
+  const [donnees, bilans, quiz, learnings] = await Promise.all([
+    lireMesures(), lireBilans(3), lireParcoursQuiz(), lireDernierLearnings(),
   ]);
   if (!donnees) notFound();
 
@@ -177,6 +179,28 @@ export default async function PageMesures() {
             ))}
           </ul>
         )}
+      </section>
+
+      <section className="card space-y-3 p-4">
+        <h2 className="font-display text-lg font-semibold">Apprentissages Pinterest</h2>
+        {!learnings ? (
+          <p className="text-sm text-soft">
+            Pas encore de relevé. Le premier bloc paraîtra après la première collecte
+            d’analytique, deux jours au moins après la première épingle retrouvée.
+          </p>
+        ) : (
+          <div className="rounded-xl bg-muted p-3">
+            <p className="text-xs font-bold uppercase text-soft">
+              {new Date(learnings.genereLe).toLocaleDateString('fr-FR')} · {learnings.nbPins} épingle{learnings.nbPins > 1 ? 's' : ''} mesurée{learnings.nbPins > 1 ? 's' : ''}
+            </p>
+            <p className="mt-1 whitespace-pre-line text-sm">{learnings.bloc}</p>
+          </div>
+        )}
+        <p className="text-xs text-soft">
+          Ce bloc n’ajuste rien automatiquement : la génération des contenus est
+          déterministe et ne dépend d’aucun modèle de langage. Il est écrit pour guider
+          la validation manuelle des prochains contenus, avant leur publication.
+        </p>
       </section>
 
       <section className="card space-y-2 p-4">

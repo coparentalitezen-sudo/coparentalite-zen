@@ -8,6 +8,7 @@ import { contenuDeReference } from './rendu';
 import {
   reserverPublication, conclurePublication, enregistrerSemaine, publicationAutorisee,
 } from './depot';
+import { validerContenu } from './garde-fous';
 
 /**
  * Publication d'un contenu.
@@ -56,6 +57,20 @@ export async function publierContenu(
   const contenu = contenuDeReference(reference, base);
   if (!contenu || !contenu.pages[page]) {
     return { ok: false, erreur: 'Contenu ou planche introuvable.' };
+  }
+
+  // Appliquée ici, en code, et non seulement écrite en commentaire dans
+  // banque.ts : un contenu qui viole une interdiction éditoriale (conseil
+  // juridique personnalisé, promesse de disparition des conflits, parti pris
+  // entre les parents) n'est jamais publié, quel que soit le mode retenu par
+  // marketing_parametres.
+  const validation = validerContenu(contenu);
+  if (!validation.ok) {
+    return {
+      ok: false,
+      erreur: `Contenu refusé par les garde-fous éditoriaux : ${
+        validation.violations.map((v) => v.description).join(' ; ')}`,
+    };
   }
 
   const urlImage = urlVisuelPublic(base, reference, page);
