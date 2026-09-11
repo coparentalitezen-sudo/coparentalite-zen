@@ -1,5 +1,5 @@
 -- ============================================================
--- COPARENTALITÉ ZEN — Migration 00047 : journal de l'agent rédacteur
+-- COPARENTALITÉ ZEN — Migration 00053 : journal de l'agent rédacteur
 --
 -- BESOIN
 -- redacteur.ts retombe silencieusement sur le texte déterministe à chaque

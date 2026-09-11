@@ -1,5 +1,5 @@
 -- ============================================================
--- COPARENTALITÉ ZEN — Migration 00046 : traçabilité de la rédaction
+-- COPARENTALITÉ ZEN — Migration 00052 : traçabilité de la rédaction
 --
 -- BESOIN
 -- Un agent rédacteur (redacteur.ts) peut désormais écrire le texte d'un
