@@ -1,7 +1,7 @@
 import 'server-only';
 import { supabaseService } from '@/lib/supabase/server';
 import { genererSemaine, semaineIso, type Contenu } from './generateur';
-import { contenusPublies } from './pinterest';
+import { validerContenu } from './garde-fous';
 
 /**
  * Accès aux données du dispositif.
@@ -606,9 +606,10 @@ export interface LigneContenuTableau {
  * normal, mais l'affichage reste correct dans les deux cas puisque chaque
  * condition est vérifiée indépendamment.
  *
- * « Publié » réutilise contenusPublies (pinterest.ts) : la même fonction qui
- * décide de ce que Pinterest reçoit décide de ce qui s'affiche ici comme
- * publié, pour que les deux ne divergent jamais.
+ * « Publié » reprend exactement la logique d'éligibilité et de garde-fous de
+ * la route pinterest.xml (lireParametresPlateforme/publicationAutorisee côté
+ * réglages, validerContenu côté éditorial) : les deux ne doivent jamais
+ * diverger sur ce qui compte comme publié.
  */
 export async function lireContenusSemaine(date: Date, base: string): Promise<LigneContenuTableau[]> {
   const contenus = genererSemaine(date, base);
@@ -622,9 +623,10 @@ export async function lireContenusSemaine(date: Date, base: string): Promise<Lig
     }));
   }
 
-  const [statuts, parametres, { data: lignes }] = await Promise.all([
+  const [statuts, parametres, autorisation, { data: lignes }] = await Promise.all([
     lireStatuts(contenus.map((c) => c.reference)),
-    lireParametres(),
+    lireParametresPlateforme('pinterest'),
+    publicationAutorisee('pinterest'),
     service.from('marketing_contenus')
       .select('reference, source, accroche, pin_id, pin_stats(id)')
       .like('reference', `${semaine}-%`),
@@ -632,7 +634,14 @@ export async function lireContenusSemaine(date: Date, base: string): Promise<Lig
 
   type LigneBrute = { reference: string; source: string; accroche: string; pin_id: string | null; pin_stats: { id: string }[] | null };
   const parReference = new Map(((lignes ?? []) as LigneBrute[]).map((l) => [l.reference, l]));
-  const publiees = new Set(contenusPublies(contenus, statuts, parametres).map((c) => c.reference));
+  const eligibles = autorisation.autorisee && parametres
+    ? parametres.mode === 'automatique'
+      ? contenus
+      : contenus.filter((c) => ['valide', 'publie'].includes(statuts[c.reference]?.statut ?? ''))
+    : [];
+  const publiees = new Set(
+    eligibles.filter((c) => validerContenu(c).ok).map((c) => c.reference),
+  );
 
   return contenus.map((c) => {
     const ligne = parReference.get(c.reference);
