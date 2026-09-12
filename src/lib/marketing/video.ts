@@ -3,6 +3,7 @@ import { writeFile, unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import cheminFfmpegStatique from 'ffmpeg-static';
 
 /**
  * Vidéo d'un Reel : diaporama minuté des planches déjà rendues.
@@ -19,14 +20,31 @@ import { randomUUID } from 'node:crypto';
  * quinzaine d'arguments n'en valait pas le poids, et la construction de la
  * commande se teste aussi bien nue.
  *
+ * LE BINAIRE VIENT DE ffmpeg-static, PAS DU SYSTÈME
+ * Un Mac Intel sans Homebrew (plus maintenu sur cette architecture) ne peut
+ * plus installer ffmpeg par les moyens habituels. ffmpeg-static télécharge à
+ * l'installation npm le binaire correspondant à la machine — macOS Intel et
+ * Apple Silicon, Linux (dont les runners GitHub Actions), Windows — sans
+ * dépendre d'un gestionnaire de paquets système. S'il ne s'est pas résolu
+ * (plateforme non couverte, téléchargement bloqué), on retombe sur `ffmpeg`
+ * du PATH plutôt que d'échouer d'emblée : une installation système existante
+ * continue de fonctionner.
+ *
  * N'importe jamais 'server-only' ni depot.ts : ce fichier tourne aussi bien
  * dans une route Next.js que dans un script tsx lancé par GitHub Actions
  * (scripts/video-render.ts, scripts/video-test.ts), où le runtime Next.js
  * n'existe pas.
  */
 
+const CHEMIN_FFMPEG = cheminFfmpegStatique ?? 'ffmpeg';
+
 export interface PlancheVideo {
-  /** Chemin absolu vers l'image déjà rendue (PNG), sur le disque local. */
+  /**
+   * Chemin absolu vers l'image déjà rendue, sur le disque local. En pratique
+   * un JPEG (/api/marketing/visuel-public reconvertit depuis le PNG
+   * d'ImageResponse — Instagram refuse le PNG), mais ce module ne suppose
+   * aucun format précis : ffmpeg décode par contenu.
+   */
   cheminImage: string;
   /** Durée d'affichage, en secondes. */
   secondes: number;
@@ -108,7 +126,7 @@ function executerFfmpeg(args: string[]): Promise<ResultatVideo> {
   return new Promise((resoudre) => {
     let processus: ReturnType<typeof spawn>;
     try {
-      processus = spawn('ffmpeg', args);
+      processus = spawn(CHEMIN_FFMPEG, args);
     } catch (e) {
       resoudre({ ok: false, erreur: `ffmpeg introuvable — ${String(e)}` });
       return;

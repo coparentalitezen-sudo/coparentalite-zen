@@ -5,6 +5,12 @@ name: Vidéo marketing
 # de ce qu'exige l'encodage ffmpeg d'une vidéo de 28 secondes. Un runner
 # GitHub Actions n'a pas cette limite.
 #
+# ffmpeg vient du paquet npm ffmpeg-static (voir src/lib/marketing/video.ts),
+# téléchargé par « npm ci » comme n'importe quelle dépendance — aucune
+# installation système à faire ici, le même mécanisme qui permet à ce
+# dispositif de tourner sur un Mac Intel sans Homebrew fonctionne à
+# l'identique sur ce runner Linux.
+#
 # Programmée le samedi soir plutôt que le dimanche : le rendu peut échouer
 # (ffmpeg absent, planche injoignable), et une seule journée de marge avant
 # les tâches Vercel du lundi matin (détection 5h00 UTC, bilan 5h30 UTC) ne
@@ -39,7 +45,7 @@ jobs:
         run: npm ci
 
       - name: Vérifier ffmpeg
-        run: ffmpeg -version
+        run: node -e "require('node:child_process').execFileSync(require('ffmpeg-static'), ['-version'], { stdio: 'inherit' })"
 
       - name: Rendre et déposer les vidéos
         run: npm run video:render
