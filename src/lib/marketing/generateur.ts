@@ -50,9 +50,43 @@ export interface Contenu {
   jour: number;               // 0 = dimanche, conformément à Date.getDay()
 }
 
-/** L'appel à l'action, identique partout où il a un sens. */
+/** L'appel à l'action historique. Conservé comme variante C du test. */
 export const APPEL_ACTION =
   'Simplifiez votre organisation familiale avec CoparentalitéZen. Lien dans la bio.';
+
+/**
+ * Trois appels à l'action mis en concurrence.
+ *
+ * Jusqu'ici les vingt-huit contenus portaient la même phrase : aucune
+ * comparaison n'était possible, et la question « quel appel fait cliquer »
+ * restait sans réponse faute de variation à mesurer.
+ *
+ * A oriente vers le questionnaire, qui ne demande pas de compte. B demande un
+ * commentaire, ce que les plateformes valorisent. C conserve la formulation
+ * d'origine et sert de témoin : sans témoin, une hausse générale se confondrait
+ * avec l'effet d'une variante.
+ */
+export const APPELS_ACTION = [
+  'Quel rythme de garde correspond à votre situation ? Le questionnaire '
+    + 'est en bio : cinq questions, votre planning sur quinze jours, sans créer de compte.',
+  'Commentez PLANNING et je vous envoie le questionnaire qui construit '
+    + 'votre calendrier de garde en cinq questions.',
+  APPEL_ACTION,
+] as const;
+
+/**
+ * Variante attribuée à une référence.
+ *
+ * Déterministe à partir de la référence, comme tout le reste du générateur :
+ * une même référence régénérée doit produire exactement la même légende, sinon
+ * republier après une erreur réseau changerait le contenu sous le lecteur, et
+ * la mesure attribuerait les clics à la mauvaise variante.
+ */
+export function appelActionPour(reference: string): string {
+  let somme = 0;
+  for (let i = 0; i < reference.length; i += 1) somme += reference.charCodeAt(i);
+  return APPELS_ACTION[somme % APPELS_ACTION.length];
+}
 
 /**
  * Cadence par défaut : trois Reels, deux carrousels, deux publications.
@@ -177,12 +211,14 @@ function planchesCarrousel(sujet: Sujet, accroche: string, categorie: Categorie)
  */
 function legendes(
   sujet: Sujet, accroche: string, corps: string, hashtags: string[], lien: string,
+  reference: string,
 ): { instagram: string; facebook: string } {
   // Les contenus de démonstration portent déjà l'apport dans leur corps :
   // le rappeler produirait la même phrase deux fois de suite.
   const rappel = corps.includes(sujet.apport) ? '' : `${sujet.apport}\n\n`;
   return {
-    instagram: `${accroche}\n\n${corps}\n\n${APPEL_ACTION}\n\n${hashtags.join(' ')}`,
+    instagram:
+      `${accroche}\n\n${corps}\n\n${appelActionPour(reference)}\n\n${hashtags.join(' ')}`,
     facebook:
       `${accroche}\n\n${corps}\n\n${rappel}`
       + `Simplifiez votre organisation familiale avec Coparentalité Zen : ${lien}`,
@@ -250,7 +286,7 @@ function contenuQuiz(
       + 'Faites défiler et répondez pour vous. À la fin, le questionnaire '
       + 'complet vous montre le planning correspondant, sur deux semaines, '
       + 'sans créer de compte.\n\n'
-      + `${APPEL_ACTION}\n\n${hashtags.join(' ')}`,
+      + `${appelActionPour(reference)}\n\n${hashtags.join(' ')}`,
     legendeFacebook:
       `${accroche}\n\n`
       + 'Faites défiler et répondez pour vous. Le questionnaire complet '
@@ -263,7 +299,7 @@ function contenuQuiz(
       + 'partage des dépenses, la répartition du temps et les horaires de '
       + 'travail.',
     hashtags,
-    appelAction: APPEL_ACTION,
+    appelAction: appelActionPour(reference),
     jour,
   };
 }
@@ -296,11 +332,13 @@ function contenuQuiz(
     reference, niche: 'marque', format, categorie: 'marque',
     accroche: m.accroche,
     pages,
-    legendeInstagram: `${m.accroche}\n\n${m.corps}\n\n${APPEL_ACTION}\n\n#coparentalité #parentsséparés #organisationfamiliale`,
+    legendeInstagram:
+      `${m.accroche}\n\n${m.corps}\n\n${appelActionPour(reference)}`
+      + '\n\n#coparentalité #parentsséparés #organisationfamiliale',
     legendeFacebook: `${m.accroche}\n\n${m.corps}\n\nDécouvrir l’application : ${lien}`,
     texteAlternatif: m.texteAlternatif,
     hashtags: ['#coparentalité', '#parentsséparés', '#organisationfamiliale'],
-    appelAction: APPEL_ACTION,
+    appelAction: appelActionPour(reference),
     jour,
   };
 }
@@ -367,7 +405,7 @@ export function genererSemaine(
         ? planchesCarrousel(sujet, accroche, categorie)
         : [{ titre: 'Visuel', texte: accroche }];
 
-    const { instagram, facebook } = legendes(sujet, accroche, corps, hashtags, lien);
+    const { instagram, facebook } = legendes(sujet, accroche, corps, hashtags, lien, reference);
 
     return {
       reference, niche: sujet.niche, format, categorie, accroche, pages,
@@ -382,7 +420,7 @@ export function genererSemaine(
         `Visuel sobre, texte blanc sur fond bleu marine. Titre : « ${accroche} ». `
         + `Sujet : ${sujet.angle.toLowerCase()}`,
       hashtags,
-      appelAction: APPEL_ACTION,
+      appelAction: appelActionPour(reference),
       jour,
     };
   });

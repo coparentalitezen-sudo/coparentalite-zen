@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { genererSemaine, semaineIso, sujetsDeLaSemaine, CADENCE, APPEL_ACTION } from '../src/lib/marketing/generateur';
+import {
+  genererSemaine, semaineIso, sujetsDeLaSemaine, CADENCE,
+  APPELS_ACTION, appelActionPour,
+} from '../src/lib/marketing/generateur';
 import { BANQUE } from '../src/lib/marketing/banque';
 import { planifierVisuel } from '../src/lib/marketing/visuel';
 import { QUESTIONS } from '../src/lib/quiz';
@@ -77,13 +80,31 @@ describe('exigences éditoriales de chaque contenu', () => {
 
   it('n’expose qu’un seul appel à l’action sur Instagram', () => {
     for (const c of semaine) {
-      const occurrences = c.legendeInstagram.split('Lien dans la bio').length - 1;
+      const occurrences = APPELS_ACTION
+        .reduce((n, a) => n + c.legendeInstagram.split(a).length - 1, 0);
       expect(occurrences).toBe(1);
     }
   });
 
-  it('reprend l’appel à l’action exigé', () => {
-    for (const c of semaine) expect(c.legendeInstagram).toContain(APPEL_ACTION);
+  it('porte l’une des variantes mises en concurrence', () => {
+    for (const c of semaine) {
+      expect(c.legendeInstagram).toContain(appelActionPour(c.reference));
+      expect(APPELS_ACTION).toContain(c.appelAction);
+    }
+  });
+
+  // Sans cette garantie, republier après une erreur réseau changerait la
+  // variante, et les clics seraient attribués à la mauvaise.
+  it('attribue toujours la même variante à une même référence', () => {
+    for (const c of semaine) {
+      expect(appelActionPour(c.reference)).toBe(appelActionPour(c.reference));
+    }
+  });
+
+  // Une rotation qui n’en ferait sortir qu’une seule ne mesurerait rien.
+  it('fait sortir au moins deux variantes sur la semaine', () => {
+    const distinctes = new Set(semaine.map((c) => c.appelAction));
+    expect(distinctes.size).toBeGreaterThanOrEqual(2);
   });
 
   it('ne renvoie jamais vers la bio sur Facebook, où le lien peut figurer', () => {
