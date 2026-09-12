@@ -93,3 +93,35 @@ documentation publique, n'a pas encore été vérifié contre un compte réel �
 `?dry_run=1` sur `/api/marketing/pinterest-stats` sert précisément à ça).
 Traiter cette lacune après ce premier appel réel plutôt qu'avant évite de
 concevoir la table de correspondance sur une forme de réponse non confirmée.
+
+## Ids de profil dupliqués entre rls_fixtures.sql et scolarite_fixtures.sql
+
+**Statut : préexistant sur develop, non corrigé ici.** Repéré en relançant
+`npm run test:sql` après le rebase de `feature/agent-redacteur` ; confirmé
+sans lien avec ce travail (aucun diff sur les deux fichiers en cause par
+rapport à `origin/develop`) — c'est un bug de la suite SQL déjà présent sur
+develop, à traiter comme une tâche à part.
+
+### Constat
+
+`scripts/test-sql.sh` charge les jeux d'essai dans l'ordre `rls_fixtures,
+invitation_fixtures, flows_fixtures, scolarite_fixtures`, cumulativement sur
+la même base gabarit (contrairement aux suites `*_test.sql`, elles isolées
+par clone). `rls_fixtures.sql` insère déjà deux profils
+`00000000-0000-0000-0000-0000000000e1` (« premier@test.fr ») et `...e2`
+(« second@test.fr »). `scolarite_fixtures.sql` réutilise les deux mêmes ids
+pour ses propres profils (« diane@test.fr », « erik@test.fr »), en
+comptant sans doute sur une base propre par suite plutôt que cumulative.
+Résultat : `insert into profiles` échoue dans `scolarite_fixtures.sql` avec
+`ERROR: duplicate key value violates unique constraint "profiles_pkey"`, et
+`npm run test:sql` s'arrête là — les suites `*_test.sql` qui dépendent du
+gabarit (dont `scolarite_test.sql`) ne sont jamais atteintes.
+
+### Ce qu'il faudrait faire
+
+Donner à `scolarite_fixtures.sql` ses propres ids de profil, distincts de
+ceux de `rls_fixtures.sql` (et des deux autres jeux d'essai, à vérifier par
+la même occasion) — par exemple un préfixe `...e3`/`...e4` plutôt que de
+réutiliser `e1`/`e2`. Vérifier ensuite que `scolarite_test.sql`, qui
+référence ces mêmes ids (`set_config('request.jwt.claim.sub', ...)`), est
+mis à jour en conséquence.
