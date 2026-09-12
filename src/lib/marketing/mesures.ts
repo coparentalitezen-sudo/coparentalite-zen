@@ -40,9 +40,17 @@ export interface PerformanceContenu {
   accroche: string;
   clics: number;
   inscriptions: number;
-  /** Inconnu tant que Meta n'est pas connecté — jamais zéro par défaut. */
+  /** Inconnu tant qu'aucun relevé n'existe — jamais zéro par défaut. */
   portee: number | null;
   vues: number | null;
+  interactions: number | null;
+}
+
+/** Dernier relevé Meta connu, par référence de contenu. */
+export interface Releve {
+  portee: number | null;
+  vues: number | null;
+  interactions: number | null;
 }
 
 export interface Agregat {
@@ -60,6 +68,7 @@ export function performances(
   contenus: LigneContenu[],
   visites: LigneVisite[],
   originesInscrits: string[],
+  releves: Map<string, Releve> = new Map(),
 ): PerformanceContenu[] {
   const clics = new Map<string, number>();
   for (const v of visites) {
@@ -70,17 +79,23 @@ export function performances(
     inscriptions.set(o, (inscriptions.get(o) ?? 0) + 1);
   }
 
-  return contenus.map((c) => ({
-    reference: c.reference,
-    niche: c.niche,
-    format: c.format,
-    categorie: c.categorie,
-    accroche: c.accroche,
-    clics: clics.get(c.reference) ?? 0,
-    inscriptions: inscriptions.get(c.reference) ?? 0,
-    portee: null,
-    vues: null,
-  }));
+  return contenus.map((c) => {
+    // Absence de relevé et relevé à zéro ne se confondent pas : le premier
+    // reste null et l'écran dira « en attente ».
+    const releve = releves.get(c.reference);
+    return {
+      reference: c.reference,
+      niche: c.niche,
+      format: c.format,
+      categorie: c.categorie,
+      accroche: c.accroche,
+      clics: clics.get(c.reference) ?? 0,
+      inscriptions: inscriptions.get(c.reference) ?? 0,
+      portee: releve?.portee ?? null,
+      vues: releve?.vues ?? null,
+      interactions: releve?.interactions ?? null,
+    };
+  });
 }
 
 /** Regroupe les performances selon une dimension : niche, format, catégorie. */

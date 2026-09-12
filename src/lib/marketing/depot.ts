@@ -232,9 +232,122 @@ export async function corrigerLegende(
  * ensemble, et l'écran n'attend qu'une fois. Séquentielles, elles ajouteraient
  * trois allers-retours pour rien.
  */
+export interface PublicationAMesurer {
+  id: string;
+  reference: string;
+  plateforme: string;
+  metaMediaId: string;
+}
+
+/**
+ * Publications dont on peut interroger les statistiques.
+ *
+ * Seules celles qui portent un identifiant Meta : sans lui, il n'y a rien à
+ * demander. Instagram uniquement pour l'instant — les statistiques d'une
+ * publication de page Facebook passent par un autre point d'entrée.
+ */
+export async function publicationsAMesurer(): Promise<PublicationAMesurer[]> {
+  const service = supabaseService();
+  if (!service) return [];
+  const { data } = await service
+    .from('marketing_publications')
+    .select('id, plateforme, meta_media_id, marketing_contenus(reference)')
+    .eq('statut', 'publiee')
+    .eq('plateforme', 'instagram')
+    .not('meta_media_id', 'is', null);
+
+  return (data ?? []).map((p) => ({
+    id: p.id as string,
+    plateforme: p.plateforme as string,
+    metaMediaId: p.meta_media_id as string,
+    reference:
+      (p.marketing_contenus as unknown as { reference?: string } | null)?.reference ?? '',
+  }));
+}
+
+export interface MesureRelevee {
+  portee: number | null;
+  vues: number | null;
+  interactions: number | null;
+}
+
+/**
+ * Enregistre un relevé.
+ *
+ * Chaque passage ajoute une ligne plutôt que d'écraser la précédente : la
+ * portée d'une publication continue de monter plusieurs jours après sa mise
+ * en ligne, et n'en garder que la derniere valeur interdirait de distinguer
+ * un contenu qui monte vite d'un contenu qui monte longtemps.
+ */
+export async function enregistrerMesure(
+  publicationId: string, m: MesureRelevee,
+): Promise<boolean> {
+  const service = supabaseService();
+  if (!service) return false;
+  const { error } = await service.from('marketing_mesures').insert({
+    publication_id: publicationId,
+    releve_le: new Date().toISOString(),
+    portee: m.portee,
+    vues: m.vues,
+    interactions: m.interactions,
+  });
+  return !error;
+}
+
+export interface MesureContenu {
+  portee: number | null;
+  vues: number | null;
+  interactions: number | null;
+}
+
+/**
+ * Dernier relevé connu par référence de contenu.
+ *
+ * Renvoie une table vide si rien n'a jamais ete releve : l'appelant doit alors
+ * afficher « en attente », jamais zero. Zero affirmerait que personne n'a vu
+ * la publication, ce qui n'est pas la meme chose que de ne pas savoir.
+ */
+export async function lireDerniersReleves(): Promise<Map<string, MesureContenu>> {
+  const service = supabaseService();
+  const table = new Map<string, MesureContenu>();
+  if (!service) return table;
+
+  // Deux requêtes plutôt qu'une jointure imbriquée sur deux niveaux : la
+  // seconde n'est pas typable et ferait perdre le contrôle du compilateur sur
+  // toute la ligne renvoyée.
+  const [releves, publications] = await Promise.all([
+    service.from('marketing_mesures')
+      .select('publication_id, releve_le, portee, vues, interactions')
+      .order('releve_le', { ascending: true }),
+    service.from('marketing_publications')
+      .select('id, marketing_contenus(reference)'),
+  ]);
+
+  const referenceDe = new Map<string, string>();
+  for (const p of publications.data ?? []) {
+    const reference =
+      (p.marketing_contenus as unknown as { reference?: string } | null)?.reference;
+    if (reference) referenceDe.set(p.id as string, reference);
+  }
+
+  for (const ligne of releves.data ?? []) {
+    const reference = referenceDe.get(ligne.publication_id as string);
+    if (!reference) continue;
+    // Tri croissant : le dernier relevé écrase les précédents.
+    table.set(reference, {
+      portee: ligne.portee ?? null,
+      vues: ligne.vues ?? null,
+      interactions: ligne.interactions ?? null,
+    });
+  }
+  return table;
+}
+
 export async function lireMesures() {
   const service = supabaseService();
   if (!service) return null;
+
+  const releves = await lireDerniersReleves();
 
   const [contenus, visites, inscrits, abonnements] = await Promise.all([
     service.from('marketing_contenus')
@@ -260,6 +373,7 @@ export async function lireMesures() {
       .map((p) => p.origine_contenu)
       .filter((o): o is string => typeof o === 'string'),
     abonnements: abonnements.data?.length ?? 0,
+    releves,
   };
 }
 

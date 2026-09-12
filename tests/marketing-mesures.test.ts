@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   performances, regrouper, taux, entonnoir, meilleuresAccroches,
-  type LigneContenu, type LigneVisite,
+  type LigneContenu, type LigneVisite, type Releve,
 } from '../src/lib/marketing/mesures';
 
 const contenu = (reference: string, niche: string, format = 'carrousel'): LigneContenu => ({
@@ -23,6 +23,28 @@ describe('rapprochement des mesures', () => {
 
   it('compte zéro clic pour un contenu sans visite', () => {
     expect(performances(contenus, visites, []).find((x) => x.reference === 'c3')!.clics).toBe(0);
+  });
+
+  it('reprend le dernier relevé quand il existe', () => {
+    const releves = new Map<string, Releve>([
+      ['c1', { portee: 840, vues: 1200, interactions: 37 }],
+    ]);
+    const p = performances(contenus, visites, [], releves);
+    const c1 = p.find((x) => x.reference === 'c1')!;
+    expect(c1.portee).toBe(840);
+    expect(c1.vues).toBe(1200);
+    expect(c1.interactions).toBe(37);
+  });
+
+  it('distingue un relevé à zéro d’une absence de relevé', () => {
+    // Une publication réellement vue par personne vaut zéro. Une publication
+    // jamais relevée vaut null : l'écran doit dire « en attente », pas « zéro ».
+    const releves = new Map<string, Releve>([
+      ['c1', { portee: 0, vues: 0, interactions: 0 }],
+    ]);
+    const p = performances(contenus, visites, [], releves);
+    expect(p.find((x) => x.reference === 'c1')!.portee).toBe(0);
+    expect(p.find((x) => x.reference === 'c2')!.portee).toBeNull();
   });
 
   it('attribue les inscriptions au contenu d’origine', () => {

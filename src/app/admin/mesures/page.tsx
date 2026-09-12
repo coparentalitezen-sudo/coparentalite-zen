@@ -44,7 +44,8 @@ export default async function PageMesures() {
   ]);
   if (!donnees) notFound();
 
-  const lignes = performances(donnees.contenus, donnees.visites, donnees.originesInscrits);
+  const lignes = performances(
+    donnees.contenus, donnees.visites, donnees.originesInscrits, donnees.releves);
   const publies = donnees.contenus.filter((c) => c.statut === 'publie').length;
   const clics = lignes.reduce((s, l) => s + l.clics, 0);
   const inscriptions = lignes.reduce((s, l) => s + l.inscriptions, 0);

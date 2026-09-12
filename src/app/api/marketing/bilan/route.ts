@@ -36,7 +36,8 @@ export async function GET(requete: Request) {
   const donnees = await lireMesures();
   if (!donnees) return reponseJSON({ message: 'Service indisponible.' }, 503);
 
-  const lignes = performances(donnees.contenus, donnees.visites, donnees.originesInscrits);
+  const lignes = performances(
+    donnees.contenus, donnees.visites, donnees.originesInscrits, donnees.releves);
   const parNiche = regrouper(lignes, 'niche');
   const poidsActuels = await lirePoids();
   const ajustements = ajusterPoids(parNiche, poidsActuels);

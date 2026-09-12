@@ -248,13 +248,25 @@ export async function publierFacebook(
   );
 }
 
-/** Statistiques d'une publication Instagram déjà publiée. */
+/**
+ * Statistiques d'une publication Instagram déjà publiée.
+ *
+ * « views » n'est pas servie pour tous les types de média selon l'âge et la
+ * nature de la publication. Demandée dans le même appel que les autres, elle
+ * ferait échouer l'ensemble et ne rapporterait rien : on réessaie donc sans
+ * elle plutôt que de repartir les mains vides.
+ */
 export async function statistiquesInstagram(
   config: ConfigurationMeta, mediaId: string, requete?: Requete,
 ): Promise<ResultatMeta<Record<string, number>>> {
-  const r = await appelGraph<{ data?: { name: string; values?: { value: number }[] }[] }>(
-    `/${mediaId}/insights?metric=reach,likes,comments,saved`, config, { requete });
+  const lire = async (metriques: string) => appelGraph<{
+    data?: { name: string; values?: { value: number }[] }[];
+  }>(`/${mediaId}/insights?metric=${metriques}`, config, { requete });
+
+  let r = await lire('reach,likes,comments,saved,views');
+  if (!r.ok) r = await lire('reach,likes,comments,saved');
   if (!r.ok) return { ok: false, erreur: r.erreur };
+
   const mesures: Record<string, number> = {};
   for (const m of r.donnees?.data ?? []) {
     mesures[m.name] = m.values?.[0]?.value ?? 0;
