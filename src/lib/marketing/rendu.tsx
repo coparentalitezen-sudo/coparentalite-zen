@@ -125,13 +125,17 @@ export async function rendreVisuel(
  * Dessine une planche vidéo (video-contenu.ts) et renvoie la réponse image.
  *
  * Séparée de rendreVisuel plutôt qu'ajoutée en option à son dessin : la
- * planche vidéo n'a ni surtitre, ni pagination, ni appel à l'action détaché —
- * une seule idée, en très grand, sur fond contrasté. Un mélange des deux
- * dessins dans une même fonction, sous condition, serait vite illisible et
+ * planche vidéo n'a ni surtitre, ni appel à l'action détaché — une seule
+ * idée, en très grand, sur fond contrasté, avec seulement un repère de
+ * progression et une signature discrète en plus. Un mélange des deux dessins
+ * dans une même fonction, sous condition, serait vite illisible et
  * risquerait de faire dériver le rendu statique en le modifiant au passage.
+ *
+ * @param position rang de la planche dans la vidéo (1-based)
+ * @param total    nombre total de planches de cette vidéo
  */
-export async function rendreVisuelVideo(texte: string) {
-  const plan = planifierVisuelVideo(texte);
+export async function rendreVisuelVideo(texte: string, position: number, total: number) {
+  const plan = planifierVisuelVideo(texte, position, total);
 
   return new ImageResponse(
     (
@@ -140,9 +144,30 @@ export async function rendreVisuelVideo(texte: string) {
           width: plan.largeur, height: plan.hauteur,
           background: plan.fond, color: plan.couleurTexte,
           display: 'flex', flexDirection: 'column', justifyContent: 'center',
-          padding: '110px 90px', fontFamily: 'Inter',
+          padding: '110px 90px', fontFamily: 'Inter', position: 'relative',
         }}
       >
+        {/*
+          Repère de progression : six ou sept planches identiques en gabarit
+          ne disent pas, à elles seules, où on en est dans le Reel. Une
+          barre fine plutôt qu'une pagination chiffrée — elle se lit d'un
+          coup d'œil, sans détourner l'attention du texte le temps de
+          compter.
+        */}
+        <div
+          style={{
+            display: 'flex', position: 'absolute', top: 0, left: 0,
+            width: '100%', height: 10, background: 'rgba(255,255,255,0.25)',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex', width: `${Math.round(plan.progression * 100)}%`,
+              height: '100%', background: '#FFFFFF',
+            }}
+          />
+        </div>
+
         <div
           style={{
             display: 'flex', fontSize: plan.taille, lineHeight: 1.15,
@@ -150,6 +175,15 @@ export async function rendreVisuelVideo(texte: string) {
           }}
         >
           {plan.texte}
+        </div>
+
+        {/*
+          Signature discrète : en position absolue, donc sans influence sur
+          le centrage du texte au-dessus — jamais à son détriment, même sur
+          la planche la plus chargée.
+        */}
+        <div style={{ display: 'flex', position: 'absolute', bottom: 40, left: 90, fontSize: 28, opacity: 0.6 }}>
+          {plan.signature}
         </div>
       </div>
     ),

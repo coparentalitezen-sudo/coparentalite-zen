@@ -1,4 +1,5 @@
 import type { Contenu } from './generateur';
+import { validerTexte } from './garde-fous';
 
 /**
  * Planches vidéo — dérivées de contenu.pages, jamais un remplacement.
@@ -69,7 +70,22 @@ function decouperParMots(texte: string, motsMax: number): string[] {
 export interface PlancheVideoTexte {
   texte: string;
   secondes: number;
+  /** Position dans la vidéo (1-based) et nombre total de planches — pour le repère de progression. */
+  position: number;
+  total: number;
 }
+
+/**
+ * Planche de fin, ajoutée automatiquement à chaque Reel.
+ *
+ * Un texte fixe, jamais dérivé d'un contenu variable : passée une fois par
+ * validerTexte (vérifié ci-dessous et par la non-régression du fichier de
+ * test), elle le reste pour toujours. Le garde-fou n'en reste pas moins actif
+ * en code — pas seulement relu une fois à l'écriture — au cas où ce texte
+ * changerait un jour sans qu'on y repense.
+ */
+export const TEXTE_APPEL_VIDEO = 'Retrouvez CoparentalitéZen sur coparentalitezen.fr.';
+export const SECONDES_APPEL_VIDEO = 3;
 
 /**
  * Répartit une durée entre plusieurs segments, au prorata de leur nombre de
@@ -89,17 +105,31 @@ function repartirSecondes(segments: string[], secondesTotal: number): number[] {
 }
 
 /**
- * Planches vidéo d'un contenu Reel, dans l'ordre d'affichage.
+ * Planches vidéo d'un contenu Reel, dans l'ordre d'affichage — planche
+ * d'appel à l'action comprise, en dernière position.
  *
  * Une planche source qui tient déjà en quinze mots produit une seule planche
  * vidéo, à la durée inchangée : la découpe ne s'applique qu'à ce qui en a
  * besoin, comme demandé pour « ce qui aide » — et, par le même mécanisme,
  * pour toute autre planche qui dépasserait la limite.
+ *
+ * L'appel à l'action n'est ajouté que s'il passe validerTexte : un texte fixe
+ * qui échouerait — après une modification malheureuse de la constante,
+ * par exemple — est omis plutôt que publié en violation d'un garde-fou.
+ * Le reste du Reel n'en est pas empêché pour autant.
  */
 export function planchesVideo(contenu: Contenu): PlancheVideoTexte[] {
-  return contenu.pages.flatMap((page) => {
+  const planchesContenu = contenu.pages.flatMap((page) => {
     const segments = decouperTexte(page.texte);
     const secondes = repartirSecondes(segments, page.secondes ?? 0);
     return segments.map((texte, i) => ({ texte, secondes: secondes[i] }));
   });
+
+  const appelValide = validerTexte(TEXTE_APPEL_VIDEO).length === 0;
+  const toutes = appelValide
+    ? [...planchesContenu, { texte: TEXTE_APPEL_VIDEO, secondes: SECONDES_APPEL_VIDEO }]
+    : planchesContenu;
+
+  const total = toutes.length;
+  return toutes.map((p, i) => ({ ...p, position: i + 1, total }));
 }

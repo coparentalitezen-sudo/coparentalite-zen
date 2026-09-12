@@ -40,7 +40,7 @@ export async function GET(requete: Request) {
   if (!planche) return new NextResponse('Not found', { status: 404 });
 
   try {
-    const rendu = await rendreVisuelVideo(planche.texte);
+    const rendu = await rendreVisuelVideo(planche.texte, planche.position, planche.total);
     const brut = Buffer.from(await rendu.arrayBuffer());
     const image = PNG.sync.read(brut);
     const converti = jpeg.encode(

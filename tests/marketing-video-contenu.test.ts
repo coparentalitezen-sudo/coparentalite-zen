@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
   compterMots, decouperTexte, planchesVideo, MOTS_MAX,
+  TEXTE_APPEL_VIDEO, SECONDES_APPEL_VIDEO,
 } from '../src/lib/marketing/video-contenu';
+import { validerTexte } from '../src/lib/marketing/garde-fous';
 import { genererSemaine, type Contenu } from '../src/lib/marketing/generateur';
 
 const BASE = 'https://coparentalitezen.fr';
@@ -74,7 +76,9 @@ describe('planchesVideo', () => {
   it('ne découpe pas une planche déjà courte', () => {
     const contenu = contenuAvec([{ titre: 'Accroche', texte: 'Une idée courte et claire.', secondes: 3 }]);
     const planches = planchesVideo(contenu);
-    expect(planches).toEqual([{ texte: 'Une idée courte et claire.', secondes: 3 }]);
+    // La planche source, puis l'appel à l'action ajouté automatiquement.
+    expect(planches[0]).toMatchObject({ texte: 'Une idée courte et claire.', secondes: 3 });
+    expect(planches).toHaveLength(2);
   });
 
   it('découpe « ce qui aide » en plusieurs planches courtes', () => {
@@ -85,7 +89,8 @@ describe('planchesVideo', () => {
       secondes: 14,
     }]);
     const planches = planchesVideo(contenu);
-    expect(planches.length).toBeGreaterThan(1);
+    // Trois étapes retrouvées, plus l'appel à l'action.
+    expect(planches.length).toBeGreaterThan(2);
     for (const p of planches) expect(compterMots(p.texte)).toBeLessThanOrEqual(MOTS_MAX);
   });
 
@@ -96,7 +101,7 @@ describe('planchesVideo', () => {
         + 'avec beaucoup plus de mots dedans.',
       secondes: 14,
     }]);
-    const planches = planchesVideo(contenu);
+    const planches = planchesVideo(contenu).slice(0, -1); // sans l'appel à l'action
     expect(planches.length).toBe(2);
     const total = planches.reduce((s, p) => s + p.secondes, 0);
     // Le plancher (2s minimum) et l'arrondi peuvent faire dériver légèrement
@@ -111,7 +116,37 @@ describe('planchesVideo', () => {
       { titre: 'Transition', texte: 'Seconde idée courte.', secondes: 5 },
     ]);
     const planches = planchesVideo(contenu);
-    expect(planches.map((p) => p.texte)).toEqual(['Première idée courte.', 'Seconde idée courte.']);
+    expect(planches.map((p) => p.texte)).toEqual([
+      'Première idée courte.', 'Seconde idée courte.', TEXTE_APPEL_VIDEO,
+    ]);
+  });
+
+  it('numérote les planches (position/total) sur l’ensemble, appel à l’action compris', () => {
+    const contenu = contenuAvec([
+      { titre: 'Accroche', texte: 'Première idée courte.', secondes: 3 },
+      { titre: 'Transition', texte: 'Seconde idée courte.', secondes: 5 },
+    ]);
+    const planches = planchesVideo(contenu);
+    expect(planches.map((p) => p.position)).toEqual([1, 2, 3]);
+    for (const p of planches) expect(p.total).toBe(3);
+  });
+
+  it('ajoute une planche d’appel à l’action à la fin, trois secondes', () => {
+    const contenu = contenuAvec([{ titre: 'Accroche', texte: 'Une idée courte.', secondes: 3 }]);
+    const planches = planchesVideo(contenu);
+    const derniere = planches.at(-1)!;
+    expect(derniere.texte).toBe(TEXTE_APPEL_VIDEO);
+    expect(derniere.secondes).toBe(SECONDES_APPEL_VIDEO);
+  });
+});
+
+describe('planche d’appel à l’action', () => {
+  it('passe les garde-fous éditoriaux', () => {
+    expect(validerTexte(TEXTE_APPEL_VIDEO)).toEqual([]);
+  });
+
+  it('tient en quinze mots', () => {
+    expect(compterMots(TEXTE_APPEL_VIDEO)).toBeLessThanOrEqual(MOTS_MAX);
   });
 });
 

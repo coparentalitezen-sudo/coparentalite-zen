@@ -142,6 +142,9 @@ export interface PlanVisuelVideo {
   couleurTexte: string;
   taille: number;
   texte: string;
+  signature: string;
+  /** Part de la vidéo déjà écoulée à cette planche, entre 0 exclu et 1 inclus — largeur du repère de progression. */
+  progression: number;
 }
 
 /**
@@ -159,7 +162,11 @@ export function tailleTexteVideo(texte: string): number {
   return 90;
 }
 
-export function planifierVisuelVideo(texte: string): PlanVisuelVideo {
+/**
+ * @param position rang de la planche dans la vidéo (1-based)
+ * @param total    nombre total de planches de cette vidéo
+ */
+export function planifierVisuelVideo(texte: string, position: number, total: number): PlanVisuelVideo {
   const { largeur, hauteur } = FORMATS.vertical;
   return {
     largeur,
@@ -171,5 +178,7 @@ export function planifierVisuelVideo(texte: string): PlanVisuelVideo {
     couleurTexte: '#FFFFFF',
     taille: tailleTexteVideo(texte),
     texte,
+    signature: 'coparentalitezen.fr',
+    progression: total > 0 ? Math.min(1, position / total) : 1,
   };
 }
