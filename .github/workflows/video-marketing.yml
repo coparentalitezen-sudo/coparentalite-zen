@@ -1,0 +1,49 @@
+name: Vidéo marketing
+
+# Rendu des Reels, pas Vercel : l'offre Hobby limite chaque route à dix
+# secondes d'exécution (AGENTS.md, « Tâches planifiées »), largement en deçà
+# de ce qu'exige l'encodage ffmpeg d'une vidéo de 28 secondes. Un runner
+# GitHub Actions n'a pas cette limite.
+#
+# Programmée le dimanche soir, avant les tâches Vercel du lundi matin
+# (détection 5h00 UTC, bilan 5h30 UTC) : le Reel du lundi doit avoir sa vidéo
+# prête avant que quiconque ne le valide ou ne le publie.
+
+on:
+  schedule:
+    - cron: '0 22 * * 0'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  rendu:
+    name: Rendu des Reels de la semaine
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Vérifier ffmpeg
+        run: ffmpeg -version
+
+      - name: Rendre et déposer les vidéos
+        run: npm run video:render
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}

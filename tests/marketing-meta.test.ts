@@ -3,6 +3,7 @@ import {
   configurationMeta, etatConfiguration, expurger, appelGraph,
   verifierConnexion, permissions, publierImageInstagram, publierFacebook,
   natureDuJeton, aptitudes, jetonDePage, expirationJeton, publierCarrouselInstagram,
+  publierVideoInstagram, publierVideoFacebook,
   VERSION_GRAPH, type ConfigurationMeta,
 } from '../src/lib/marketing/meta';
 
@@ -200,6 +201,45 @@ describe('publication Facebook', () => {
     const r = await publierFacebook(CONFIG, 'https://exemple.fr/i.png', 'Message', f.requete);
     expect(r.ok).toBe(true);
     expect(f.appels[0].url).toContain('/222/photos');
+  });
+});
+
+describe('publication d’un Reel sur Instagram', () => {
+  it('crée un conteneur REELS puis publie', async () => {
+    const f = faussaire([
+      { corps: { id: 'conteneur-reel' } },
+      { corps: { status_code: 'FINISHED' } },
+      { corps: { id: 'media-reel-1' } },
+    ]);
+    const r = await publierVideoInstagram(CONFIG, 'https://exemple.fr/v.mp4', 'Légende', f.requete);
+    expect(r.ok).toBe(true);
+    expect(r.donnees?.id).toBe('media-reel-1');
+    expect(f.appels[0].url).toContain('/333/media');
+    expect(String(f.appels[0].init?.body)).toContain('media_type=REELS');
+    expect(String(f.appels[0].init?.body)).toContain('video_url=');
+    expect(f.appels[2].url).toContain('/333/media_publish');
+  });
+
+  it('renonce si le conteneur vidéo échoue, sans attendre cinq minutes', async () => {
+    const f = faussaire([
+      { corps: { id: 'c' } },
+      { corps: { status_code: 'ERROR', status: 'Format vidéo refusé' } },
+    ]);
+    const r = await publierVideoInstagram(CONFIG, 'https://exemple.fr/v.mp4', 'L', f.requete);
+    expect(r.ok).toBe(false);
+    expect(r.erreur).toContain('Format vidéo refusé');
+    expect(f.appels).toHaveLength(2);
+  });
+});
+
+describe('publication d’une vidéo sur Facebook', () => {
+  it('poste sur /videos avec l’adresse du fichier, pas de conteneur séparé', async () => {
+    const f = faussaire([{ corps: { id: 'video-1' } }]);
+    const r = await publierVideoFacebook(CONFIG, 'https://exemple.fr/v.mp4', 'Description', f.requete);
+    expect(r.ok).toBe(true);
+    expect(f.appels).toHaveLength(1);
+    expect(f.appels[0].url).toContain('/222/videos');
+    expect(String(f.appels[0].init?.body)).toContain('file_url=');
   });
 });
 

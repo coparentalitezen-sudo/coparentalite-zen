@@ -12,6 +12,8 @@
     "test:sql": "bash scripts/test-sql.sh",
     "test:e2e": "playwright test",
     "redacteur:test": "tsx scripts/redacteur-test.ts",
+    "video:test": "tsx scripts/video-test.ts",
+    "video:render": "tsx scripts/video-render.ts",
     "verify": "npm run typecheck && npm test && npm run build && npm run test:e2e"
   },
   "keywords": [],

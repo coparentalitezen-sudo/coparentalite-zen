@@ -171,10 +171,11 @@ const TENTATIVES_MAX = 8;
  */
 async function attendreConteneur(
   id: string, config: ConfigurationMeta, requete?: Requete,
+  tentativesMax = TENTATIVES_MAX, attenteMs = ATTENTE_MS,
 ): Promise<ResultatMeta<string>> {
   let dernier = 'inconnu';
 
-  for (let essai = 0; essai < TENTATIVES_MAX; essai++) {
+  for (let essai = 0; essai < tentativesMax; essai++) {
     const etat = await appelGraph<{ status_code?: string; status?: string }>(
       `/${id}?fields=status_code,status`, config, { requete });
 
@@ -192,17 +193,26 @@ async function attendreConteneur(
       };
     }
 
-    if (essai < TENTATIVES_MAX - 1) {
-      await new Promise((suite) => setTimeout(suite, ATTENTE_MS));
+    if (essai < tentativesMax - 1) {
+      await new Promise((suite) => setTimeout(suite, attenteMs));
     }
   }
 
   return {
     ok: false,
-    erreur: `Conteneur toujours ${dernier} après ${(TENTATIVES_MAX * ATTENTE_MS) / 1000} s. `
+    erreur: `Conteneur toujours ${dernier} après ${(tentativesMax * attenteMs) / 1000} s. `
       + 'Réessayez : le contenu n’a pas été publié.',
   };
 }
+
+/**
+ * Une vidéo se transcode, une image se redimensionne : Meta met nettement
+ * plus longtemps à faire passer un conteneur vidéo à FINISHED. Le budget par
+ * défaut (24 s) suffit à une image mais coupe une vidéo de 28 s en plein
+ * traitement ; celui-ci va jusqu'à cinq minutes.
+ */
+const TENTATIVES_MAX_VIDEO = 60;
+const ATTENTE_MS_VIDEO = 5000;
 
 /**
  * Publie une image simple sur Instagram.
@@ -528,4 +538,60 @@ export async function publierCarrouselInstagram(
   if (!publie.ok) return { ok: false, erreur: `Publication : ${publie.erreur}` };
 
   return { ok: true, donnees: publie.donnees };
+}
+
+/**
+ * Publie un Reel sur Instagram.
+ *
+ * Même mécanique en deux temps qu'une image (conteneur, puis publication),
+ * avec deux différences : media_type: 'REELS' plutôt que l'image déduite par
+ * défaut, et un budget d'attente propre au conteneur — une vidéo se
+ * transcode, une image se redimensionne, et Meta met nettement plus de temps
+ * à faire passer la première à FINISHED.
+ */
+export async function publierVideoInstagram(
+  config: ConfigurationMeta,
+  urlVideo: string,
+  legende: string,
+  requete?: Requete,
+): Promise<ResultatMeta<{ id: string }>> {
+  const conteneur = await appelGraph<{ id: string }>(
+    `/${config.igUserId}/media`, config,
+    {
+      methode: 'POST', requete,
+      corps: { media_type: 'REELS', video_url: urlVideo, caption: legende },
+    },
+  );
+  if (!conteneur.ok) return { ok: false, erreur: `Conteneur : ${conteneur.erreur}` };
+
+  const pret = await attendreConteneur(
+    conteneur.donnees!.id, config, requete, TENTATIVES_MAX_VIDEO, ATTENTE_MS_VIDEO,
+  );
+  if (!pret.ok) return { ok: false, erreur: pret.erreur };
+
+  const publie = await appelGraph<{ id: string }>(
+    `/${config.igUserId}/media_publish`, config,
+    { methode: 'POST', requete, corps: { creation_id: conteneur.donnees!.id } },
+  );
+  if (!publie.ok) return { ok: false, erreur: `Publication : ${publie.erreur}` };
+  return { ok: true, donnees: publie.donnees };
+}
+
+/**
+ * Publie une vidéo sur la page Facebook.
+ *
+ * Pas de conteneur à part : /{page-id}/videos accepte directement une
+ * adresse (file_url) et renvoie l'id une fois le traitement lancé — Facebook
+ * ne demande pas qu'on l'attende comme Instagram le fait pour un Reel.
+ */
+export async function publierVideoFacebook(
+  config: ConfigurationMeta,
+  urlVideo: string,
+  description: string,
+  requete?: Requete,
+): Promise<ResultatMeta<{ id: string }>> {
+  return appelGraph<{ id: string }>(
+    `/${config.pageId}/videos`, config,
+    { methode: 'POST', requete, corps: { file_url: urlVideo, description } },
+  );
 }

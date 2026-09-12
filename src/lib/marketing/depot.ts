@@ -728,3 +728,36 @@ export async function etatCollectePinterest(): Promise<EtatCollectePinterest> {
     epinglesSansPinId: sansPinId.length,
   };
 }
+
+// ============================================================
+// Chaîne vidéo des Reels
+// ============================================================
+
+/**
+ * Adresse signée de la vidéo d'un Reel, ou null si elle n'est pas encore
+ * rendue.
+ *
+ * Le rendu (scripts/video-render.ts, sur GitHub Actions) écrit le CHEMIN
+ * dans le seau, pas une adresse : une adresse signée expire, et publierait un
+ * lien mort le jour où video_chemin serait relu tel quel. La signature se
+ * fait donc ici, à la demande, juste avant l'appel à Meta.
+ *
+ * Quinze minutes d'expiration : le temps que Meta télécharge le fichier et,
+ * pour Instagram, transcode le conteneur (jusqu'à cinq minutes, voir
+ * TENTATIVES_MAX_VIDEO dans meta.ts) sans marge trop large — une adresse
+ * signée qui traînerait des heures serait une fuite pour rien.
+ */
+export async function urlVideoSignee(reference: string): Promise<string | null> {
+  const service = supabaseService();
+  if (!service) return null;
+
+  const { data } = await service.from('marketing_contenus')
+    .select('video_chemin').eq('reference', reference).maybeSingle();
+  if (!data?.video_chemin) return null;
+
+  const { data: signee, error } = await service.storage
+    .from('marketing-videos')
+    .createSignedUrl(data.video_chemin, 900);
+  if (error || !signee) return null;
+  return signee.signedUrl;
+}

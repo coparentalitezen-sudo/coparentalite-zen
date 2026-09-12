@@ -1,12 +1,13 @@
 import 'server-only';
 import {
   configurationPrete, publierImageInstagram, publierCarrouselInstagram,
-  publierFacebook, expurger,
+  publierFacebook, publierVideoInstagram, publierVideoFacebook, expurger,
 } from './meta';
 import { urlVisuelPublic } from './signature';
 import { contenuDeReference } from './rendu';
 import {
   reserverPublication, conclurePublication, enregistrerSemaine, publicationAutorisee,
+  urlVideoSignee,
 } from './depot';
 import { validerContenu } from './garde-fous';
 
@@ -78,6 +79,15 @@ export async function publierContenu(
     return { ok: false, erreur: 'Visuel non signable : CRON_SECRET manquant.' };
   }
 
+  // Un Reel n'a de vidéo à envoyer que si VIDEO_ACTIF l'autorise et qu'elle a
+  // déjà été rendue (scripts/video-render.ts, sur GitHub Actions). Faute de
+  // l'une des deux, on retombe sur le comportement d'aujourd'hui — une image
+  // simple — plutôt que d'échouer : mieux vaut publier en retard sur la forme
+  // que ne pas publier du tout.
+  const urlVideo = process.env.VIDEO_ACTIF === 'true' && contenu.format === 'reel'
+    ? await urlVideoSignee(reference)
+    : null;
+
   const reservation = await reserverPublication(reference, plateforme);
   if (!reservation.ok) {
     return {
@@ -93,19 +103,23 @@ export async function publierContenu(
   // une question, ce sont les planches suivantes qui y répondent.
   const estCarrousel = contenu.format === 'carrousel' && contenu.pages.length >= 2;
 
-  const resultat = plateforme === 'facebook'
-    ? await publierFacebook(config, urlImage, contenu.legendeFacebook)
-    : estCarrousel
-      ? await publierCarrouselInstagram(
-          config,
-          contenu.pages.map((_, i) => ({
-            url: urlVisuelPublic(base, reference, i) ?? '',
-            texteAlternatif: contenu.texteAlternatif,
-          })),
-          contenu.legendeInstagram,
-        )
-      : await publierImageInstagram(
-          config, urlImage, contenu.legendeInstagram, contenu.texteAlternatif);
+  const resultat = urlVideo
+    ? plateforme === 'facebook'
+      ? await publierVideoFacebook(config, urlVideo, contenu.legendeFacebook)
+      : await publierVideoInstagram(config, urlVideo, contenu.legendeInstagram)
+    : plateforme === 'facebook'
+      ? await publierFacebook(config, urlImage, contenu.legendeFacebook)
+      : estCarrousel
+        ? await publierCarrouselInstagram(
+            config,
+            contenu.pages.map((_, i) => ({
+              url: urlVisuelPublic(base, reference, i) ?? '',
+              texteAlternatif: contenu.texteAlternatif,
+            })),
+            contenu.legendeInstagram,
+          )
+        : await publierImageInstagram(
+            config, urlImage, contenu.legendeInstagram, contenu.texteAlternatif);
 
   const idPublication = reservation.deja!.id;
 
