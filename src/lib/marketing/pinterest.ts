@@ -178,3 +178,24 @@ export function creerFluxPinterest(contenus: Contenu[], base: string): string {
     + `  </channel>\n`
     + `</rss>\n`;
 }
+
+/**
+ * Références publiables des dernières semaines.
+ *
+ * Le plan du site a besoin de l'ensemble des pages de conseil, pas seulement
+ * de celles de la semaine en cours : une page indexée le mois dernier doit
+ * rester déclarée, sinon elle sort du plan et perd son référencement alors
+ * qu'elle répond toujours.
+ */
+export function referencesRecentes(base: string, semaines = 12): string[] {
+  const references: string[] = [];
+  const depart = new Date();
+  for (let recul = 0; recul < semaines; recul += 1) {
+    const date = new Date(depart);
+    date.setDate(depart.getDate() - recul * 7);
+    for (const contenu of genererSemaine(date, base)) {
+      if (!references.includes(contenu.reference)) references.push(contenu.reference);
+    }
+  }
+  return references;
+}

@@ -5,6 +5,7 @@ import {
   creerFluxPinterest, elementsDuContenu,
   dateDepuisReference,
   lienConseilPinterest,
+  referencesRecentes,
 } from '../src/lib/marketing/pinterest';
 import { planifierVisuel } from '../src/lib/marketing/visuel';
 
@@ -129,5 +130,26 @@ describe('épingles du questionnaire', () => {
     // réimporter comme des doublons.
     expect(elements[0].image).not.toContain('page=');
     expect(elements[1].image).toContain('page=1');
+  });
+});
+
+describe('références du plan du site', () => {
+  it('couvre plusieurs semaines, pas seulement la semaine en cours', () => {
+    const uneSemaine = referencesRecentes(BASE, 1);
+    const douzeSemaines = referencesRecentes(BASE, 12);
+    expect(douzeSemaines.length).toBeGreaterThan(uneSemaine.length);
+  });
+
+  it('ne déclare jamais deux fois la même page', () => {
+    const references = referencesRecentes(BASE, 12);
+    expect(new Set(references).size).toBe(references.length);
+  });
+
+  // Une référence que la page de conseil ne sait pas résoudre serait déclarée
+  // au plan du site puis répondrait 404 : le pire des deux mondes.
+  it('ne déclare que des références résolvables', () => {
+    for (const reference of referencesRecentes(BASE, 4)) {
+      expect(contenuPinterest(reference, BASE)).not.toBeNull();
+    }
   });
 });
