@@ -58,3 +58,25 @@ export function urlVisuelPublic(
   url.searchParams.set('jeton', signature);
   return url.toString();
 }
+
+/**
+ * Adresse d'une planche vidéo (video-contenu.ts), signée de la même manière.
+ *
+ * L'index porte sur la liste des planches vidéo, pas sur contenu.pages : une
+ * planche source dépassant quinze mots en produit plusieurs, sans rapport
+ * avec la numérotation de /api/marketing/visuel-public. Réutiliser
+ * signerVisuel plutôt qu'un schéma séparé n'introduit aucun secret de plus,
+ * et ne mélange les deux adresses en pratique que si l'appelant les confond
+ * lui-même — chacune ne vérifie que la sienne.
+ */
+export function urlPlancheVideoPublique(
+  base: string, reference: string, index: number,
+): string | null {
+  const signature = signerVisuel(reference, index);
+  if (!signature) return null;
+  const url = new URL('/api/marketing/video-planche', base);
+  url.searchParams.set('ref', reference);
+  url.searchParams.set('index', String(index));
+  url.searchParams.set('jeton', signature);
+  return url.toString();
+}

@@ -1,6 +1,8 @@
 import { ImageResponse } from 'next/og';
 import { genererSemaine, type Contenu } from '@/lib/marketing/generateur';
-import { planifierVisuel, COULEURS, type Planche, type NomFormat } from '@/lib/marketing/visuel';
+import {
+  planifierVisuel, planifierVisuelVideo, COULEURS, type Planche, type NomFormat,
+} from '@/lib/marketing/visuel';
 
 /**
  * Rendu des planches en image.
@@ -112,6 +114,42 @@ export async function rendreVisuel(
             background: plan.fond === COULEURS.marine ? '#FFFFFF' : COULEURS.marine,
           }} />
           <span style={{ fontSize: 32, opacity: 0.7 }}>{plan.signature}</span>
+        </div>
+      </div>
+    ),
+    { width: plan.largeur, height: plan.hauteur, fonts: await polices() },
+  );
+}
+
+/**
+ * Dessine une planche vidéo (video-contenu.ts) et renvoie la réponse image.
+ *
+ * Séparée de rendreVisuel plutôt qu'ajoutée en option à son dessin : la
+ * planche vidéo n'a ni surtitre, ni pagination, ni appel à l'action détaché —
+ * une seule idée, en très grand, sur fond contrasté. Un mélange des deux
+ * dessins dans une même fonction, sous condition, serait vite illisible et
+ * risquerait de faire dériver le rendu statique en le modifiant au passage.
+ */
+export async function rendreVisuelVideo(texte: string) {
+  const plan = planifierVisuelVideo(texte);
+
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          width: plan.largeur, height: plan.hauteur,
+          background: plan.fond, color: plan.couleurTexte,
+          display: 'flex', flexDirection: 'column', justifyContent: 'center',
+          padding: '110px 90px', fontFamily: 'Inter',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex', fontSize: plan.taille, lineHeight: 1.15,
+            fontWeight: 700, letterSpacing: '-0.02em',
+          }}
+        >
+          {plan.texte}
         </div>
       </div>
     ),

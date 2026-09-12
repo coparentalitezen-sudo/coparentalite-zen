@@ -122,3 +122,54 @@ export function planifierVisuel(planche: Planche, format: NomFormat): PlanVisuel
     signature: 'coparentalitezen.fr',
   };
 }
+
+/**
+ * Gabarit d'une planche vidéo — une variante propre au diaporama des Reels
+ * (video.ts), distincte de planifierVisuel : les planches statiques restent
+ * inchangées, format publication comme carrousel.
+ *
+ * Sur mobile, entre deux Reels, une planche pensée pour être lue (comme une
+ * publication) ne retient pas l'œil : le texte y occupe le quart de l'image,
+ * le reste reste vide. Ici, une seule idée occupe la majeure partie de la
+ * hauteur, sur un fond contrasté — jamais blanc — plutôt que d'être
+ * proportionnée à sa longueur comme planifierVisuel le fait pour un texte
+ * destiné à être lu posément.
+ */
+export interface PlanVisuelVideo {
+  largeur: number;
+  hauteur: number;
+  fond: string;
+  couleurTexte: string;
+  taille: number;
+  texte: string;
+}
+
+/**
+ * Nettement plus grand que tailleTexte : une planche vidéo ne porte qu'une
+ * idée courte (au plus quinze mots, imposé par video-contenu.ts), pas un
+ * paragraphe à faire tenir. Rien n'empêche donc de viser une taille occupant
+ * la majeure partie de la hauteur plutôt que de ménager de la place pour un
+ * texte plus long qui n'arrivera jamais ici.
+ */
+export function tailleTexteVideo(texte: string): number {
+  const n = texte.length;
+  if (n < 30) return 170;
+  if (n < 60) return 140;
+  if (n < 90) return 110;
+  return 90;
+}
+
+export function planifierVisuelVideo(texte: string): PlanVisuelVideo {
+  const { largeur, hauteur } = FORMATS.vertical;
+  return {
+    largeur,
+    hauteur,
+    // Marine, pas le fond crème des planches lues : c'est le même contraste
+    // que planifierVisuel réserve déjà à une couverture, généralisé ici à
+    // toutes les planches vidéo.
+    fond: COULEURS.marine,
+    couleurTexte: '#FFFFFF',
+    taille: tailleTexteVideo(texte),
+    texte,
+  };
+}
