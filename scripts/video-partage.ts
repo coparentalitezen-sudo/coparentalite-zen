@@ -32,7 +32,12 @@ export async function telechargerPlanchesReel(
       throw new Error(`Planche ${i} de ${contenu.reference} injoignable (${reponse.status}).`);
     }
 
-    const chemin = join(dossier, `${contenu.reference}-p${i}.png`);
+    // /api/marketing/visuel-public renvoie du JPEG (route.tsx : Instagram
+    // n'accepte pas le PNG produit par ImageResponse, d'où une reconversion
+    // avant de servir). Écrire .png ici induirait en erreur quiconque
+    // ouvrirait le fichier, même si ffmpeg décode par contenu et non par
+    // extension.
+    const chemin = join(dossier, `${contenu.reference}-p${i}.jpg`);
     await writeFile(chemin, Buffer.from(await reponse.arrayBuffer()));
     planches.push({ cheminImage: chemin, secondes: page.secondes ?? SECONDES_PAR_DEFAUT });
   }

@@ -5,13 +5,14 @@ name: Vidéo marketing
 # de ce qu'exige l'encodage ffmpeg d'une vidéo de 28 secondes. Un runner
 # GitHub Actions n'a pas cette limite.
 #
-# Programmée le dimanche soir, avant les tâches Vercel du lundi matin
-# (détection 5h00 UTC, bilan 5h30 UTC) : le Reel du lundi doit avoir sa vidéo
-# prête avant que quiconque ne le valide ou ne le publie.
+# Programmée le samedi soir plutôt que le dimanche : le rendu peut échouer
+# (ffmpeg absent, planche injoignable), et une seule journée de marge avant
+# les tâches Vercel du lundi matin (détection 5h00 UTC, bilan 5h30 UTC) ne
+# laisserait pas le temps de le relancer à la main si besoin.
 
 on:
   schedule:
-    - cron: '0 22 * * 0'
+    - cron: '0 22 * * 6'
   workflow_dispatch:
 
 concurrency:
