@@ -172,6 +172,12 @@ export async function rendreVisuelVideo(texte: string, position: number, total: 
           style={{
             display: 'flex', fontSize: plan.taille, lineHeight: 1.15,
             fontWeight: 700, letterSpacing: '-0.02em',
+            // Dernier recours si un mot dépasse malgré tout la taille choisie
+            // par tailleTexteVideo (une adresse plus longue qu'aujourd'hui,
+            // par exemple) : une coupure en plein mot reste préférable à un
+            // débordement hors cadre, qui coupe purement et simplement le
+            // texte au bord de l'image plutôt que de le rendre.
+            wordBreak: 'break-word', overflowWrap: 'break-word',
           }}
         >
           {plan.texte}

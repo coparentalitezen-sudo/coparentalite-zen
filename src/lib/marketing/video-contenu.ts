@@ -83,8 +83,16 @@ export interface PlancheVideoTexte {
  * test), elle le reste pour toujours. Le garde-fou n'en reste pas moins actif
  * en code — pas seulement relu une fois à l'écriture — au cas où ce texte
  * changerait un jour sans qu'on y repense.
+ *
+ * « CoparentalitéZen » est volontairement absent : l'adresse le porte déjà,
+ * et l'ajouter transformait le texte en deux mots longs côte à côte
+ * (« CoparentalitéZen » et « coparentalitezen.fr », seize et dix-neuf
+ * caractères) — la combinaison qui avait fait déborder la première version
+ * du cadre 1080×1920, même une fois la taille de police réduite pour cette
+ * planche (voir tailleTexteVideo, visuel.ts). Un seul mot long reste
+ * largement dans les clous.
  */
-export const TEXTE_APPEL_VIDEO = 'Retrouvez CoparentalitéZen sur coparentalitezen.fr.';
+export const TEXTE_APPEL_VIDEO = 'Rendez-vous sur coparentalitezen.fr';
 export const SECONDES_APPEL_VIDEO = 3;
 
 /**

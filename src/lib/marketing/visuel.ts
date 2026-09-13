@@ -153,13 +153,27 @@ export interface PlanVisuelVideo {
  * paragraphe à faire tenir. Rien n'empêche donc de viser une taille occupant
  * la majeure partie de la hauteur plutôt que de ménager de la place pour un
  * texte plus long qui n'arrivera jamais ici.
+ *
+ * Un mot isolé très long — une adresse comme coparentalitezen.fr, dix-neuf
+ * caractères sans espace — déborde du cadre bien avant qu'un texte de même
+ * longueur totale mais aux mots courts ne le fasse : la taille choisie sur la
+ * seule longueur du texte a laissé passer un débordement horizontal réel
+ * (planche d'appel à l'action, corrigé après coup). Le plafond ci-dessous est
+ * calé sur un rendu réel (satori, la même moteur que rendreVisuelVideo) :
+ * un mot de dix-neuf caractères déborde encore à 110px et tient à 90, un mot
+ * de vingt-cinq déborde à 90 et tient à 70 — d'où le rapport ~1700 ÷
+ * longueur. rendreVisuelVideo ajoute par ailleurs un word-break en dernier
+ * recours, pour le cas où un mot futur, plus long encore, dépasserait quand
+ * même cette estimation.
  */
 export function tailleTexteVideo(texte: string): number {
   const n = texte.length;
-  if (n < 30) return 170;
-  if (n < 60) return 140;
-  if (n < 90) return 110;
-  return 90;
+  const based = n < 30 ? 170 : n < 60 ? 140 : n < 90 ? 110 : 90;
+
+  const motLePlusLong = Math.max(0, ...texte.split(/\s+/).map((m) => m.length));
+  const plafondMot = motLePlusLong > 10 ? Math.floor(1700 / motLePlusLong) : based;
+
+  return Math.max(40, Math.min(based, plafondMot));
 }
 
 /**
