@@ -70,6 +70,11 @@ export async function GET(requete: Request) {
     else echecs.push({ reference: publication.reference, erreur: 'Écriture refusée.' });
   }
 
+  // Un relevé qui échoue partout renvoie quand même 200 : sans cette trace,
+  // une table vide ne dit pas si Meta a refusé ou si rien n'était à relever.
+  console.info('[mesures]', JSON.stringify({
+    examinees: publications.length, releves, echecs,
+  }));
   return NextResponse.json({
     examinees: publications.length,
     releves,

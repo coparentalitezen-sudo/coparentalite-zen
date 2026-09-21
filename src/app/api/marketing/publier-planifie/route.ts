@@ -109,5 +109,8 @@ export async function GET(requete: Request) {
     }
   }
 
+  // Le rapport part aussi dans les journaux : sans lui, un tour qui n'a rien
+  // publié ne laisse aucune trace, et « rien n'est parti » reste inexplicable.
+  console.info('[publier-planifie]', JSON.stringify({ jour: aujourdhui, rapports }));
   return NextResponse.json({ jour: aujourdhui, rapports });
 }
