@@ -96,7 +96,12 @@ export async function GET(requete: Request) {
       // d'idempotence qui joue. On passe au contenu suivant.
       if (r.dejaPublie) continue;
 
-      derniereErreur = r.erreur ?? 'Échec sans message.';
+      // Un contenu qui ne peut pas être publié ne doit pas bloquer ceux qui
+      // le suivent : un seul contenu défectueux en tête de file a suffi à
+      // tout arrêter pendant neuf jours. On le signale et on continue.
+      derniereErreur = `${contenu.reference} : ${r.erreur ?? 'échec sans message'}`;
+      if (!r.metaId && r.erreur === 'Contenu ou planche introuvable.') continue;
+
       break;
     }
 

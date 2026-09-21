@@ -1,5 +1,6 @@
 import { ImageResponse } from 'next/og';
 import { genererSemaine, type Contenu } from '@/lib/marketing/generateur';
+import { dateDepuisReference } from '@/lib/marketing/pinterest';
 import { planifierVisuel, COULEURS, type Planche, type NomFormat } from '@/lib/marketing/visuel';
 
 /**
@@ -41,8 +42,21 @@ async function polices() {
 }
 
 /** Contenu de la semaine correspondant à une référence, ou null. */
+/**
+ * Contenu désigné par sa référence.
+ *
+ * La recherche se faisait dans la semaine en cours seulement : un contenu
+ * prévu la semaine précédente devenait introuvable le lundi suivant. Tant que
+ * la publication se faisait à la main dans la semaine, rien ne le montrait ;
+ * la tâche planifiée, qui prend les contenus les plus anciens d'abord, est
+ * tombée dessus à chaque passage pendant neuf jours.
+ *
+ * La référence porte sa semaine : on régénère celle-là, comme le fait déjà la
+ * page de conseil.
+ */
 export function contenuDeReference(reference: string, base: string): Contenu | null {
-  return genererSemaine(new Date(), base).find((c) => c.reference === reference) ?? null;
+  const date = dateDepuisReference(reference) ?? new Date();
+  return genererSemaine(date, base).find((c) => c.reference === reference) ?? null;
 }
 
 /** Dessine une planche et renvoie la réponse image. */
