@@ -8,6 +8,21 @@ import {
 } from '@/app/admin/actions';
 
 /**
+ * Demande confirmation avant de suspendre un canal.
+ *
+ * Un seul effleurement suffisait à tout arrêter, sans retour visible hors de
+ * cette page : Instagram s'est retrouvé suspendu deux fois sans que personne
+ * ne l'ait voulu, et la diffusion est restée muette des jours durant. Rétablir
+ * ne demande rien — une réactivation involontaire se voit dès le lendemain,
+ * une suspension involontaire ne se voit pas.
+ */
+function confirmerSuspension(canal: string): boolean {
+  return window.confirm(
+    `Suspendre ${canal} ? Plus rien ne partira tant que vous ne l’aurez pas réactivé.`,
+  );
+}
+
+/**
  * File de validation hebdomadaire.
  *
  * Conçue pour un pouce sur un iPhone : une carte par contenu, deux boutons
@@ -447,11 +462,14 @@ export function AdminSemaine({
           <button
             type="button" className={generalEnService ? 'btn btn-ghost' : 'btn btn-primary'}
             disabled={enCours}
-            onClick={() => demarrer(async () => {
+            onClick={() => {
+              if (generalEnService && !confirmerSuspension('toutes les publications')) return;
+              demarrer(async () => {
               const r = await actionSuspendre('global', !generalEnService);
               if (r.ok) setGeneralEnService(!generalEnService);
               else setMessage(r.message ?? 'Échec.');
-            })}
+            });
+            }}
           >
             {generalEnService ? 'Tout suspendre' : 'Lever l’arrêt général'}
           </button>
@@ -469,11 +487,14 @@ export function AdminSemaine({
           <button
             type="button" className={enService ? 'btn btn-ghost' : 'btn btn-primary'}
             disabled={enCours}
-            onClick={() => demarrer(async () => {
+            onClick={() => {
+              if (enService && !confirmerSuspension('Instagram')) return;
+              demarrer(async () => {
               const r = await actionSuspendre('instagram', !enService);
               if (r.ok) setEnService(!enService);
               else setMessage(r.message ?? 'Échec.');
-            })}
+            });
+            }}
           >
             {enService ? 'Suspendre Instagram' : 'Activer Instagram'}
           </button>
@@ -515,11 +536,14 @@ export function AdminSemaine({
           <button
             type="button" className={facebookEnService ? 'btn btn-ghost' : 'btn btn-primary'}
             disabled={enCours}
-            onClick={() => demarrer(async () => {
+            onClick={() => {
+              if (facebookEnService && !confirmerSuspension('Facebook')) return;
+              demarrer(async () => {
               const r = await actionSuspendre('facebook', !facebookEnService);
               if (r.ok) setFacebookEnService(!facebookEnService);
               else setMessage(r.message ?? 'Échec.');
-            })}
+            });
+            }}
           >
             {facebookEnService ? 'Suspendre Facebook' : 'Activer Facebook'}
           </button>
