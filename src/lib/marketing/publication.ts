@@ -1,10 +1,12 @@
 import 'server-only';
 import {
   configurationPrete, publierImageInstagram, publierCarrouselInstagram,
-  publierFacebook, publierAlbumFacebook, expurger,
+  publierFacebook, publierAlbumFacebook, publierReelInstagram, publierReelFacebook,
+  expurger, type ResultatMeta,
 } from './meta';
+import { videoPublique } from './video';
 import { urlVisuelPublic } from './signature';
-import { contenuDeReference } from './rendu';
+import { contenuDeReference, rendreVisuel } from './rendu';
 import {
   reserverPublication, conclurePublication, enregistrerSemaine, publicationAutorisee,
 } from './depot';
@@ -81,21 +83,55 @@ export async function publierContenu(
 
   const urlsPlanches = contenu.pages.map((_, i) => urlVisuelPublic(base, reference, i) ?? '');
 
-  const resultat = plateforme === 'facebook'
-    ? estCarrousel
-      ? await publierAlbumFacebook(config, urlsPlanches, contenu.legendeFacebook)
-      : await publierFacebook(config, urlImage, contenu.legendeFacebook)
-    : estCarrousel
-      ? await publierCarrouselInstagram(
-          config,
-          urlsPlanches.map((url) => ({
-            url,
-            texteAlternatif: contenu.texteAlternatif,
-          })),
-          contenu.legendeInstagram,
-        )
-      : await publierImageInstagram(
-          config, urlImage, contenu.legendeInstagram, contenu.texteAlternatif);
+  // Publication en carrousel (Instagram) ou en album (Facebook) : la forme
+  // de repli, qui ne dépend ni de la vidéo ni de son traitement par Meta.
+  const publierEnPlanches = async (): Promise<ResultatMeta<unknown>> => (
+    plateforme === 'facebook'
+      ? estCarrousel
+        ? publierAlbumFacebook(config, urlsPlanches, contenu.legendeFacebook)
+        : publierFacebook(config, urlImage, contenu.legendeFacebook)
+      : estCarrousel
+        ? publierCarrouselInstagram(
+            config,
+            urlsPlanches.map((url) => ({ url, texteAlternatif: contenu.texteAlternatif })),
+            contenu.legendeInstagram,
+          )
+        : publierImageInstagram(
+            config, urlImage, contenu.legendeInstagram, contenu.texteAlternatif)
+  );
+
+  let resultat: ResultatMeta<unknown>;
+
+  if (contenu.format === 'reel') {
+    // Les contenus « reel » partent en vraie vidéo : c'est le format que les
+    // deux réseaux montrent le plus à ceux qui ne suivent pas encore le
+    // compte. Les planches sont dessinées au format vertical du réel.
+    const video = await videoPublique(reference, async () => Promise.all(
+      contenu.pages.map(async (_, i) =>
+        (await rendreVisuel(contenu, i, 'vertical')).arrayBuffer()),
+    ));
+
+    const reel = video.ok
+      ? plateforme === 'facebook'
+        ? await publierReelFacebook(config, video.url, contenu.legendeFacebook)
+        : await publierReelInstagram(config, video.url, contenu.legendeInstagram)
+      : { ok: false as const, erreur: video.erreur };
+
+    // Si la vidéo n'a pas pu être fabriquée ou que Meta l'a refusée, on
+    // publie les mêmes planches en carrousel plutôt que rien : un contenu
+    // publié sous une autre forme vaut mieux qu'une journée muette. Aucun des
+    // échecs ci-dessus ne laisse de réel publié, le repli ne fait donc pas
+    // doublon.
+    if (reel.ok) {
+      resultat = reel;
+    } else {
+      console.info('[publication]', reference, plateforme,
+        'réel impossible, repli en planches :', expurger(reel.erreur ?? '', config.jeton));
+      resultat = await publierEnPlanches();
+    }
+  } else {
+    resultat = await publierEnPlanches();
+  }
 
   const idPublication = reservation.deja!.id;
 

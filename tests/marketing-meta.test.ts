@@ -3,7 +3,7 @@ import {
   configurationMeta, etatConfiguration, expurger, appelGraph,
   verifierConnexion, permissions, publierImageInstagram, publierFacebook,
   natureDuJeton, aptitudes, jetonDePage, expirationJeton, publierCarrouselInstagram,
-  publierAlbumFacebook,
+  publierAlbumFacebook, publierReelInstagram, publierReelFacebook,
   VERSION_GRAPH, type ConfigurationMeta,
 } from '../src/lib/marketing/meta';
 
@@ -387,5 +387,61 @@ describe('publication à plusieurs photos sur Facebook', () => {
     await publierAlbumFacebook(CONFIG, ['https://x/1'], 'L', f.requete);
     expect(f.appels).toHaveLength(1);
     expect(String(f.appels[0].init?.body)).not.toContain('published=false');
+  });
+});
+
+describe('réels', () => {
+  it('Instagram : crée un conteneur REELS partagé dans la grille, attend, puis publie', async () => {
+    const f = faussaire([
+      { corps: { id: 'c1' } },
+      { corps: { status_code: 'IN_PROGRESS' } },
+      { corps: { status_code: 'FINISHED' } },
+      { corps: { id: 'm1' } },
+    ]);
+    const r = await publierReelInstagram(CONFIG, 'https://v/r.mp4', 'Légende', f.requete, 0);
+    expect(r.ok).toBe(true);
+    const creation = new URLSearchParams(String(f.appels[0].init?.body));
+    expect(creation.get('media_type')).toBe('REELS');
+    expect(creation.get('video_url')).toBe('https://v/r.mp4');
+    expect(creation.get('share_to_feed')).toBe('true');
+    expect(f.appels[3].url).toContain('/333/media_publish');
+  });
+
+  it('Instagram : ne publie pas si Meta renonce à traiter la vidéo', async () => {
+    const f = faussaire([
+      { corps: { id: 'c1' } },
+      { corps: { status_code: 'ERROR', status: 'format refusé' } },
+    ]);
+    const r = await publierReelInstagram(CONFIG, 'https://v/r.mp4', 'L', f.requete, 0);
+    expect(r.ok).toBe(false);
+    expect(f.appels.some((a) => a.url.includes('media_publish'))).toBe(false);
+  });
+
+  it('Facebook : ouvre l’envoi, indique la vidéo, puis publie avec la description', async () => {
+    const f = faussaire([
+      { corps: { video_id: 'v9' } },
+      { corps: { success: true } },
+      { corps: { success: true } },
+    ]);
+    const r = await publierReelFacebook(CONFIG, 'https://v/r.mp4', 'Desc', f.requete);
+    expect(r.ok).toBe(true);
+    expect(f.appels[0].url).toContain('/222/video_reels');
+    expect(f.appels[1].url).toContain('rupload.facebook.com');
+    const entetes = f.appels[1].init?.headers as Record<string, string>;
+    expect(entetes.file_url).toBe('https://v/r.mp4');
+    const fin = new URLSearchParams(String(f.appels[2].init?.body));
+    expect(fin.get('upload_phase')).toBe('finish');
+    expect(fin.get('video_state')).toBe('PUBLISHED');
+    expect(fin.get('description')).toBe('Desc');
+  });
+
+  it('Facebook : n’expose jamais le jeton dans un message d’erreur de dépôt', async () => {
+    const f = faussaire([
+      { corps: { video_id: 'v9' } },
+      { statut: 400, corps: { error: `refus ${CONFIG.jeton}` } },
+    ]);
+    const r = await publierReelFacebook(CONFIG, 'https://v/r.mp4', 'D', f.requete);
+    expect(r.ok).toBe(false);
+    expect(r.erreur).not.toContain(CONFIG.jeton);
   });
 });

@@ -20,6 +20,9 @@ import { AdminSemaine, type ContenuAffiche } from '@/components/admin-semaine';
  * existe ici quelque chose à forcer.
  */
 export const dynamic = 'force-dynamic';
+// Publier un réel depuis cette page fabrique une vidéo puis attend son
+// traitement par Meta : bien plus qu'une minute dans le pire des cas.
+export const maxDuration = 300;
 
 export default async function PageAdmin() {
   const supabase = await supabaseServer();

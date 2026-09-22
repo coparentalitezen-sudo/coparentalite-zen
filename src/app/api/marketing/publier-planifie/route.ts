@@ -22,7 +22,7 @@ import { publierContenu } from '@/lib/marketing/publication';
  * ressemblerait à du spam : mieux vaut un retard visible qu'une rafale.
  */
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const PLATEFORMES = ['instagram', 'facebook'] as const;
 

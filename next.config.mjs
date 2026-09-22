@@ -19,6 +19,17 @@ const csp = [
 /** @type {import('next').NextConfig} */
 export default {
   reactStrictMode: true,
+  // ffmpeg est un exécutable, pas du code : le traceur de Next ne le voit
+  // pas et ne l'embarquerait pas. On le déclare explicitement, et seulement
+  // pour les fonctions qui publient — l'ajouter partout alourdirait chaque
+  // fonction du site de quatre-vingts mégaoctets.
+  serverExternalPackages: ['ffmpeg-static'],
+  outputFileTracingIncludes: {
+    '/api/marketing/publier-planifie': ['./node_modules/ffmpeg-static/ffmpeg'],
+    '/api/marketing/publier': ['./node_modules/ffmpeg-static/ffmpeg'],
+    '/admin': ['./node_modules/ffmpeg-static/ffmpeg'],
+    '/admin/**': ['./node_modules/ffmpeg-static/ffmpeg'],
+  },
   env: {
     NEXT_PUBLIC_VERSION: (process.env.VERCEL_GIT_COMMIT_SHA || 'local').slice(0, 7),
   },

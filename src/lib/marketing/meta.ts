@@ -171,10 +171,11 @@ const TENTATIVES_MAX = 8;
  */
 async function attendreConteneur(
   id: string, config: ConfigurationMeta, requete?: Requete,
+  tentatives = TENTATIVES_MAX, attente = ATTENTE_MS,
 ): Promise<ResultatMeta<string>> {
   let dernier = 'inconnu';
 
-  for (let essai = 0; essai < TENTATIVES_MAX; essai++) {
+  for (let essai = 0; essai < tentatives; essai++) {
     const etat = await appelGraph<{ status_code?: string; status?: string }>(
       `/${id}?fields=status_code,status`, config, { requete });
 
@@ -192,14 +193,14 @@ async function attendreConteneur(
       };
     }
 
-    if (essai < TENTATIVES_MAX - 1) {
-      await new Promise((suite) => setTimeout(suite, ATTENTE_MS));
+    if (essai < tentatives - 1) {
+      await new Promise((suite) => setTimeout(suite, attente));
     }
   }
 
   return {
     ok: false,
-    erreur: `Conteneur toujours ${dernier} après ${(TENTATIVES_MAX * ATTENTE_MS) / 1000} s. `
+    erreur: `Conteneur toujours ${dernier} après ${(tentatives * attente) / 1000} s. `
       + 'Réessayez : le contenu n’a pas été publié.',
   };
 }
@@ -246,6 +247,104 @@ export async function publierImageInstagram(
   );
   if (!publie.ok) return { ok: false, erreur: `Publication : ${publie.erreur}` };
   return { ok: true, donnees: publie.donnees };
+}
+
+/**
+ * Une vidéo demande bien plus de préparation qu'une image : Meta la
+ * télécharge puis la réencode. Vingt secondes, suffisantes pour une image,
+ * feraient échouer presque tous les réels ; on attend jusqu'à deux minutes.
+ */
+const TENTATIVES_VIDEO = 24;
+const ATTENTE_VIDEO_MS = 5000;
+
+/** Publie un réel sur Instagram à partir d'une vidéo accessible publiquement. */
+export async function publierReelInstagram(
+  config: ConfigurationMeta,
+  urlVideo: string,
+  legende: string,
+  requete?: Requete,
+  attente = ATTENTE_VIDEO_MS,
+): Promise<ResultatMeta<{ id: string }>> {
+  const conteneur = await appelGraph<{ id: string }>(
+    `/${config.igUserId}/media`, config,
+    {
+      methode: 'POST', requete,
+      corps: {
+        media_type: 'REELS',
+        video_url: urlVideo,
+        caption: legende,
+        // Sans ce drapeau, le réel n'apparaît que dans l'onglet Réels et pas
+        // dans la grille du profil.
+        share_to_feed: 'true',
+        ...avecLieu(),
+      },
+    },
+  );
+  if (!conteneur.ok) return { ok: false, erreur: `Conteneur : ${conteneur.erreur}` };
+
+  const pret = await attendreConteneur(
+    conteneur.donnees!.id, config, requete, TENTATIVES_VIDEO, attente);
+  if (!pret.ok) return { ok: false, erreur: pret.erreur };
+
+  const publie = await appelGraph<{ id: string }>(
+    `/${config.igUserId}/media_publish`, config,
+    { methode: 'POST', requete, corps: { creation_id: conteneur.donnees!.id } },
+  );
+  if (!publie.ok) return { ok: false, erreur: `Publication : ${publie.erreur}` };
+  return { ok: true, donnees: publie.donnees };
+}
+
+/**
+ * Publie un réel sur la page Facebook.
+ *
+ * Trois temps imposés par Meta : ouvrir un envoi, lui indiquer où chercher
+ * la vidéo, puis clore l'envoi en demandant la publication. Le deuxième temps
+ * passe par un autre serveur que l'API, qui attend le jeton sous une autre
+ * forme.
+ */
+export async function publierReelFacebook(
+  config: ConfigurationMeta,
+  urlVideo: string,
+  description: string,
+  requete?: Requete,
+): Promise<ResultatMeta<{ id: string }>> {
+  const envoyer = requete ?? fetch;
+
+  const ouverture = await appelGraph<{ video_id: string }>(
+    `/${config.pageId}/video_reels`, config,
+    { methode: 'POST', requete, corps: { upload_phase: 'start' } },
+  );
+  if (!ouverture.ok) return { ok: false, erreur: `Ouverture : ${ouverture.erreur}` };
+  const idVideo = ouverture.donnees!.video_id;
+
+  try {
+    const depot = await envoyer(
+      `https://rupload.facebook.com/video-upload/${VERSION_GRAPH}/${idVideo}`,
+      {
+        method: 'POST',
+        headers: { Authorization: `OAuth ${config.jeton}`, file_url: urlVideo },
+      },
+    );
+    if (!depot.ok) {
+      const texte = await depot.text();
+      return { ok: false, erreur: expurger(`Dépôt : ${depot.status} · ${texte}`, config.jeton) };
+    }
+  } catch (e) {
+    return { ok: false, erreur: expurger(`Dépôt : ${(e as Error).message}`, config.jeton) };
+  }
+
+  const cloture = await appelGraph<{ success?: boolean }>(
+    `/${config.pageId}/video_reels`, config,
+    {
+      methode: 'POST', requete,
+      corps: {
+        upload_phase: 'finish', video_id: idVideo,
+        video_state: 'PUBLISHED', description,
+      },
+    },
+  );
+  if (!cloture.ok) return { ok: false, erreur: `Clôture : ${cloture.erreur}` };
+  return { ok: true, donnees: { id: idVideo } };
 }
 
 /**
