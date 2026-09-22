@@ -205,6 +205,19 @@ async function attendreConteneur(
 }
 
 /**
+ * Lieu associé aux publications Instagram, s'il est configuré.
+ *
+ * Meta attend l'identifiant de la page Facebook d'un lieu, pas un nom : un
+ * identifiant faux fait échouer la publication entière. Il n'est donc envoyé
+ * que s'il a été renseigné et vérifié dans META_LIEU_ID ; sans lui, on publie
+ * sans lieu plutôt que de ne pas publier.
+ */
+function avecLieu(): { location_id?: string } {
+  const lieu = process.env.META_LIEU_ID?.trim();
+  return lieu && /^\d+$/.test(lieu) ? { location_id: lieu } : {};
+}
+
+/**
  * Publie une image simple sur Instagram.
  *
  * Le texte alternatif est transmis : il est accepté sur les publications
@@ -220,7 +233,7 @@ export async function publierImageInstagram(
 ): Promise<ResultatMeta<{ id: string }>> {
   const conteneur = await appelGraph<{ id: string }>(
     `/${config.igUserId}/media`, config,
-    { methode: 'POST', requete, corps: { image_url: urlImage, caption: legende, alt_text: texteAlternatif } },
+    { methode: 'POST', requete, corps: { image_url: urlImage, caption: legende, alt_text: texteAlternatif, ...avecLieu() } },
   );
   if (!conteneur.ok) return { ok: false, erreur: `Conteneur : ${conteneur.erreur}` };
 
@@ -525,6 +538,7 @@ export async function publierCarrouselInstagram(
         media_type: 'CAROUSEL',
         children: identifiants.join(','),
         caption: legende,
+        ...avecLieu(),
       },
     },
   );

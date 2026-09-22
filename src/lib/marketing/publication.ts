@@ -73,10 +73,11 @@ export async function publierContenu(
     };
   }
 
-  // Un carrousel part avec toutes ses planches. N'en publier que la première
-  // revenait à amputer le contenu de sa démonstration : la couverture pose
-  // une question, ce sont les planches suivantes qui y répondent.
-  const estCarrousel = contenu.format === 'carrousel' && contenu.pages.length >= 2;
+  // Tout contenu de plusieurs planches part en carrousel sur Instagram. Les
+  // contenus « reel » en comptent quatre mais n'ont pas de vidéo : ils
+  // partaient en image seule, soit la couverture sans la suite, et la
+  // question posée restait sans réponse.
+  const estCarrousel = contenu.pages.length >= 2;
 
   const resultat = plateforme === 'facebook'
     ? await publierFacebook(config, urlImage, contenu.legendeFacebook)

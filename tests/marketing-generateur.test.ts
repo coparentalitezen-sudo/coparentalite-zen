@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   genererSemaine, semaineIso, sujetsDeLaSemaine, CADENCE,
-  APPELS_ACTION, appelActionPour,
+  APPELS_ACTION, appelActionPour, HASHTAGS,
 } from '../src/lib/marketing/generateur';
 import { BANQUE } from '../src/lib/marketing/banque';
 import { planifierVisuel } from '../src/lib/marketing/visuel';
@@ -83,6 +83,12 @@ describe('exigences éditoriales de chaque contenu', () => {
       const occurrences = APPELS_ACTION
         .reduce((n, a) => n + c.legendeInstagram.split(a).length - 1, 0);
       expect(occurrences).toBe(1);
+    }
+  });
+
+  it('pose les cinq mots-dièse choisis sur chaque légende Instagram', () => {
+    for (const c of semaine) {
+      for (const h of HASHTAGS) expect(c.legendeInstagram).toContain(h);
     }
   });
 

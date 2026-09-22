@@ -50,6 +50,16 @@ export interface Contenu {
   jour: number;               // 0 = dimanche, conformément à Date.getDay()
 }
 
+/**
+ * Mots-dièse posés sur chaque publication, choisis par l'éditeur.
+ *
+ * Cinq, pas davantage : Instagram plafonne leur nombre, et un contenu qui en
+ * porterait plus serait refusé ou tronqué sans avertissement.
+ */
+export const HASHTAGS = [
+  '#coparentalité', '#gardealternée', '#parentsolo', '#maman', '#papa',
+] as const;
+
 /** L'appel à l'action historique. Conservé comme variante C du test. */
 export const APPEL_ACTION =
   'Simplifiez votre organisation familiale avec CoparentalitéZen. Lien dans la bio.';
@@ -269,9 +279,7 @@ function contenuQuiz(
   reference: string, jour: number, lienQuiz: string, indice: number,
 ): Contenu {
   const accroche = ACCROCHES_QUIZ[indice % ACCROCHES_QUIZ.length];
-  const hashtags = [
-    '#gardealternée', '#coparentalité', '#parentsséparés', '#organisationfamiliale',
-  ];
+  const hashtags = [...HASHTAGS];
 
   return {
     // La niche doit exister dans marketing_niches : l'opportunité la
@@ -334,10 +342,10 @@ function contenuQuiz(
     pages,
     legendeInstagram:
       `${m.accroche}\n\n${m.corps}\n\n${appelActionPour(reference)}`
-      + '\n\n#coparentalité #parentsséparés #organisationfamiliale',
+      + `\n\n${HASHTAGS.join(' ')}`,
     legendeFacebook: `${m.accroche}\n\n${m.corps}\n\nDécouvrir l’application : ${lien}`,
     texteAlternatif: m.texteAlternatif,
-    hashtags: ['#coparentalité', '#parentsséparés', '#organisationfamiliale'],
+    hashtags: [...HASHTAGS],
     appelAction: appelActionPour(reference),
     jour,
   };
@@ -388,7 +396,11 @@ export function genererSemaine(
 
     const sujet = sujets[i % sujets.length];
     const accroche = sujet.accroches[Math.floor(tirage() * sujet.accroches.length)];
-    const hashtags = motsDiese(sujet, tirage);
+    // Le tirage reste consommé même si son résultat n'est plus affiché : le
+    // supprimer décalerait tous les tirages suivants et changerait la légende
+    // de contenus déjà programmés, voire déjà publiés.
+    motsDiese(sujet, tirage);
+    const hashtags = [...HASHTAGS];
 
     // Le corps de la légende dépend de l'intention du créneau : donner un
     // conseil, faire reconnaître une situation, montrer l'application, ou
