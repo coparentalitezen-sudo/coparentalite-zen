@@ -3,6 +3,7 @@ import {
   configurationMeta, etatConfiguration, expurger, appelGraph,
   verifierConnexion, permissions, publierImageInstagram, publierFacebook,
   natureDuJeton, aptitudes, jetonDePage, expirationJeton, publierCarrouselInstagram,
+  publierAlbumFacebook,
   VERSION_GRAPH, type ConfigurationMeta,
 } from '../src/lib/marketing/meta';
 
@@ -344,5 +345,47 @@ describe('carrousel Instagram', () => {
     const r = await publierCarrouselInstagram(CONFIG, planches(3), 'L', f.requete);
     expect(r.ok).toBe(false);
     expect(r.erreur).toContain('Planche 2');
+  });
+});
+
+describe('publication à plusieurs photos sur Facebook', () => {
+  it('dépose chaque photo sans la publier puis les rattache à une seule publication', async () => {
+    const f = faussaire([
+      { corps: { id: 'p1' } }, { corps: { id: 'p2' } }, { corps: { id: 'p3' } },
+      { corps: { id: '222_999' } },
+    ]);
+    const r = await publierAlbumFacebook(
+      CONFIG, ['https://x/1', 'https://x/2', 'https://x/3'], 'Légende', f.requete);
+
+    expect(r.ok).toBe(true);
+    expect(f.appels).toHaveLength(4);
+    for (const appel of f.appels.slice(0, 3)) {
+      expect(appel.url).toContain('/222/photos');
+      expect(String(appel.init?.body)).toContain('published=false');
+    }
+    const final = new URLSearchParams(String(f.appels[3].init?.body));
+    expect(f.appels[3].url).toContain('/222/feed');
+    expect(final.get('message')).toBe('Légende');
+    expect(JSON.parse(final.get('attached_media[0]')!)).toEqual({ media_fbid: 'p1' });
+    expect(JSON.parse(final.get('attached_media[2]')!)).toEqual({ media_fbid: 'p3' });
+  });
+
+  // Une publication amputée d'une planche au milieu perdrait le fil.
+  it('ne publie rien si une photo échoue', async () => {
+    const f = faussaire([
+      { corps: { id: 'p1' } },
+      { statut: 400, corps: { error: { message: 'image refusée' } } },
+    ]);
+    const r = await publierAlbumFacebook(CONFIG, ['https://x/1', 'https://x/2'], 'L', f.requete);
+    expect(r.ok).toBe(false);
+    expect(r.erreur).toContain('Photo 2');
+    expect(f.appels.some((a) => a.url.includes('/feed'))).toBe(false);
+  });
+
+  it('revient à la photo simple quand il n’y a qu’une planche', async () => {
+    const f = faussaire([{ corps: { id: 'x', post_id: '222_1' } }]);
+    await publierAlbumFacebook(CONFIG, ['https://x/1'], 'L', f.requete);
+    expect(f.appels).toHaveLength(1);
+    expect(String(f.appels[0].init?.body)).not.toContain('published=false');
   });
 });

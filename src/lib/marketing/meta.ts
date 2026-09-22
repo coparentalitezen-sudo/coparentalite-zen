@@ -248,6 +248,50 @@ export async function publierImageInstagram(
   return { ok: true, donnees: publie.donnees };
 }
 
+/**
+ * Publie plusieurs photos en une seule publication sur la page Facebook.
+ *
+ * Facebook n'a pas de carrousel pour les publications de page hors
+ * publicité : l'équivalent est une publication à plusieurs photos. Chaque
+ * photo est d'abord déposée sans être publiée, puis toutes sont rattachées à
+ * une seule publication portant la légende. Publiées une à une, elles
+ * feraient autant de publications séparées dans le fil, dans le désordre.
+ *
+ * Si une photo échoue, rien n'est publié : une publication amputée d'une
+ * planche au milieu perdrait le fil de sa démonstration.
+ */
+export async function publierAlbumFacebook(
+  config: ConfigurationMeta,
+  urlsImages: string[],
+  message: string,
+  requete?: Requete,
+): Promise<ResultatMeta<{ id: string }>> {
+  if (urlsImages.length < 2) {
+    return publierFacebook(config, urlsImages[0] ?? '', message, requete);
+  }
+
+  const identifiants: string[] = [];
+  for (const [rang, url] of urlsImages.entries()) {
+    const photo = await appelGraph<{ id: string }>(
+      `/${config.pageId}/photos`, config,
+      { methode: 'POST', requete, corps: { url, published: 'false' } },
+    );
+    if (!photo.ok) return { ok: false, erreur: `Photo ${rang + 1} : ${photo.erreur}` };
+    identifiants.push(photo.donnees!.id);
+  }
+
+  const corps: Record<string, string> = { message };
+  identifiants.forEach((id, i) => {
+    corps[`attached_media[${i}]`] = JSON.stringify({ media_fbid: id });
+  });
+
+  const publication = await appelGraph<{ id: string }>(
+    `/${config.pageId}/feed`, config, { methode: 'POST', requete, corps },
+  );
+  if (!publication.ok) return { ok: false, erreur: `Publication : ${publication.erreur}` };
+  return { ok: true, donnees: publication.donnees };
+}
+
 /** Publie une photo avec légende sur la page Facebook. */
 export async function publierFacebook(
   config: ConfigurationMeta,

@@ -1,7 +1,7 @@
 import 'server-only';
 import {
   configurationPrete, publierImageInstagram, publierCarrouselInstagram,
-  publierFacebook, expurger,
+  publierFacebook, publierAlbumFacebook, expurger,
 } from './meta';
 import { urlVisuelPublic } from './signature';
 import { contenuDeReference } from './rendu';
@@ -79,13 +79,17 @@ export async function publierContenu(
   // question posée restait sans réponse.
   const estCarrousel = contenu.pages.length >= 2;
 
+  const urlsPlanches = contenu.pages.map((_, i) => urlVisuelPublic(base, reference, i) ?? '');
+
   const resultat = plateforme === 'facebook'
-    ? await publierFacebook(config, urlImage, contenu.legendeFacebook)
+    ? estCarrousel
+      ? await publierAlbumFacebook(config, urlsPlanches, contenu.legendeFacebook)
+      : await publierFacebook(config, urlImage, contenu.legendeFacebook)
     : estCarrousel
       ? await publierCarrouselInstagram(
           config,
-          contenu.pages.map((_, i) => ({
-            url: urlVisuelPublic(base, reference, i) ?? '',
+          urlsPlanches.map((url) => ({
+            url,
             texteAlternatif: contenu.texteAlternatif,
           })),
           contenu.legendeInstagram,
