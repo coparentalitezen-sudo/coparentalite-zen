@@ -6,6 +6,7 @@ import { lireMesures, lireBilans, lireParcoursQuiz } from '@/lib/marketing/depot
 import {
   performances, regrouper, entonnoir, meilleuresAccroches,
 } from '@/lib/marketing/mesures';
+import { BoutonRelever } from './bouton-relever';
 
 /**
  * Tableau de bord.
@@ -96,11 +97,16 @@ export default async function PageMesures() {
       <section className="card space-y-2 p-4">
         <h2 className="font-display text-lg font-semibold">Portée, vues, interactions</h2>
         <p className="text-sm text-soft">
-          En attente de la connexion Meta. Ces chiffres n’existent que chez Instagram et
-          Facebook : ils seront relevés chaque semaine une fois la connexion faite.
+          Ces chiffres n’existent que chez Instagram : ils sont relevés chaque soir.
           Ils ne sont pas affichés à zéro, ce qui laisserait croire que personne n’a vu
           les publications.
         </p>
+        <p className="text-sm text-soft">
+          {donnees.releves.size > 0
+            ? `${donnees.releves.size} publication${donnees.releves.size > 1 ? 's' : ''} relevée${donnees.releves.size > 1 ? 's' : ''}.`
+            : 'Aucun relevé à ce jour — le bouton ci-dessous affiche le motif exact du refus.'}
+        </p>
+        <BoutonRelever />
       </section>
 
       <section className="card space-y-3 p-4">

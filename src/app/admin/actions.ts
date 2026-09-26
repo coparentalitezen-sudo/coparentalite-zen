@@ -8,6 +8,7 @@ import {
   type Plateforme,
 } from '@/lib/marketing/depot';
 import { publierContenu } from '@/lib/marketing/publication';
+import { releverMesures } from '@/lib/marketing/releve';
 
 /**
  * Contrôle d'accès des actions.
@@ -105,4 +106,42 @@ export async function actionPublier(
 
   revalidatePath('/admin');
   return { ok: true, metaId: r.metaId ?? null };
+}
+
+/**
+ * Relevé des mesures déclenché depuis l'interface.
+ *
+ * La tâche de 21h faisait déjà ce travail, mais son rapport partait dans les
+ * journaux de l'hébergeur, effacés au bout d'une heure. Résultat : la table
+ * des mesures est restée vide plus d'un mois sans que rien ne le signale.
+ * Ce bouton rend l'échec lisible par celui qui peut le corriger.
+ */
+export async function actionReleverMesures(): Promise<{
+  ok: boolean; message: string;
+}> {
+  if (!await exigerAdministrateur()) return { ok: false, message: 'Accès refusé.' };
+
+  const r = await releverMesures();
+
+  if (r.bloquant) return { ok: false, message: r.bloquant };
+
+  if (r.examinees === 0) {
+    return { ok: false, message: 'Aucune publication Instagram à relever.' };
+  }
+
+  revalidatePath('/admin/mesures');
+
+  if (r.releves === 0) {
+    // Le premier motif suffit : quand Meta refuse, il refuse pareil partout,
+    // et afficher vingt fois la même phrase n'apprend rien de plus.
+    return {
+      ok: false,
+      message: `Aucun relevé sur ${r.examinees} publications — ${r.echecs[0]?.erreur ?? 'motif inconnu'}`,
+    };
+  }
+
+  const reste = r.echecs.length
+    ? ` ${r.echecs.length} en échec — ${r.echecs[0].erreur}`
+    : '';
+  return { ok: true, message: `${r.releves} relevés sur ${r.examinees}.${reste}` };
 }

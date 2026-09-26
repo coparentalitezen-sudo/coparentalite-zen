@@ -1,29 +1,20 @@
 import { NextResponse } from 'next/server';
-import { configurationPrete, statistiquesInstagram } from '@/lib/marketing/meta';
-import { publicationsAMesurer, enregistrerMesure } from '@/lib/marketing/depot';
+import { releverMesures } from '@/lib/marketing/releve';
 
 /**
- * Relevé des statistiques Meta.
+ * Relevé des statistiques Meta, en tâche planifiée.
  *
- * La table des mesures existait depuis la migration 00041 et est restée vide :
- * rien n'appelait « statistiquesInstagram », et l'écran d'administration
- * affichait donc une portée inconnue pour chaque contenu. Le dispositif
- * publiait sans jamais savoir ce que ses publications avaient produit.
+ * La mécanique vit dans « releverMesures » : elle est aussi déclenchée depuis
+ * l'écran d'administration, où le motif d'échec est affiché au lieu d'être
+ * enfoui dans des journaux effacés au bout d'une heure.
  *
  * Chaque passage ajoute un relevé plutôt que d'écraser le précédent : la
  * portée continue de monter plusieurs jours après la mise en ligne, et n'en
  * garder que la dernière valeur interdirait de distinguer un contenu qui monte
  * vite d'un contenu qui monte longtemps.
- *
- * Une publication dont les statistiques échouent n'interrompt pas le relevé
- * des autres : une publication supprimée à la main sur Instagram ne doit pas
- * priver la semaine entière de ses mesures.
  */
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
-
-/** Publications relevées par passage, pour tenir dans la durée d'exécution. */
-const PLAFOND = 25;
 
 function autorise(requete: Request): boolean {
   const attendu = process.env.CRON_SECRET;
@@ -34,50 +25,14 @@ function autorise(requete: Request): boolean {
 export async function GET(requete: Request) {
   if (!autorise(requete)) return new NextResponse('Not found', { status: 404 });
 
-  const prete = await configurationPrete();
-  if (!prete.ok) {
-    return NextResponse.json({ message: prete.erreur }, { status: 503 });
-  }
-  const config = prete.donnees!;
+  const rapport = await releverMesures();
 
-  const publications = (await publicationsAMesurer()).slice(0, PLAFOND);
-
-  let releves = 0;
-  const echecs: { reference: string; erreur: string }[] = [];
-
-  for (const publication of publications) {
-    const r = await statistiquesInstagram(config, publication.metaMediaId);
-
-    if (!r.ok) {
-      echecs.push({ reference: publication.reference, erreur: r.erreur ?? 'inconnue' });
-      continue;
-    }
-
-    const m = r.donnees ?? {};
-    const somme = (...noms: string[]) => {
-      const presentes = noms.filter((n) => typeof m[n] === 'number');
-      if (presentes.length === 0) return null;
-      return presentes.reduce((total, n) => total + m[n], 0);
-    };
-
-    const ok = await enregistrerMesure(publication.id, {
-      portee: typeof m.reach === 'number' ? m.reach : null,
-      vues: typeof m.views === 'number' ? m.views : null,
-      interactions: somme('likes', 'comments', 'saved'),
-    });
-
-    if (ok) releves += 1;
-    else echecs.push({ reference: publication.reference, erreur: 'Écriture refusée.' });
+  if (rapport.bloquant) {
+    return NextResponse.json({ message: rapport.bloquant }, { status: 503 });
   }
 
   // Un relevé qui échoue partout renvoie quand même 200 : sans cette trace,
   // une table vide ne dit pas si Meta a refusé ou si rien n'était à relever.
-  console.info('[mesures]', JSON.stringify({
-    examinees: publications.length, releves, echecs,
-  }));
-  return NextResponse.json({
-    examinees: publications.length,
-    releves,
-    echecs,
-  });
+  console.info('[mesures]', JSON.stringify(rapport));
+  return NextResponse.json(rapport);
 }
