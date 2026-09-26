@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseService } from '@/lib/supabase/server';
 import { lireParametresPlateforme } from '@/lib/marketing/depot';
 import { publierContenu } from '@/lib/marketing/publication';
+import { publierReserve, type PlateformeMeta } from '@/lib/marketing/reserve';
 
 /**
  * Publication planifiée.
@@ -53,15 +54,46 @@ export async function GET(requete: Request) {
   const aujourdhui = new Date().toISOString().slice(0, 10);
   const rapports: Rapport[] = [];
 
+  // Quels canaux peuvent publier ce matin. Le calcul sert deux fois : à la
+  // réserve, puis au générateur si la réserve est vide.
+  const ouverts: PlateformeMeta[] = [];
+  const fermes = new Map<PlateformeMeta, string>();
+
   for (const plateforme of PLATEFORMES) {
     const reglages = await lireParametresPlateforme(plateforme);
-
     if (!reglages?.actif) {
-      rapports.push({ plateforme, publie: false, motif: 'Canal hors service.' });
-      continue;
+      fermes.set(plateforme, 'Canal hors service.');
+    } else if (reglages.mode !== 'automatique') {
+      fermes.set(plateforme, 'Mode validation : publication manuelle.');
+    } else {
+      ouverts.push(plateforme);
     }
-    if (reglages.mode !== 'automatique') {
-      rapports.push({ plateforme, publie: false, motif: 'Mode validation : publication manuelle.' });
+  }
+
+  // La réserve passe devant : un visuel déposé à la main est toujours plus
+  // pertinent qu'une combinaison fabriquée. Si elle est vide, rien ne change.
+  const issue = await publierReserve(service, ouverts);
+  if (issue) {
+    for (const plateforme of PLATEFORMES) {
+      const etat = issue[plateforme];
+      rapports.push({
+        plateforme,
+        publie: etat.publie,
+        reference: etat.identifiant,
+        motif: etat.publie ? undefined : (fermes.get(plateforme) ?? etat.motif),
+      });
+    }
+    console.info('[publier-planifie]', JSON.stringify({
+      jour: aujourdhui, source: 'reserve', contenu: issue.id,
+      theme: issue.theme, statut: issue.statut, rapports,
+    }));
+    return NextResponse.json({ jour: aujourdhui, source: 'reserve', rapports });
+  }
+
+  for (const plateforme of PLATEFORMES) {
+    const ferme = fermes.get(plateforme);
+    if (ferme) {
+      rapports.push({ plateforme, publie: false, motif: ferme });
       continue;
     }
 
