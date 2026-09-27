@@ -356,7 +356,7 @@ export async function lireMesures() {
     service.from('marketing_visites').select('contenu, source, clics'),
     service.from('profiles').select('origine_contenu').not('origine_contenu', 'is', null),
     service.from('subscriptions').select('status').in('status', ['active', 'trialing']),
-    service.from('profiles').select('id').not('origine_contenu', 'is', null)
+    service.from('profiles').select('id')
       .gte('created_at', depuisSeptJours).is('deleted_at', null),
   ]);
 
