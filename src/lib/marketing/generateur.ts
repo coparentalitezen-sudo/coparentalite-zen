@@ -217,7 +217,10 @@ function planchesCarrousel(sujet: Sujet, accroche: string, categorie: Categorie)
  * Légende Instagram : l'accroche, une idée, l'appel à l'action, les mots-dièse.
  * Légende Facebook : la même matière, en phrases suivies et avec le lien —
  * « lien dans la bio » n'a aucun sens sur Facebook, où le lien peut figurer
- * dans la publication elle-même.
+ * dans la publication elle-même. Les mots-dièse y figurent aussi : ils pèsent
+ * moins que sur Instagram, mais leur absence rendait les deux fils visiblement
+ * inégaux, et ils restent le seul rattachement thématique d'une publication
+ * de page.
  */
 function legendes(
   sujet: Sujet, accroche: string, corps: string, hashtags: string[], lien: string,
@@ -231,7 +234,8 @@ function legendes(
       `${accroche}\n\n${corps}\n\n${appelActionPour(reference)}\n\n${hashtags.join(' ')}`,
     facebook:
       `${accroche}\n\n${corps}\n\n${rappel}`
-      + `Simplifiez votre organisation familiale avec Coparentalité Zen : ${lien}`,
+      + `Simplifiez votre organisation familiale avec Coparentalité Zen : ${lien}`
+      + `\n\n${hashtags.join(' ')}`,
   };
 }
 
@@ -299,7 +303,8 @@ function contenuQuiz(
       `${accroche}\n\n`
       + 'Faites défiler et répondez pour vous. Le questionnaire complet '
       + 'affiche ensuite le planning correspondant, sur deux semaines, sans '
-      + `créer de compte : ${lienQuiz}`,
+      + `créer de compte : ${lienQuiz}`
+      + `\n\n${hashtags.join(' ')}`,
     texteAlternatif:
       'Carrousel sobre. Couverture en texte blanc sur fond bleu marine : '
       + `« ${accroche} ». Les planches suivantes, en texte foncé sur fond `
@@ -343,7 +348,9 @@ function contenuQuiz(
     legendeInstagram:
       `${m.accroche}\n\n${m.corps}\n\n${appelActionPour(reference)}`
       + `\n\n${HASHTAGS.join(' ')}`,
-    legendeFacebook: `${m.accroche}\n\n${m.corps}\n\nDécouvrir l’application : ${lien}`,
+    legendeFacebook:
+      `${m.accroche}\n\n${m.corps}\n\nDécouvrir l’application : ${lien}`
+      + `\n\n${HASHTAGS.join(' ')}`,
     texteAlternatif: m.texteAlternatif,
     hashtags: [...HASHTAGS],
     appelAction: appelActionPour(reference),

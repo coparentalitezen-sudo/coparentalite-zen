@@ -121,6 +121,18 @@ describe('exigences éditoriales de chaque contenu', () => {
     }
   });
 
+  // Les légendes Facebook en ont longtemps été privées : les deux fils
+  // paraissaient tenus par deux mains différentes.
+  it('porte les mots-dièse sur les deux réseaux', () => {
+    for (const c of semaine) {
+      expect(c.hashtags.length).toBeGreaterThanOrEqual(3);
+      for (const mot of c.hashtags) {
+        expect(c.legendeInstagram).toContain(mot);
+        expect(c.legendeFacebook).toContain(mot);
+      }
+    }
+  });
+
   it('distingue les deux plateformes plutôt que de recopier le même texte', () => {
     for (const c of semaine) expect(c.legendeInstagram).not.toBe(c.legendeFacebook);
   });
