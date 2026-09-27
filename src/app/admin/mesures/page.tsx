@@ -65,6 +65,9 @@ export default async function PageMesures() {
       </header>
 
       <div className="grid grid-cols-2 gap-3">
+        <Bloc titre="Inscriptions des 7 derniers jours"
+          valeur={`${donnees.inscriptionsSeptJours} / 10`}
+          precision="Objectif : 10 inscriptions attribuées par semaine" />
         <Bloc titre="Contenus publiés" valeur={String(publies)}
           precision={`${donnees.contenus.length} au total`} />
         <Bloc titre="Clics vers l’application" valeur={String(clics)} />

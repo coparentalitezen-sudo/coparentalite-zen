@@ -3,6 +3,7 @@ import { supabaseService } from '@/lib/supabase/server';
 import { lireParametresPlateforme } from '@/lib/marketing/depot';
 import { publierContenu } from '@/lib/marketing/publication';
 import { publierReserve, type PlateformeMeta } from '@/lib/marketing/reserve';
+import { assurerVisuelDuJour } from '@/lib/marketing/quotidien';
 
 /**
  * Publication planifiée.
@@ -88,6 +89,34 @@ export async function GET(requete: Request) {
       theme: issue.theme, statut: issue.statut, rapports,
     }));
     return NextResponse.json({ jour: aujourdhui, source: 'reserve', rapports });
+  }
+
+  // Après les visuels préparés à la main, une nouvelle histoire illustrée est
+  // créée chaque jour, puis publiée par le même circuit que la réserve.
+  // Une seconde exécution ce jour-là ne republie jamais cette histoire.
+  if (ouverts.length > 0) {
+    const base = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://www.coparentalitezen.fr';
+    const quotidien = await assurerVisuelDuJour(service, aujourdhui, base);
+    if (quotidien === 'deja') {
+      return NextResponse.json({ jour: aujourdhui, source: 'quotidien', rapports: [],
+        motif: 'Visuel du jour déjà traité.' });
+    }
+    if (quotidien === 'ajoute') {
+      const nouvelleIssue = await publierReserve(service, ouverts);
+      if (nouvelleIssue) {
+        for (const plateforme of PLATEFORMES) {
+          const etat = nouvelleIssue[plateforme];
+          rapports.push({
+            plateforme, publie: etat.publie, reference: etat.identifiant,
+            motif: etat.publie ? undefined : (fermes.get(plateforme) ?? etat.motif),
+          });
+        }
+        console.info('[publier-planifie]', JSON.stringify({
+          jour: aujourdhui, source: 'quotidien', contenu: nouvelleIssue.id, rapports,
+        }));
+        return NextResponse.json({ jour: aujourdhui, source: 'quotidien', rapports });
+      }
+    }
   }
 
   for (const plateforme of PLATEFORMES) {

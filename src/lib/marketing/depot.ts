@@ -349,12 +349,15 @@ export async function lireMesures() {
 
   const releves = await lireDerniersReleves();
 
-  const [contenus, visites, inscrits, abonnements] = await Promise.all([
+  const depuisSeptJours = new Date(Date.now() - 7 * 86_400_000).toISOString();
+  const [contenus, visites, inscrits, abonnements, inscritsRecents] = await Promise.all([
     service.from('marketing_contenus')
       .select('reference, format, categorie, accroche, statut, marketing_opportunites(niche_id)'),
     service.from('marketing_visites').select('contenu, source, clics'),
     service.from('profiles').select('origine_contenu').not('origine_contenu', 'is', null),
     service.from('subscriptions').select('status').in('status', ['active', 'trialing']),
+    service.from('profiles').select('id').not('origine_contenu', 'is', null)
+      .gte('created_at', depuisSeptJours).is('deleted_at', null),
   ]);
 
   return {
@@ -373,6 +376,7 @@ export async function lireMesures() {
       .map((p) => p.origine_contenu)
       .filter((o): o is string => typeof o === 'string'),
     abonnements: abonnements.data?.length ?? 0,
+    inscriptionsSeptJours: inscritsRecents.data?.length ?? 0,
     releves,
   };
 }
