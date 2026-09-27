@@ -1,8 +1,8 @@
 import { urlVisuelPublic } from './signature';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-/** Une histoire courte par jour, illustrée avec les scènes déjà validées. */
-const HISTOIRES = [
+/** Garder la rotation initiale pour que les URL datées déjà publiées ne changent pas. */
+const HISTOIRES_ORIGINALES = [
   ['garde', 'Ce week-end, qui accueille les enfants ?', 'Le planning est visible par chacun.'],
   ['depenses', 'Le reçu du sport, il est où ?', 'La dépense est retrouvée au même endroit.'],
   ['vacances', 'Qui prend la première semaine ?', 'Les dates sont posées dans le calendrier.'],
@@ -23,7 +23,39 @@ const HISTOIRES = [
   ['vacances', 'Quand préparer la valise ?', 'Les dates sont claires avant le départ.'],
 ] as const;
 
-type Theme = 'garde' | 'depenses' | 'vacances';
+/** À partir du 28 septembre, sept scènes et quatre semaines de textes distincts. */
+const HISTOIRES_NOUVELLES = [
+  ['sac', 'Le sac de sport est resté chez l’autre parent ?', 'Préparez les affaires pour le prochain relais.'],
+  ['rendezvous', 'Le rendez-vous chez le dentiste, c’est quand ?', 'Retrouvez la date dans le même calendrier.'],
+  ['changement', 'Un train en retard change le passage de relais ?', 'Notez le changement pour que chacun ait le bon repère.'],
+  ['scolarite', 'Quel jour a lieu son activité après l’école ?', 'Gardez son emploi du temps sous les yeux.'],
+  ['garde', 'Ce samedi, les enfants dorment où ?', 'Le planning de garde est visible par chacun.'],
+  ['depenses', 'Qui a payé les fournitures ?', 'Suivez les dépenses partagées au même endroit.'],
+  ['vacances', 'Les vacances commencent quel jour ?', 'Les dates sont posées dans le calendrier.'],
+  ['sac', 'La carte Vitale est dans quel sac ?', 'Listez les affaires à prévoir avant le rendez-vous.'],
+  ['rendezvous', 'Qui accompagne l’enfant à sa consultation ?', 'Notez le rendez-vous et son accompagnant.'],
+  ['changement', 'Le relais doit se faire plus tard ?', 'Consultez le changement prévu ensemble.'],
+  ['scolarite', 'Mercredi, école ou activité ?', 'Retrouvez les créneaux de la semaine.'],
+  ['garde', 'Semaine paire ou impaire ?', 'Visualisez les jours de garde.'],
+  ['depenses', 'Où est passé le justificatif ?', 'Conservez le détail avec la dépense.'],
+  ['vacances', 'La valise part chez qui ?', 'Anticipez les périodes de vacances.'],
+  ['sac', 'Les baskets sont dans l’autre maison ?', 'Préparez les affaires du prochain jour.'],
+  ['rendezvous', 'Le contrôle médical approche ?', 'Le rendez-vous a sa place dans le planning.'],
+  ['changement', 'Un imprévu bouleverse jeudi ?', 'Proposez un ajustement de garde.'],
+  ['scolarite', 'Qui récupère l’enfant après l’activité ?', 'L’emploi du temps éclaire l’organisation.'],
+  ['garde', 'Qui accueille les enfants dimanche ?', 'Partagez un même calendrier de garde.'],
+  ['depenses', 'La cantine a déjà été réglée ?', 'Retrouvez le montant enregistré.'],
+  ['vacances', 'Première ou deuxième semaine ?', 'Consultez la répartition prévue.'],
+  ['sac', 'Encore un cahier oublié au relais ?', 'Pensez aux affaires à emporter.'],
+  ['rendezvous', 'La consultation tombe pendant sa garde ?', 'Voyez la date et la personne qui accompagne.'],
+  ['changement', 'Il faut échanger deux jours ?', 'Posez la proposition dans le planning.'],
+  ['scolarite', 'L’emploi du temps a changé ?', 'Mettez les créneaux à jour.'],
+  ['garde', 'Demain, c’est chez quel parent ?', 'Un coup d’œil au planning suffit.'],
+  ['depenses', 'Il reste combien à régulariser ?', 'Un solde partagé aide à s’y retrouver.'],
+  ['vacances', 'Le départ est prévu pour quand ?', 'Les dates sont claires avant le voyage.'],
+] as const;
+
+type Theme = 'garde' | 'depenses' | 'vacances' | 'sac' | 'rendezvous' | 'changement' | 'scolarite';
 
 const SCENES: Record<Theme, { fichier: string; description: string }> = {
   garde: {
@@ -37,6 +69,22 @@ const SCENES: Record<Theme, { fichier: string; description: string }> = {
   vacances: {
     fichier: 'vacances-partagees.jpg',
     description: 'Deux parents consultent les dates de vacances et leur fille prépare sa valise.',
+  },
+  sac: {
+    fichier: 'sac-oublie.jpg',
+    description: 'Un père retrouve un sac oublié et sa fille le récupère auprès de sa mère.',
+  },
+  rendezvous: {
+    fichier: 'rendez-vous-medical.jpg',
+    description: 'Une mère cherche un rendez-vous médical puis les parents consultent leur téléphone.',
+  },
+  changement: {
+    fichier: 'changement-relais.jpg',
+    description: 'Un retard de train bouleverse un relais, puis les parents accueillent leur fils sereinement.',
+  },
+  scolarite: {
+    fichier: 'emploi-du-temps.jpg',
+    description: 'Deux parents consultent l’emploi du temps scolaire et leur fille prépare son cartable.',
   },
 };
 
@@ -55,8 +103,10 @@ export function histoireDuJour(jour: string): HistoireQuotidienne | null {
   const instant = Date.parse(`${jour}T00:00:00Z`);
   if (!Number.isFinite(instant) || new Date(instant).toISOString().slice(0, 10) !== jour) return null;
 
-  const indice = Math.floor(instant / 86_400_000) % HISTOIRES.length;
-  const [theme, question, solution] = HISTOIRES[indice];
+  const debutNouvelleRotation = Date.parse('2026-09-28T00:00:00Z');
+  const histoires = instant < debutNouvelleRotation ? HISTOIRES_ORIGINALES : HISTOIRES_NOUVELLES;
+  const indice = Math.floor((instant < debutNouvelleRotation ? instant : instant - debutNouvelleRotation) / 86_400_000) % histoires.length;
+  const [theme, question, solution] = histoires[indice];
   const scene = SCENES[theme];
   return {
     jour, theme, question, solution, fichier: scene.fichier,

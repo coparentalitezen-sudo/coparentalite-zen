@@ -5,13 +5,15 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 describe('visuels quotidiens', () => {
   it('sélectionne une histoire différente chaque jour, puis répète un cycle cohérent', () => {
     const depart = Date.UTC(2026, 8, 28);
-    const histoires = Array.from({ length: 18 }, (_, i) =>
+    const histoires = Array.from({ length: 28 }, (_, i) =>
       histoireDuJour(new Date(depart + i * 86_400_000).toISOString().slice(0, 10)));
-    expect(new Set(histoires.map((h) => h?.question)).size).toBe(18);
+    expect(new Set(histoires.map((h) => h?.question)).size).toBe(28);
+    expect(new Set(histoires.map((h) => h?.fichier)).size).toBe(7);
     expect(histoires.every((h) => h?.legende.includes('www.coparentalitezen.fr'))).toBe(true);
     expect(histoires.every((h) => h?.texteAlternatif.includes('Lien dans ma bio'))).toBe(true);
-    expect(histoireDuJour(new Date(depart + 18 * 86_400_000).toISOString().slice(0, 10))?.question)
+    expect(histoireDuJour(new Date(depart + 28 * 86_400_000).toISOString().slice(0, 10))?.question)
       .toBe(histoires[0]?.question);
+    expect(histoireDuJour('2026-09-27')?.question).toBe('Les billets sont pris pour quelles dates ?');
   });
 
   it('rejette une date impossible et signe une URL différente chaque jour', () => {
