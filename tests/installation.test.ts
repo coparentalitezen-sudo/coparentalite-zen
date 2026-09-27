@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import {
   estInstallee, detecterPlateforme, etapesInstallation, beneficesInstallation,
+  estChromeAndroid, lienOuvrirDansChrome,
 } from '../src/lib/installation';
 import { poserPastille } from '../src/lib/pastille';
 
@@ -142,5 +143,43 @@ describe('pastille de l’icône', () => {
     const { nav } = faux(false);
     installer(nav);
     expect(() => poserPastille(2)).not.toThrow();
+  });
+});
+
+describe('estChromeAndroid', () => {
+  const CHROME = 'Mozilla/5.0 (Linux; Android 14; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36';
+  const SAMSUNG = 'Mozilla/5.0 (Linux; Android 14; SAMSUNG SM-S911B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/25.0 Chrome/121.0.0.0 Mobile Safari/537.36';
+  const EDGE = 'Mozilla/5.0 (Linux; Android 14; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36 EdgA/128.0.0.0';
+  const INSTAGRAM = 'Mozilla/5.0 (Linux; Android 14; SM-S911B Build/UP1A; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/128.0.0.0 Mobile Safari/537.36 Instagram 345.0.0.0 Android';
+  const FIREFOX = 'Mozilla/5.0 (Android 14; Mobile; rv:130.0) Gecko/130.0 Firefox/130.0';
+
+  it('reconnaît Chrome, seul navigateur dont l’installation passe Play Protect', () => {
+    expect(estChromeAndroid(CHROME)).toBe(true);
+  });
+
+  it('écarte Samsung Internet, dont l’APK est bloqué par Play Protect', () => {
+    expect(estChromeAndroid(SAMSUNG)).toBe(false);
+  });
+
+  it('écarte les autres navigateurs et les navigateurs intégrés', () => {
+    expect(estChromeAndroid(EDGE)).toBe(false);
+    expect(estChromeAndroid(INSTAGRAM)).toBe(false);
+    expect(estChromeAndroid(FIREFOX)).toBe(false);
+  });
+
+  it('ne concerne que Android', () => {
+    expect(estChromeAndroid(MAC)).toBe(false);
+    expect(estChromeAndroid(IPHONE)).toBe(false);
+  });
+});
+
+describe('lienOuvrirDansChrome', () => {
+  it('rouvre la même page dans Chrome, avec repli vers le Play Store', () => {
+    const lien = lienOuvrirDansChrome('https://coparentalitezen.fr/app/accueil?source=pwa');
+    expect(lien.startsWith('intent://coparentalitezen.fr/app/accueil?source=pwa#Intent;')).toBe(true);
+    expect(lien).toContain('scheme=https');
+    expect(lien).toContain('package=com.android.chrome');
+    expect(lien).toContain('S.browser_fallback_url=https%3A%2F%2Fplay.google.com');
+    expect(lien.endsWith(';end')).toBe(true);
   });
 });

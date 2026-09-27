@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { track } from '@vercel/analytics';
+import { estChromeAndroid, lienOuvrirDansChrome } from '@/lib/installation';
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -49,12 +50,17 @@ export function InstallAppCard({ permanent = false }: { permanent?: boolean }) {
   const [invite, setInvite] = useState<BeforeInstallPromptEvent | null>(null);
   const [guideOuvert, setGuideOuvert] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  // Sur Android, l'installation lancée hors de Chrome produit un APK que
+  // Play Protect bloque (« Appli non sécurisée bloquée ») : on renvoie vers Chrome.
+  const [horsChrome, setHorsChrome] = useState(false);
 
   useEffect(() => {
     const plateformeDetectee = detecterPlateforme();
     const dejaInstallee = estInstallee();
     setInstallee(dejaInstallee);
     setPlateforme(plateformeDetectee);
+    const androidHorsChrome = plateformeDetectee === 'android' && !estChromeAndroid(navigator.userAgent);
+    setHorsChrome(androidHorsChrome);
 
     if (dejaInstallee) {
       mesurerPremiereOuvertureAutonome(plateformeDetectee);
@@ -68,6 +74,8 @@ export function InstallAppCard({ permanent = false }: { permanent?: boolean }) {
     };
     const capterInvitation = (event: Event) => {
       event.preventDefault();
+      // Invitation volontairement ignorée hors Chrome : elle mènerait au blocage.
+      if (androidHorsChrome) return;
       setInvite(event as BeforeInstallPromptEvent);
       track('pwa_invite_disponible', { plateforme: plateformeDetectee });
     };
@@ -107,6 +115,11 @@ export function InstallAppCard({ permanent = false }: { permanent?: boolean }) {
       setMessage('Installation annulée. Vous pourrez recommencer plus tard.');
       track('pwa_invite_refusee', { plateforme });
     }
+  }
+
+  function ouvrirDansChrome() {
+    track('pwa_redirection_chrome', { plateforme });
+    window.location.href = lienOuvrirDansChrome(window.location.href);
   }
 
   function basculerGuide() {
@@ -151,10 +164,22 @@ export function InstallAppCard({ permanent = false }: { permanent?: boolean }) {
 
         {!installee && (
           <div className="mt-4">
-            {plateforme === 'android' && (
+            {plateforme === 'android' && !horsChrome && (
               <button type="button" className="btn btn-primary w-full" onClick={installerAndroid}>
                 Installer l’application
               </button>
+            )}
+
+            {plateforme === 'android' && horsChrome && (
+              <>
+                <button type="button" className="btn btn-primary w-full" onClick={ouvrirDansChrome}>
+                  Ouvrir dans Chrome pour installer
+                </button>
+                <p className="mt-2 text-[12px] leading-relaxed text-soft">
+                  Sur Android, l’installation fonctionne avec <strong>Chrome</strong>. Depuis un autre
+                  navigateur, votre téléphone risque de la bloquer par sécurité.
+                </p>
+              </>
             )}
 
             {plateforme === 'ios' && (
