@@ -5,6 +5,7 @@ import {
   creerFluxPinterest, elementsDuContenu,
   dateDepuisReference,
   lienConseilPinterest,
+  rechercheDuContenu,
   referencesRecentes,
 } from '../src/lib/marketing/pinterest';
 import { planifierVisuel } from '../src/lib/marketing/visuel';
@@ -150,6 +151,42 @@ describe('références du plan du site', () => {
   it('ne déclare que des références résolvables', () => {
     for (const reference of referencesRecentes(BASE, 4)) {
       expect(contenuPinterest(reference, BASE)).not.toBeNull();
+    }
+  });
+});
+
+describe('titres tournés vers la recherche', () => {
+  const semaine = genererSemaine(new Date('2026-09-28T00:00:00Z'), BASE);
+  const ordinaires = semaine.filter((c) => c.categorie !== 'quiz');
+
+  it('titre chaque épingle par une formulation de recherche', () => {
+    for (const contenu of ordinaires) {
+      const [epingle] = elementsDuContenu(contenu, BASE);
+      const recherche = rechercheDuContenu(contenu);
+      expect(recherche).toBeTruthy();
+      expect(epingle.titre).toBe(recherche);
+      // L'accroche interpelle dans un fil ; elle ne répond à aucune requête.
+      expect(epingle.titre).not.toBe(contenu.accroche);
+    }
+  });
+
+  it('ouvre la description par la recherche et garde le résumé', () => {
+    const [epingle] = elementsDuContenu(ordinaires[0], BASE);
+    expect(epingle.description.startsWith(rechercheDuContenu(ordinaires[0])!)).toBe(true);
+    expect(epingle.description).toContain(ordinaires[0].accroche);
+  });
+
+  // Pinterest réimporte comme une nouveauté toute épingle dont le titre change,
+  // et le flux fait reparaître les mêmes contenus chaque jour.
+  it('donne toujours le même titre à la même référence', () => {
+    for (const contenu of ordinaires) {
+      expect(rechercheDuContenu(contenu)).toBe(rechercheDuContenu(contenu));
+    }
+  });
+
+  it('tient dans la longueur affichée par Pinterest', () => {
+    for (const contenu of ordinaires) {
+      expect(elementsDuContenu(contenu, BASE)[0].titre.length).toBeLessThanOrEqual(60);
     }
   });
 });

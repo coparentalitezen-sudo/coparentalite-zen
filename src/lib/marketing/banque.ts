@@ -36,6 +36,16 @@ export interface Sujet {
   apport: string;
   /** Trois à cinq mots-dièse réellement liés au sujet. */
   hashtags: string[];
+  /**
+   * Ce qu'un parent tape réellement dans une barre de recherche.
+   *
+   * Pinterest n'est pas un fil d'actualité mais un moteur : une épingle
+   * intitulée « Vous recomptez les semaines sur vos doigts ? » ne répond à
+   * aucune requête, alors que « planning garde alternée à imprimer » en est
+   * une. Ces formulations servent de titre aux épingles ; les accroches
+   * restent réservées à Instagram et Facebook, où elles interpellent.
+   */
+  recherches: string[];
   /** Mois où le sujet est le plus pertinent. Vide : toute l'année. */
   saison?: number[];
 }
@@ -43,6 +53,7 @@ export interface Sujet {
 export const BANQUE: Sujet[] = [
   {
     niche: 'garde-alternee',
+    recherches: ['planning garde alternée à imprimer', 'calendrier semaine sur deux', 'rythme de garde 2-2-3'],
     probleme: 'Personne ne sait avec certitude chez qui dorment les enfants la semaine prochaine.',
     intention: 'Voir le planning sans avoir à le recalculer ni à le redemander.',
     angle: 'Un calendrier partagé vaut mieux qu’une règle que chacun applique de tête.',
@@ -68,6 +79,7 @@ export const BANQUE: Sujet[] = [
   },
   {
     niche: 'vacances-scolaires',
+    recherches: ['partage vacances scolaires parents séparés', 'calendrier vacances garde alternée'],
     probleme: 'Les vacances se décident tard, souvent dans l’urgence, parfois deux fois.',
     intention: 'Fixer les périodes assez tôt pour pouvoir réserver sereinement.',
     angle: 'Décider en novembre coûte moins cher que décider en février.',
@@ -94,6 +106,7 @@ export const BANQUE: Sujet[] = [
   },
   {
     niche: 'echange-enfants',
+    recherches: ['organiser les échanges d’enfants après séparation', 'lieu d’échange garde alternée'],
     probleme: 'L’échange se passe mal parce que rien n’a été précisé avant.',
     intention: 'Rendre le moment de l’échange prévisible et court.',
     angle: 'Ce qui est écrit avant n’a pas à être discuté sur le trottoir.',
@@ -120,6 +133,7 @@ export const BANQUE: Sujet[] = [
   },
   {
     niche: 'depenses-partagees',
+    recherches: ['partage des frais enfants parents séparés', 'tableau dépenses garde alternée'],
     probleme: 'Les frais s’accumulent et plus personne ne sait qui a payé quoi.',
     intention: 'Savoir où en est le partage sans avoir à refaire les comptes.',
     angle: 'Un compte tenu au fil de l’eau évite la discussion de fin d’année.',
@@ -146,6 +160,7 @@ export const BANQUE: Sujet[] = [
   },
   {
     niche: 'pension',
+    recherches: ['calcul pension alimentaire enfant', 'suivi pension alimentaire tableau'],
     probleme: 'Les justificatifs sont éparpillés entre messages, photos et papiers.',
     intention: 'Retrouver une preuve de paiement sans fouiller douze mois d’historique.',
     angle: 'Ranger au moment où l’on paie coûte trente secondes ; ranger après, une soirée.',
@@ -171,6 +186,7 @@ export const BANQUE: Sujet[] = [
   },
   {
     niche: 'ecole-activites',
+    recherches: ['organisation école garde alternée', 'planning activités enfants parents séparés'],
     probleme: 'Une réunion d’école n’arrive qu’à un seul des deux parents.',
     intention: 'Que les deux parents aient la même information scolaire au même moment.',
     angle: 'L’information scolaire ne devrait pas dépendre de qui relève la boîte aux lettres.',
@@ -198,6 +214,7 @@ export const BANQUE: Sujet[] = [
   },
   {
     niche: 'rendez-vous-medicaux',
+    recherches: ['carnet de santé garde alternée', 'suivi rendez-vous médicaux enfants'],
     probleme: 'Le parent qui n’accompagne pas ignore ce qui a été dit chez le médecin.',
     intention: 'Transmettre l’essentiel du rendez-vous sans y consacrer un échange entier.',
     angle: 'Trois lignes écrites valent mieux qu’un récit qu’on croit avoir fait.',
@@ -224,6 +241,7 @@ export const BANQUE: Sujet[] = [
   },
   {
     niche: 'documents-familiaux',
+    recherches: ['papiers des enfants garde alternée', 'ranger documents administratifs enfants'],
     probleme: 'Un papier indispensable est toujours chez l’autre parent.',
     intention: 'Accéder au document au moment où on en a besoin.',
     angle: 'Un original chez l’un, une copie accessible aux deux.',
@@ -250,6 +268,7 @@ export const BANQUE: Sujet[] = [
   },
   {
     niche: 'communication',
+    recherches: ['communiquer avec son ex sans conflit', 'message coparentalité exemple'],
     probleme: 'Les échanges dérivent vite parce que tout passe par le même canal.',
     intention: 'Séparer l’organisation des enfants du reste de la relation.',
     angle: 'Ce qui est factuel se lit mieux quand ce n’est pas mélangé au reste.',
@@ -275,6 +294,7 @@ export const BANQUE: Sujet[] = [
   },
   {
     niche: 'nouveaux-conjoints',
+    recherches: ['beau-parent place dans la famille', 'présenter son nouveau conjoint aux enfants'],
     probleme: 'L’arrivée d’un nouveau conjoint brouille les repères d’organisation.',
     intention: 'Que chacun sache qui fait quoi, sans que les rôles soient à deviner.',
     angle: 'Clarifier les rôles apaise davantage que d’en discuter longuement.',
@@ -300,6 +320,7 @@ export const BANQUE: Sujet[] = [
   },
   {
     niche: 'familles-recomposees',
+    recherches: ['organisation famille recomposée', 'planning famille recomposée'],
     probleme: 'Deux calendriers de garde différents se superposent dans le même foyer.',
     intention: 'Voir en une fois qui est là, et quand.',
     angle: 'Deux rythmes ne se retiennent pas ; ils se superposent sur un calendrier.',
@@ -325,6 +346,7 @@ export const BANQUE: Sujet[] = [
   },
   {
     niche: 'longue-distance',
+    recherches: ['garde alternée longue distance', 'voir ses enfants à distance'],
     probleme: 'La distance transforme chaque échange en trajet à organiser.',
     intention: 'Prévoir les trajets assez tôt pour qu’ils coûtent moins cher et fatiguent moins.',
     angle: 'À distance, ce qui se décide tard se paie deux fois.',
@@ -350,6 +372,7 @@ export const BANQUE: Sujet[] = [
   },
   {
     niche: 'imprevus',
+    recherches: ['changer un jour de garde imprévu', 'gérer les imprévus garde alternée'],
     probleme: 'Un changement de dernière minute se perd entre deux messages.',
     intention: 'Modifier une journée sans dérégler tout le calendrier.',
     angle: 'Une exception s’écrit comme une exception, pas en changeant la règle.',
@@ -375,6 +398,7 @@ export const BANQUE: Sujet[] = [
   },
   {
     niche: 'anniversaires',
+    recherches: ['anniversaire enfant parents séparés', 'organiser un anniversaire en garde alternée'],
     probleme: 'L’anniversaire tombe chez un parent et se prépare chez les deux.',
     intention: 'Éviter le double cadeau, la double fête et la déception.',
     angle: 'Se répartir la fête demande un message ; la rattraper en demande dix.',
@@ -400,6 +424,7 @@ export const BANQUE: Sujet[] = [
   },
   {
     niche: 'conflits-planning',
+    recherches: ['désaccord planning garde alternée', 'éviter les disputes de planning'],
     probleme: 'Le désaccord porte souvent sur ce que chacun croit avoir convenu.',
     intention: 'Revenir à ce qui a été écrit plutôt qu’à ce dont chacun se souvient.',
     angle: 'Deux souvenirs sincères peuvent se contredire. Un écrit, non.',

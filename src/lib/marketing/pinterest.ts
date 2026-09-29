@@ -1,5 +1,29 @@
 import { genererSemaine, type Contenu } from './generateur';
+import { BANQUE } from './banque';
 import { construireLien } from './utm';
+
+/**
+ * La formulation de recherche qui servira de titre à l'épingle.
+ *
+ * Pinterest classe sur le texte, comme un moteur : une accroche écrite pour
+ * arrêter l'œil dans un fil — « Vous recomptez les semaines sur vos doigts ? »
+ * — ne correspond à aucune requête et n'est donc montrée à personne. Le titre
+ * de l'épingle reprend ce qu'un parent tape réellement ; l'accroche reste
+ * dans la description, où elle donne envie de cliquer une fois trouvée.
+ *
+ * Le choix est déterministe : Pinterest réimporterait une épingle dont le
+ * titre change comme une nouveauté, et le flux couvre douze semaines
+ * glissantes, donc les mêmes contenus y reparaissent chaque jour.
+ */
+export function rechercheDuContenu(contenu: Contenu): string | null {
+  const sujet = BANQUE.find((s) => s.niche === contenu.niche);
+  if (!sujet || sujet.recherches.length === 0) return null;
+  let somme = 0;
+  for (const caractere of contenu.reference) {
+    somme = (somme + caractere.charCodeAt(0)) % 9973;
+  }
+  return sujet.recherches[somme % sujet.recherches.length];
+}
 
 const REFERENCE = /^(\d{4})s(\d{2})-(reel|carrousel|publication)-([1-7])$/;
 
@@ -110,11 +134,16 @@ export interface ElementFlux {
 
 export function elementsDuContenu(contenu: Contenu, base: string): ElementFlux[] {
   if (contenu.categorie !== 'quiz') {
+    const recherche = rechercheDuContenu(contenu);
     return [{
       guid: contenu.reference,
-      titre: contenu.accroche,
+      titre: recherche ?? contenu.accroche,
       lien: lienConseilPinterest(base, contenu.reference),
-      description: resumePinterest(contenu),
+      // La recherche ouvre la description : les premiers mots pèsent le plus
+      // dans le classement, et l'accroche suit immédiatement pour le lecteur.
+      description: recherche
+        ? `${recherche} — ${resumePinterest(contenu)}`
+        : resumePinterest(contenu),
       image: lienImagePinterest(base, contenu.reference),
     }];
   }
