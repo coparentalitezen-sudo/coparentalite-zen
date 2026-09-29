@@ -219,6 +219,36 @@ function avecLieu(): { location_id?: string } {
 }
 
 /**
+ * Crée un conteneur, puis recommence sans le lieu si le lieu est la cause du
+ * refus.
+ *
+ * L'API de recherche de lieux est fermée aux tiers depuis la v8 : un
+ * identifiant ne peut plus être validé avant l'envoi, il ne peut que se
+ * révéler faux au moment de publier. Sans ce repli, une seule valeur erronée
+ * dans META_LIEU_ID arrêterait toutes les publications, tous les jours, pour
+ * un ornement dont personne ne dépend.
+ */
+async function conteneurAvecRepliSansLieu(
+  config: ConfigurationMeta,
+  corps: Record<string, string>,
+  requete?: Requete,
+): Promise<ResultatMeta<{ id: string }>> {
+  const premier = await appelGraph<{ id: string }>(
+    `/${config.igUserId}/media`, config, { methode: 'POST', requete, corps },
+  );
+  if (premier.ok || !('location_id' in corps)) return premier;
+
+  const { location_id: _lieu, ...sansLieu } = corps;
+  const second = await appelGraph<{ id: string }>(
+    `/${config.igUserId}/media`, config, { methode: 'POST', requete, corps: sansLieu },
+  );
+  if (second.ok) {
+    console.warn('[meta] lieu refusé, publication sans lieu :', premier.erreur);
+  }
+  return second;
+}
+
+/**
  * Publie une image simple sur Instagram.
  *
  * Le texte alternatif est transmis : il est accepté sur les publications
@@ -232,9 +262,10 @@ export async function publierImageInstagram(
   texteAlternatif: string,
   requete?: Requete,
 ): Promise<ResultatMeta<{ id: string }>> {
-  const conteneur = await appelGraph<{ id: string }>(
-    `/${config.igUserId}/media`, config,
-    { methode: 'POST', requete, corps: { image_url: urlImage, caption: legende, alt_text: texteAlternatif, ...avecLieu() } },
+  const conteneur = await conteneurAvecRepliSansLieu(
+    config,
+    { image_url: urlImage, caption: legende, alt_text: texteAlternatif, ...avecLieu() },
+    requete,
   );
   if (!conteneur.ok) return { ok: false, erreur: `Conteneur : ${conteneur.erreur}` };
 
@@ -265,20 +296,18 @@ export async function publierReelInstagram(
   requete?: Requete,
   attente = ATTENTE_VIDEO_MS,
 ): Promise<ResultatMeta<{ id: string }>> {
-  const conteneur = await appelGraph<{ id: string }>(
-    `/${config.igUserId}/media`, config,
+  const conteneur = await conteneurAvecRepliSansLieu(
+    config,
     {
-      methode: 'POST', requete,
-      corps: {
-        media_type: 'REELS',
-        video_url: urlVideo,
-        caption: legende,
-        // Sans ce drapeau, le réel n'apparaît que dans l'onglet Réels et pas
-        // dans la grille du profil.
-        share_to_feed: 'true',
-        ...avecLieu(),
-      },
+      media_type: 'REELS',
+      video_url: urlVideo,
+      caption: legende,
+      // Sans ce drapeau, le réel n'apparaît que dans l'onglet Réels et pas
+      // dans la grille du profil.
+      share_to_feed: 'true',
+      ...avecLieu(),
     },
+    requete,
   );
   if (!conteneur.ok) return { ok: false, erreur: `Conteneur : ${conteneur.erreur}` };
 
@@ -673,17 +702,15 @@ export async function publierCarrouselInstagram(
     if (!pret.ok) return { ok: false, erreur: `Planche ${rang + 1} : ${pret.erreur}` };
   }
 
-  const groupe = await appelGraph<{ id: string }>(
-    `/${config.igUserId}/media`, config,
+  const groupe = await conteneurAvecRepliSansLieu(
+    config,
     {
-      methode: 'POST', requete,
-      corps: {
-        media_type: 'CAROUSEL',
-        children: identifiants.join(','),
-        caption: legende,
-        ...avecLieu(),
-      },
+      media_type: 'CAROUSEL',
+      children: identifiants.join(','),
+      caption: legende,
+      ...avecLieu(),
     },
+    requete,
   );
   if (!groupe.ok) return { ok: false, erreur: `Groupe : ${groupe.erreur}` };
 

@@ -445,3 +445,68 @@ describe('réels', () => {
     expect(r.erreur).not.toContain(CONFIG.jeton);
   });
 });
+
+describe('lieu de publication', () => {
+  beforeEach(() => {
+    process.env.META_APP_ID = '111';
+    process.env.META_PAGE_ID = '222';
+    process.env.META_IG_USER_ID = '333';
+    process.env.META_LONG_LIVED_TOKEN = 'jeton';
+  });
+  afterEach(() => {
+    for (const c of ['META_APP_ID', 'META_PAGE_ID', 'META_IG_USER_ID',
+      'META_LONG_LIVED_TOKEN', 'META_LIEU_ID']) delete process.env[c];
+  });
+
+  // L'API de recherche de lieux étant fermée depuis la v8, un identifiant ne
+  // peut plus être vérifié avant l'envoi. Il ne doit donc jamais pouvoir
+  // arrêter la publication.
+  it('publie sans lieu quand le lieu est refusé', async () => {
+    process.env.META_LIEU_ID = '999999999999999';
+    const corpsEnvoyes: string[] = [];
+
+    const requete = async (url: string, init?: RequestInit) => {
+      const corps = String(init?.body ?? '');
+      if (url.includes('/media') && !url.includes('media_publish')
+          && !url.includes('fields=status_code')) {
+        corpsEnvoyes.push(corps);
+        if (corps.includes('location_id')) {
+          return new Response(
+            JSON.stringify({ error: { message: 'Invalid location', code: 100 } }),
+            { status: 400, headers: { 'content-type': 'application/json' } });
+        }
+        return new Response(JSON.stringify({ id: 'conteneur' }),
+          { status: 200, headers: { 'content-type': 'application/json' } });
+      }
+      const corpsReponse = url.includes('fields=status_code')
+        ? { status_code: 'FINISHED' } : { id: 'ig-1' };
+      return new Response(JSON.stringify(corpsReponse),
+        { status: 200, headers: { 'content-type': 'application/json' } });
+    };
+
+    const config = configurationMeta()!;
+    const r = await publierImageInstagram(
+      config, 'https://x.test/v.jpg', 'legende', 'alt', requete);
+
+    expect(r.ok).toBe(true);
+    expect(corpsEnvoyes).toHaveLength(2);
+    expect(corpsEnvoyes[0]).toContain('location_id');
+    expect(corpsEnvoyes[1]).not.toContain('location_id');
+  });
+
+  it('ne tente aucun second envoi quand aucun lieu n’est configuré', async () => {
+    let envois = 0;
+    const requete = async (url: string) => {
+      if (url.includes('/media') && !url.includes('media_publish')
+          && !url.includes('fields=status_code')) envois += 1;
+      const corps = url.includes('fields=status_code')
+        ? { status_code: 'FINISHED' } : { id: 'ig-1' };
+      return new Response(JSON.stringify(corps),
+        { status: 200, headers: { 'content-type': 'application/json' } });
+    };
+
+    const config = configurationMeta()!;
+    await publierImageInstagram(config, 'https://x.test/v.jpg', 'l', 'a', requete);
+    expect(envois).toBe(1);
+  });
+});
