@@ -8,7 +8,7 @@ import {
   rechercheDuContenu,
   referencesRecentes,
 } from '../src/lib/marketing/pinterest';
-import { planifierVisuel } from '../src/lib/marketing/visuel';
+import { planifierVisuel, plancheVisuel } from '../src/lib/marketing/visuel';
 
 const BASE = 'https://coparentalitezen.fr';
 const LUNDI = new Date('2026-08-17T10:00:00Z');
@@ -188,5 +188,28 @@ describe('titres tournés vers la recherche', () => {
     for (const contenu of ordinaires) {
       expect(elementsDuContenu(contenu, BASE)[0].titre.length).toBeLessThanOrEqual(60);
     }
+  });
+});
+
+describe('texte incrusté sur le visuel', () => {
+  const semaine = genererSemaine(new Date('2026-09-28T00:00:00Z'), BASE);
+  const ordinaire = semaine.find((c) => c.categorie !== 'quiz')!;
+
+  // Pinterest lit le texte de l'image pour classer l'épingle : la couverture
+  // doit y répondre à une requête, pas interpeller comme dans un fil.
+  it('prépare la couverture Pinterest avec la formulation de recherche', () => {
+    const recherche = rechercheDuContenu(ordinaire)!;
+    const planche = plancheVisuel(ordinaire, 0, 'pinterest');
+    expect(planche.texte).toBe(recherche);
+  });
+
+  it('laisse l’accroche sur les visuels Instagram et Facebook', () => {
+    const planche = plancheVisuel(ordinaire, 0, 'carre');
+    expect(planche.texte).toBe(ordinaire.pages[0].texte);
+  });
+
+  it('ne touche pas les planches suivantes d’une épingle', () => {
+    const planche = plancheVisuel(ordinaire, 1, 'pinterest');
+    expect(planche.texte).toBe(ordinaire.pages[1].texte);
   });
 });

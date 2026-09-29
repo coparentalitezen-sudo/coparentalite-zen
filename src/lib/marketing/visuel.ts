@@ -16,6 +16,9 @@
  *     règle la question du droit à l'image avant qu'elle ne se pose.
  */
 
+import type { Contenu } from './generateur';
+import { rechercheDuContenu } from './pinterest';
+
 // Reprises telles quelles de globals.css, où elles ont été mesurées sur le
 // logo officiel. Les redéfinir ici « à peu près » produirait des visuels
 // légèrement décalés de l'application, ce qui se voit dès qu'on les met côte
@@ -120,5 +123,35 @@ export function planifierVisuel(planche: Planche, format: NomFormat): PlanVisuel
     couleurAppel: couverture ? COULEURS.corailClair : COULEURS.corail,
     pagination: planche.rang ? `${planche.rang.position} / ${planche.rang.total}` : null,
     signature: 'coparentalitezen.fr',
+  };
+}
+
+
+/**
+ * La planche à dessiner pour un contenu, une page et un format.
+ *
+ * Sur la couverture d'une épingle, la formulation de recherche remplace
+ * l'accroche : Pinterest lit le texte incrusté dans l'image et s'en sert pour
+ * classer, si bien qu'un visuel annonçant « planning garde alternée à
+ * imprimer » répond à une requête, là où « Vous recomptez les semaines sur vos
+ * doigts ? » n'en sert aucune. Les visuels d'Instagram et de Facebook gardent
+ * l'accroche, qui y fait exactement ce qu'on attend d'elle : arrêter l'œil
+ * dans un fil.
+ */
+export function plancheVisuel(
+  contenu: Contenu, page: number, format: NomFormat,
+): Planche {
+  const texte = format === 'pinterest' && page === 0
+    ? (rechercheDuContenu(contenu) ?? contenu.pages[page].texte)
+    : contenu.pages[page].texte;
+
+  return {
+    texte,
+    appel: contenu.pages[page].appel,
+    surtitre: page === 0 ? undefined : contenu.pages[page].titre,
+    couverture: page === 0,
+    rang: contenu.format === 'carrousel'
+      ? { position: page + 1, total: contenu.pages.length }
+      : undefined,
   };
 }

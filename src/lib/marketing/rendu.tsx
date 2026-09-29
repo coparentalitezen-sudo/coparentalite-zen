@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og';
 import { genererSemaine, type Contenu } from '@/lib/marketing/generateur';
 import { dateDepuisReference } from '@/lib/marketing/pinterest';
-import { planifierVisuel, COULEURS, type Planche, type NomFormat } from '@/lib/marketing/visuel';
+import { planifierVisuel, plancheVisuel, COULEURS, type NomFormat } from '@/lib/marketing/visuel';
 
 /**
  * Rendu des planches en image.
@@ -66,16 +66,7 @@ export async function rendreVisuel(
   formatForce?: NomFormat,
 ) {
   const format: NomFormat = formatForce ?? (contenu.format === 'reel' ? 'vertical' : 'carre');
-  const planche: Planche = {
-    texte: contenu.pages[page].texte,
-    appel: contenu.pages[page].appel,
-    surtitre: page === 0 ? undefined : contenu.pages[page].titre,
-    couverture: page === 0,
-    rang: contenu.format === 'carrousel'
-      ? { position: page + 1, total: contenu.pages.length }
-      : undefined,
-  };
-
+  const planche = plancheVisuel(contenu, page, format);
   const plan = planifierVisuel(planche, format);
 
   return new ImageResponse(
