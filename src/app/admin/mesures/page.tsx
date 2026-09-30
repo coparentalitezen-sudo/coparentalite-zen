@@ -7,6 +7,8 @@ import {
   performances, regrouper, entonnoir, meilleuresAccroches,
 } from '@/lib/marketing/mesures';
 import { BoutonRelever } from './bouton-relever';
+import { BoutonPublier } from './bouton-publier';
+import { supabaseService } from '@/lib/supabase/server';
 
 /**
  * Tableau de bord.
@@ -54,6 +56,23 @@ export default async function PageMesures() {
   const parNiche = regrouper(lignes, 'niche');
   const parFormat = regrouper(lignes, 'format');
   const accroches = meilleuresAccroches(lignes);
+
+  // Ce que la tâche quotidienne a fait en dernier. Sans cette ligne, « rien
+  // n'est parti » reste invérifiable une fois les journaux de l'hébergeur
+  // effacés, c'est-à-dire au bout d'une heure.
+  const service = supabaseService();
+  const { data: passages } = service
+    ? await service
+      .from('marketing_journal')
+      .select('jour, source, publie, rapport, created_at')
+      .eq('tache', 'publier-planifie')
+      .order('created_at', { ascending: false })
+      .limit(1)
+    : { data: null };
+  const dernier = passages?.[0] as
+    | { jour: string; source: string; publie: boolean;
+        rapport: { motif?: string; rapports?: { motif?: string }[] } }
+    | undefined;
 
   return (
     <main className="mx-auto min-h-dvh max-w-2xl space-y-4 px-4 py-6">
@@ -110,6 +129,21 @@ export default async function PageMesures() {
             : 'Aucun relevé à ce jour — le bouton ci-dessous affiche le motif exact du refus.'}
         </p>
         <BoutonRelever />
+      </section>
+
+      <section className="card space-y-2 p-4">
+        <h2 className="font-display text-lg font-semibold">Publication quotidienne</h2>
+        <p className="text-sm text-soft">
+          {dernier
+            ? `Dernier passage le ${dernier.jour} (${dernier.source}) : ${
+              dernier.publie
+                ? 'publié.'
+                : `rien publié — ${dernier.rapport?.motif
+                  ?? dernier.rapport?.rapports?.find((r) => r.motif)?.motif
+                  ?? 'motif inconnu'}`}`
+            : 'Aucun passage enregistré pour l’instant.'}
+        </p>
+        <BoutonPublier />
       </section>
 
       <section className="card space-y-3 p-4">

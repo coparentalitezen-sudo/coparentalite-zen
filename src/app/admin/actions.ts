@@ -9,6 +9,7 @@ import {
 } from '@/lib/marketing/depot';
 import { publierContenu } from '@/lib/marketing/publication';
 import { releverMesures } from '@/lib/marketing/releve';
+import { executerPublicationPlanifiee } from '@/lib/marketing/planification';
 
 /**
  * Contrôle d'accès des actions.
@@ -144,4 +145,33 @@ export async function actionReleverMesures(): Promise<{
     ? ` ${r.echecs.length} en échec — ${r.echecs[0].erreur}`
     : '';
   return { ok: true, message: `${r.releves} relevés sur ${r.examinees}.${reste}` };
+}
+
+/**
+ * Rejoue la tâche de publication quotidienne et affiche ce qu'elle a fait.
+ *
+ * Même motif que le relevé des mesures : sans retour à l'écran, une chaîne qui
+ * s'arrête ne se remarque qu'au bout de plusieurs jours, et son motif a déjà
+ * disparu des journaux de l'hébergeur.
+ */
+export async function actionPublierPlanifie(): Promise<{
+  ok: boolean; message: string;
+}> {
+  if (!await exigerAdministrateur()) return { ok: false, message: 'Accès refusé.' };
+
+  const r = await executerPublicationPlanifiee();
+  revalidatePath('/admin/mesures');
+
+  const partis = r.rapports.filter((x) => x.publie);
+  if (partis.length > 0) {
+    return {
+      ok: true,
+      message: `Publié via ${r.source} sur ${partis.map((x) => x.plateforme).join(' et ')}.`,
+    };
+  }
+
+  // Le premier motif suffit : quand la chaîne s'arrête, elle s'arrête pour la
+  // même raison partout, et répéter la phrase n'apprend rien de plus.
+  const motif = r.motif ?? r.rapports.find((x) => x.motif)?.motif ?? 'aucun motif retourné';
+  return { ok: false, message: `Rien publié (${r.source}) — ${motif}` };
 }

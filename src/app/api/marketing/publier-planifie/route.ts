@@ -1,35 +1,16 @@
 import { NextResponse } from 'next/server';
-import { supabaseService } from '@/lib/supabase/server';
-import { lireParametresPlateforme } from '@/lib/marketing/depot';
-import { publierContenu } from '@/lib/marketing/publication';
-import { publierReserve, type PlateformeMeta } from '@/lib/marketing/reserve';
-import { assurerVisuelDuJour } from '@/lib/marketing/quotidien';
+import { executerPublicationPlanifiee } from '@/lib/marketing/planification';
 
 /**
- * Publication planifiée.
+ * Publication planifiée, en tâche quotidienne.
  *
- * Le réglage « automatique » existait en base et dans l'interface depuis la
- * migration 00045, mais aucune tâche ne le lisait : le basculer ne changeait
- * rien, et seule la route d'administration — qui exige une session et un
- * accord explicite — pouvait publier. Le mode automatique promettait donc une
- * diffusion que rien n'exécutait.
- *
- * Cette route est la pièce manquante. Elle ne décide de rien : elle constate
- * qu'un contenu est arrivé à échéance, que sa plateforme est en service et en
- * mode automatique, et elle publie. Tout le reste — l'arrêt d'urgence, la
- * réservation, l'idempotence — reste dans les modules existants.
- *
- * Un seul contenu par plateforme et par exécution. Rattraper un retard en
- * publiant six fois d'affilée ferait chuter la portée de chacun et
- * ressemblerait à du spam : mieux vaut un retard visible qu'une rafale.
+ * La mécanique vit dans « executerPublicationPlanifiee » : elle est aussi
+ * déclenchée depuis l'écran d'administration, et chaque exécution laisse son
+ * rapport en base. Les journaux de l'hébergeur sont effacés au bout d'une
+ * heure : une chaîne qui s'arrête à 9h y devient indéchiffrable avant midi.
  */
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
-
-const PLATEFORMES = ['instagram', 'facebook'] as const;
-
-/** Nombre de contenus en retard examinés avant d'abandonner pour ce tour. */
-const PROFONDEUR = 5;
 
 function autorise(requete: Request): boolean {
   const attendu = process.env.CRON_SECRET;
@@ -37,146 +18,12 @@ function autorise(requete: Request): boolean {
   return requete.headers.get('authorization') === `Bearer ${attendu}`;
 }
 
-interface Rapport {
-  plateforme: string;
-  publie: boolean;
-  reference?: string;
-  motif?: string;
-}
-
 export async function GET(requete: Request) {
   if (!autorise(requete)) return new NextResponse('Not found', { status: 404 });
 
-  const service = supabaseService();
-  if (!service) {
-    return NextResponse.json({ message: 'Service indisponible.' }, { status: 503 });
+  const rapport = await executerPublicationPlanifiee();
+  if (rapport.motif === 'Service indisponible.') {
+    return NextResponse.json({ message: rapport.motif }, { status: 503 });
   }
-
-  const aujourdhui = new Date().toISOString().slice(0, 10);
-  const rapports: Rapport[] = [];
-
-  // Quels canaux peuvent publier ce matin. Le calcul sert deux fois : à la
-  // réserve, puis au générateur si la réserve est vide.
-  const ouverts: PlateformeMeta[] = [];
-  const fermes = new Map<PlateformeMeta, string>();
-
-  for (const plateforme of PLATEFORMES) {
-    const reglages = await lireParametresPlateforme(plateforme);
-    if (!reglages?.actif) {
-      fermes.set(plateforme, 'Canal hors service.');
-    } else if (reglages.mode !== 'automatique') {
-      fermes.set(plateforme, 'Mode validation : publication manuelle.');
-    } else {
-      ouverts.push(plateforme);
-    }
-  }
-
-  // La réserve passe devant : un visuel déposé à la main est toujours plus
-  // pertinent qu'une combinaison fabriquée. Si elle est vide, rien ne change.
-  const issue = await publierReserve(service, ouverts);
-  if (issue) {
-    for (const plateforme of PLATEFORMES) {
-      const etat = issue[plateforme];
-      rapports.push({
-        plateforme,
-        publie: etat.publie,
-        reference: etat.identifiant,
-        motif: etat.publie ? undefined : (fermes.get(plateforme) ?? etat.motif),
-      });
-    }
-    console.info('[publier-planifie]', JSON.stringify({
-      jour: aujourdhui, source: 'reserve', contenu: issue.id,
-      theme: issue.theme, statut: issue.statut, rapports,
-    }));
-    return NextResponse.json({ jour: aujourdhui, source: 'reserve', rapports });
-  }
-
-  // Après les visuels préparés à la main, une nouvelle histoire illustrée est
-  // créée chaque jour, puis publiée par le même circuit que la réserve.
-  // Une seconde exécution ce jour-là ne republie jamais cette histoire.
-  if (ouverts.length > 0) {
-    const base = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://www.coparentalitezen.fr';
-    const quotidien = await assurerVisuelDuJour(service, aujourdhui, base);
-    if (quotidien === 'deja') {
-      return NextResponse.json({ jour: aujourdhui, source: 'quotidien', rapports: [],
-        motif: 'Visuel du jour déjà traité.' });
-    }
-    if (quotidien === 'ajoute') {
-      const nouvelleIssue = await publierReserve(service, ouverts);
-      if (nouvelleIssue) {
-        for (const plateforme of PLATEFORMES) {
-          const etat = nouvelleIssue[plateforme];
-          rapports.push({
-            plateforme, publie: etat.publie, reference: etat.identifiant,
-            motif: etat.publie ? undefined : (fermes.get(plateforme) ?? etat.motif),
-          });
-        }
-        console.info('[publier-planifie]', JSON.stringify({
-          jour: aujourdhui, source: 'quotidien', contenu: nouvelleIssue.id, rapports,
-        }));
-        return NextResponse.json({ jour: aujourdhui, source: 'quotidien', rapports });
-      }
-    }
-  }
-
-  for (const plateforme of PLATEFORMES) {
-    const ferme = fermes.get(plateforme);
-    if (ferme) {
-      rapports.push({ plateforme, publie: false, motif: ferme });
-      continue;
-    }
-
-    // Les contenus rejetés ne remontent jamais : un refus doit tenir, y
-    // compris quand la tâche cherche de quoi publier.
-    const { data: dus } = await service
-      .from('marketing_contenus')
-      .select('reference, prevu_le')
-      .in('statut', ['en_attente', 'valide'])
-      .lte('prevu_le', aujourdhui)
-      .order('prevu_le', { ascending: true })
-      .limit(PROFONDEUR);
-
-    if (!dus || dus.length === 0) {
-      rapports.push({ plateforme, publie: false, motif: 'Aucun contenu à échéance.' });
-      continue;
-    }
-
-    let fait = false;
-    let derniereErreur = '';
-
-    for (const contenu of dus) {
-      const r = await publierContenu(contenu.reference, plateforme, 0);
-
-      if (r.ok) {
-        rapports.push({ plateforme, publie: true, reference: contenu.reference });
-        fait = true;
-        break;
-      }
-
-      // Déjà publié sur ce canal : ce n'est pas une erreur, c'est la garantie
-      // d'idempotence qui joue. On passe au contenu suivant.
-      if (r.dejaPublie) continue;
-
-      // Un contenu qui ne peut pas être publié ne doit pas bloquer ceux qui
-      // le suivent : un seul contenu défectueux en tête de file a suffi à
-      // tout arrêter pendant neuf jours. On le signale et on continue.
-      derniereErreur = `${contenu.reference} : ${r.erreur ?? 'échec sans message'}`;
-      if (!r.metaId && r.erreur === 'Contenu ou planche introuvable.') continue;
-
-      break;
-    }
-
-    if (!fait) {
-      rapports.push({
-        plateforme,
-        publie: false,
-        motif: derniereErreur || 'Tous les contenus à échéance sont déjà publiés.',
-      });
-    }
-  }
-
-  // Le rapport part aussi dans les journaux : sans lui, un tour qui n'a rien
-  // publié ne laisse aucune trace, et « rien n'est parti » reste inexplicable.
-  console.info('[publier-planifie]', JSON.stringify({ jour: aujourdhui, rapports }));
-  return NextResponse.json({ jour: aujourdhui, rapports });
+  return NextResponse.json(rapport);
 }
