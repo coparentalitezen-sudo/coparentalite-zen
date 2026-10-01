@@ -1,4 +1,5 @@
 import { urlVisuelPublic } from './signature';
+import { HASHTAGS } from './generateur';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 /** Garder la rotation initiale pour que les URL datées déjà publiées ne changent pas. */
@@ -111,7 +112,7 @@ export function histoireDuJour(jour: string): HistoireQuotidienne | null {
   return {
     jour, theme, question, solution, fichier: scene.fichier,
     texteAlternatif: `${scene.description} Texte : « ${question} » « ${solution} » Installer l’application : www.coparentalitezen.fr. Lien dans ma bio.`,
-    legende: `${question}\n\n${solution} Coparentalité Zen aide à organiser le quotidien des parents séparés.\n\nInstallez l’application sur www.coparentalitezen.fr — lien dans ma bio.\n\n#Coparentalite #ParentsSepares #OrganisationFamiliale`,
+    legende: `${question}\n\n${solution} Coparentalité Zen aide à organiser le quotidien des parents séparés.\n\nInstallez l’application sur www.coparentalitezen.fr — lien dans ma bio.\n\n${HASHTAGS.join(' ')}`,
   };
 }
 

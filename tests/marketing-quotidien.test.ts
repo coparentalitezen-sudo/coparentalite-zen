@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { histoireDuJour, urlVisuelQuotidien, assurerVisuelDuJour } from '../src/lib/marketing/quotidien';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { HASHTAGS } from '../src/lib/marketing/generateur';
 
 describe('visuels quotidiens', () => {
   it('sélectionne une histoire différente chaque jour, puis répète un cycle cohérent', () => {
@@ -44,5 +45,24 @@ describe('visuels quotidiens', () => {
       .toBe('deja');
     expect(insertions).toBe(0);
     delete process.env.CRON_SECRET;
+  });
+});
+
+describe('mots-dièse du visuel quotidien', () => {
+  // Une seule série pour tout le compte : le visuel quotidien portait les
+  // siens, hérités de sa première version, et les deux fils se contredisaient.
+  it('porte la série unique du compte', () => {
+    for (const jour of ['2026-10-02', '2026-10-03', '2026-11-15']) {
+      const histoire = histoireDuJour(jour)!;
+      expect(histoire).toBeTruthy();
+      for (const mot of HASHTAGS) expect(histoire.legende).toContain(mot);
+      expect(histoire.legende).not.toContain('#OrganisationFamiliale');
+      expect(histoire.legende).not.toContain('#ParentsSepares');
+    }
+  });
+
+  it('termine la légende par les mots-dièse', () => {
+    const legende = histoireDuJour('2026-10-02')!.legende;
+    expect(legende.trimEnd().endsWith(HASHTAGS[HASHTAGS.length - 1])).toBe(true);
   });
 });
