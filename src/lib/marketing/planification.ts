@@ -114,26 +114,41 @@ export async function executerPublicationPlanifiee(): Promise<RapportPublication
       return rapport;
     }
     if (quotidien === 'echec') {
-      rapports.push({ plateforme: 'quotidien', publie: false,
-        motif: 'Visuel du jour non fabriqué.' });
+      // Pas de repli sur les planches texte : un visuel manquant vaut mieux
+      // qu'un contenu que personne n'a choisi de publier. Le jour saute, le
+      // journal dit pourquoi, et le visuel repart demain.
+      const rapport: RapportPublication = {
+        jour: aujourdhui, source: 'quotidien', rapports,
+        motif: 'Visuel du jour non fabriqué — aucune publication de repli.',
+      };
+      await journaliser(service, rapport);
+      return rapport;
     }
-    if (quotidien === 'ajoute') {
-      const nouvelleIssue = await publierReserve(service, ouverts);
-      if (nouvelleIssue) {
-        for (const plateforme of PLATEFORMES) {
-          const etat = nouvelleIssue[plateforme];
-          rapports.push({
-            plateforme, publie: etat.publie, reference: etat.identifiant,
-            motif: etat.publie ? undefined : (fermes.get(plateforme) ?? etat.motif),
-          });
-        }
-        const rapport: RapportPublication = { jour: aujourdhui, source: 'quotidien', rapports };
-        await journaliser(service, rapport);
-        return rapport;
+
+    const nouvelleIssue = await publierReserve(service, ouverts);
+    if (nouvelleIssue) {
+      for (const plateforme of PLATEFORMES) {
+        const etat = nouvelleIssue[plateforme];
+        rapports.push({
+          plateforme, publie: etat.publie, reference: etat.identifiant,
+          motif: etat.publie ? undefined : (fermes.get(plateforme) ?? etat.motif),
+        });
       }
+      const rapport: RapportPublication = { jour: aujourdhui, source: 'quotidien', rapports };
+      await journaliser(service, rapport);
+      return rapport;
     }
+
+    const rapport: RapportPublication = {
+      jour: aujourdhui, source: 'quotidien', rapports,
+      motif: 'Visuel du jour ajouté mais non publiable — aucune publication de repli.',
+    };
+    await journaliser(service, rapport);
+    return rapport;
   }
 
+  // Les canaux fermés : il ne reste rien à tenter, le générateur de planches
+  // texte n'est plus un repli.
   for (const plateforme of PLATEFORMES) {
     const ferme = fermes.get(plateforme);
     if (ferme) {
