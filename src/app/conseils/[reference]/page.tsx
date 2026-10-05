@@ -20,6 +20,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const canonique = new URL(`/conseils/${encodeURIComponent(reference)}`, BASE).toString();
   return {
     title: `${contenu.accroche} — CoparentalitéZen`,
+    // Page d'arrivée des épingles Pinterest, pas page de recherche : son titre
+    // est une accroche et son texte se répète d'une référence à l'autre.
+    // `noindex` la retire des moteurs sans en bloquer ni l'accès ni l'aperçu ;
+    // `follow` laisse le moteur suivre ses liens vers le reste du site.
+    robots: { index: false, follow: true },
     description,
     alternates: { canonical: canonique },
     openGraph: {

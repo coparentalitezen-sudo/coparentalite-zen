@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { PagesLiees } from '@/components/pages-liees';
 import { construireLien } from '@/lib/marketing/utm';
 
 /**
@@ -158,6 +159,8 @@ export default function CalendrierGardeAlternee() {
             Créer mon espace familial
           </Link>
         </section>
+
+        <PagesLiees chemin="/calendrier-garde-alternee" />
       </article>
     </main>
   );

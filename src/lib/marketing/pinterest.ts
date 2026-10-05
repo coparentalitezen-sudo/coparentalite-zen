@@ -1,6 +1,7 @@
 import { genererSemaine, type Contenu } from './generateur';
 import { BANQUE } from './banque';
 import { construireLien } from './utm';
+import { pageDeLaNiche } from './pages-thematiques';
 
 /**
  * La formulation de recherche qui servira de titre à l'épingle.
@@ -53,6 +54,26 @@ export function lienConseilPinterest(base: string, reference: string): string {
   return construireLien(base, {
     source: 'pinterest', campagne: 'conseils', contenu: reference,
   }, `/conseils/${encodeURIComponent(reference)}`);
+}
+
+/**
+ * Destination d'une épingle de conseil.
+ *
+ * Quand une page thématique répond à l'intention du sujet, l'épingle y mène :
+ * la personne qui cherchait « partage des frais enfants parents séparés »
+ * trouve une réponse complète, liée au reste du site, plutôt qu'une page de
+ * deux cents mots écrite pour un fil Instagram. Sinon, la page de conseil
+ * reste la destination par défaut.
+ *
+ * Les paramètres UTM sont les mêmes dans les deux cas : changer de
+ * destination ne doit pas casser la série des comptages par contenu.
+ */
+export function lienEpinglePinterest(base: string, contenu: Contenu): string {
+  const page = pageDeLaNiche(contenu.niche);
+  if (!page) return lienConseilPinterest(base, contenu.reference);
+  return construireLien(base, {
+    source: 'pinterest', campagne: 'conseils', contenu: contenu.reference,
+  }, page.chemin);
 }
 
 /**
@@ -138,7 +159,7 @@ export function elementsDuContenu(contenu: Contenu, base: string): ElementFlux[]
     return [{
       guid: contenu.reference,
       titre: recherche ?? contenu.accroche,
-      lien: lienConseilPinterest(base, contenu.reference),
+      lien: lienEpinglePinterest(base, contenu),
       // La recherche ouvre la description : les premiers mots pèsent le plus
       // dans le classement, et l'accroche suit immédiatement pour le lecteur.
       description: recherche
