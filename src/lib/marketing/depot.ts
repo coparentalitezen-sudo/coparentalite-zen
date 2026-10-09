@@ -237,6 +237,16 @@ export interface PublicationAMesurer {
   reference: string;
   plateforme: string;
   metaMediaId: string;
+  /**
+   * D'où vient la publication.
+   *
+   * Les visuels quotidiens ne passent pas par marketing_publications : ils
+   * sont publiés depuis la réserve. Pendant neuf jours ils sont donc partis
+   * sans qu'aucun chiffre ne soit relevé, et l'écran des mesures montrait
+   * encore les anciennes publications — ce qui donnait l'impression que les
+   * nouveaux visuels ne faisaient aucune vue.
+   */
+  source: 'publication' | 'reserve';
 }
 
 /**
@@ -249,20 +259,40 @@ export interface PublicationAMesurer {
 export async function publicationsAMesurer(): Promise<PublicationAMesurer[]> {
   const service = supabaseService();
   if (!service) return [];
-  const { data } = await service
-    .from('marketing_publications')
-    .select('id, plateforme, meta_media_id, marketing_contenus(reference)')
-    .eq('statut', 'publiee')
-    .eq('plateforme', 'instagram')
-    .not('meta_media_id', 'is', null);
+  const [publications, reserve] = await Promise.all([
+    service
+      .from('marketing_publications')
+      .select('id, plateforme, meta_media_id, marketing_contenus(reference)')
+      .eq('statut', 'publiee')
+      .eq('plateforme', 'instagram')
+      .not('meta_media_id', 'is', null),
+    // Seul Instagram expose des statistiques par publication : la colonne
+    // Facebook de la réserve n'a pas d'équivalent à interroger.
+    service
+      .from('marketing_reserve')
+      .select('id, theme, id_instagram')
+      .eq('statut_instagram', 'publiee')
+      .not('id_instagram', 'is', null),
+  ]);
 
-  return (data ?? []).map((p) => ({
+  const depuisPublications: PublicationAMesurer[] = (publications.data ?? []).map((p) => ({
     id: p.id as string,
     plateforme: p.plateforme as string,
     metaMediaId: p.meta_media_id as string,
     reference:
       (p.marketing_contenus as unknown as { reference?: string } | null)?.reference ?? '',
+    source: 'publication' as const,
   }));
+
+  const depuisReserve: PublicationAMesurer[] = (reserve.data ?? []).map((r) => ({
+    id: r.id as string,
+    plateforme: 'instagram',
+    metaMediaId: r.id_instagram as string,
+    reference: r.theme as string,
+    source: 'reserve' as const,
+  }));
+
+  return [...depuisPublications, ...depuisReserve];
 }
 
 export interface MesureRelevee {
@@ -280,12 +310,13 @@ export interface MesureRelevee {
  * un contenu qui monte vite d'un contenu qui monte longtemps.
  */
 export async function enregistrerMesure(
-  publicationId: string, m: MesureRelevee,
+  cible: { id: string; source: 'publication' | 'reserve' }, m: MesureRelevee,
 ): Promise<boolean> {
   const service = supabaseService();
   if (!service) return false;
   const { error } = await service.from('marketing_mesures').insert({
-    publication_id: publicationId,
+    publication_id: cible.source === 'publication' ? cible.id : null,
+    reserve_id: cible.source === 'reserve' ? cible.id : null,
     releve_le: new Date().toISOString(),
     portee: m.portee,
     vues: m.vues,
@@ -315,12 +346,15 @@ export async function lireDerniersReleves(): Promise<Map<string, MesureContenu>>
   // Deux requêtes plutôt qu'une jointure imbriquée sur deux niveaux : la
   // seconde n'est pas typable et ferait perdre le contrôle du compilateur sur
   // toute la ligne renvoyée.
-  const [releves, publications] = await Promise.all([
+  const [releves, publications, reserve] = await Promise.all([
     service.from('marketing_mesures')
-      .select('publication_id, releve_le, portee, vues, interactions')
+      .select('publication_id, reserve_id, releve_le, portee, vues, interactions')
       .order('releve_le', { ascending: true }),
     service.from('marketing_publications')
       .select('id, marketing_contenus(reference)'),
+    // Les visuels quotidiens n'ont pas de référence de contenu : leur thème
+    // en tient lieu, sans quoi leurs relevés seraient écartés ici.
+    service.from('marketing_reserve').select('id, theme'),
   ]);
 
   const referenceDe = new Map<string, string>();
@@ -329,9 +363,13 @@ export async function lireDerniersReleves(): Promise<Map<string, MesureContenu>>
       (p.marketing_contenus as unknown as { reference?: string } | null)?.reference;
     if (reference) referenceDe.set(p.id as string, reference);
   }
+  for (const r of reserve.data ?? []) {
+    referenceDe.set(r.id as string, r.theme as string);
+  }
 
   for (const ligne of releves.data ?? []) {
-    const reference = referenceDe.get(ligne.publication_id as string);
+    const cle = (ligne.publication_id ?? ligne.reserve_id) as string | null;
+    const reference = cle ? referenceDe.get(cle) : undefined;
     if (!reference) continue;
     // Tri croissant : le dernier relevé écrase les précédents.
     table.set(reference, {

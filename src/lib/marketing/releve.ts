@@ -59,7 +59,8 @@ export async function releverMesures(plafond = PLAFOND): Promise<RapportMesures>
       return presentes.reduce((total, n) => total + m[n], 0);
     };
 
-    const ok = await enregistrerMesure(publication.id, {
+    const ok = await enregistrerMesure(
+      { id: publication.id, source: publication.source }, {
       portee: typeof m.reach === 'number' ? m.reach : null,
       vues: typeof m.views === 'number' ? m.views : null,
       interactions: somme('likes', 'comments', 'saved'),
