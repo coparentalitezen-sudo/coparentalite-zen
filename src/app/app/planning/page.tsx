@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import { BottomNav, ParentBadge } from '@/components/ui';
 import { Chargement, Erreur, SansFoyer, Vide } from '@/components/etats';
@@ -13,8 +13,8 @@ import {
   type RegleGarde, type ExceptionGarde, type Offre, type VacancesScolaires,
   type RendezVous, type CreneauFoyer,
 } from '@/lib/actions';
-import { buildDayMap, journeesPartagees, addDays, isoWeek, dernierJourTenu,
-  type Source, type ExceptionOverride, type JourneePartagee } from '@/lib/custody';
+import { buildDayMap, journeesPartagees, joursDeBascule, addDays, isoWeek, dernierJourTenu,
+  type Source, type ExceptionOverride, type JourneePartagee, type JourDeBascule } from '@/lib/custody';
 import { anneeScolaireDe, semaineAbDe } from '@/lib/scolarite/edt';
 import { estJourFerie } from '@/lib/scolarite/jours-feries';
 
@@ -48,6 +48,7 @@ function ContenuPlanning() {
   const [vacances, setVacances] = useState<VacancesScolaires[]>([]);
   const [erreurExceptions, setErreurExceptions] = useState<string | null>(null);
   const [partagees, setPartagees] = useState<Map<string, JourneePartagee>>(new Map());
+  const [bascules, setBascules] = useState<Map<string, JourDeBascule>>(new Map());
   const [rendezVous, setRendezVous] = useState<RendezVous[]>([]);
   const [creneauxScolaires, setCreneauxScolaires] = useState<CreneauFoyer[]>([]);
 
@@ -72,7 +73,9 @@ function ContenuPlanning() {
       if (r.status === 'ok') setRegle(r.data);
       else if (r.status === 'error') setErreur(r.message);
     });
-    listerExceptions(hid, premierJour, dernierJour).then((r) => {
+    // La veille du 1er compte : une période qui s'achève le dernier jour du
+    // mois précédent décide de la bascule du 1er.
+    listerExceptions(hid, addDays(premierJour, -1), dernierJour).then((r) => {
       if (r.status === 'ok') { setExceptions(r.data); setErreurExceptions(null); }
       // Une erreur ici ne doit pas vider le planning : le rythme de garde
       // reste calculable, et c'est l'information la plus utile à l'écran.
@@ -144,6 +147,7 @@ function ContenuPlanning() {
         }
       }
       setPartagees(journeesPartagees(m, regle.handoverTime, heuresParticulieres));
+      setBascules(joursDeBascule(m, regle.handoverTime, heuresParticulieres));
       const out = new Map<string, { parentId: string; source: Source }>();
       for (const [d, a] of m) out.set(d, { parentId: a.parentId, source: a.source });
       return out;
@@ -194,6 +198,22 @@ function ContenuPlanning() {
   /** Exceptions couvrant un jour donné, pour le détail. */
   const exceptionsDuJour = (jour: string) =>
     exceptions.filter((e) => jourDe(e.debut) <= jour && jour <= jourDe(e.fin));
+
+  /**
+   * Libellé de ce qui provoque une bascule : le rythme, ou la période
+   * (échange, vacances…) qui commence ce jour-là ou s'est achevée la veille.
+   */
+  const origineBascule = (b: JourDeBascule): string => {
+    if (b.source === 'rule') return 'Rythme habituel';
+    const veille = addDays(b.date, -1);
+    const exc = exceptions.find((e) => e.type === b.source
+      && jourDe(e.debut) <= b.date && veille <= jourDe(e.fin));
+    return exc?.typeLibelle ?? 'Période particulière';
+  };
+
+  /** Bascule du jour ouvert, tant qu'il reste dans l'horizon de l'offre. */
+  const basculeOuverte = jourOuvert && dansHorizon(offre, jourOuvert)
+    ? bascules.get(jourOuvert) : undefined;
 
   const decalageDebut = (new Date(premierJour + 'T12:00:00').getDay() + 6) % 7;
   const cases: (string | null)[] = [
@@ -250,6 +270,7 @@ function ContenuPlanning() {
                 <div className="grid grid-cols-7 border-b border-line bg-muted text-center text-xs font-bold text-soft">
                   {['L','M','M','J','V','S','D'].map((d, i) => <div key={i} className="py-2">{d}</div>)}
                 </div>
+                <div className="relative">
                 <div className="grid grid-cols-7">
                   {cases.map((d, i) => {
                     if (!d) return <div key={`vide-${i}`} className="aspect-square" />;
@@ -357,55 +378,54 @@ function ContenuPlanning() {
                     );
                   })}
                 </div>
-              </section>
-
-              {/* Légende */}
-              <section className="card space-y-2 p-3">
-                <h2 className="text-[11px] font-bold uppercase tracking-wide text-soft/80">Légende</h2>
-                <ul className="space-y-1.5 text-[13px]">
-                  <li className="flex items-center gap-2">
-                    <span aria-hidden className="h-5 w-5 shrink-0 rounded-md bg-p1-bg" />
-                    Garde habituelle — couleur pleine du parent
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span aria-hidden className="relative h-5 w-5 shrink-0 rounded-md bg-p2-bg text-[8px] leading-5">
-                      <span className="absolute inset-0 grid place-items-center">🌴</span>
-                    </span>
-                    Vacances — prioritaire sur tout
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span aria-hidden className="grid h-5 w-5 shrink-0 place-items-center rounded-md border-2 border-dashed border-ink/40 bg-p1-bg text-soft">
-                      <Icone nom="echange" taille={9} />
-                    </span>
-                    Changement ponctuel — bordure pointillée
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span aria-hidden className="relative h-5 w-5 shrink-0 overflow-hidden rounded-md bg-muted">
-                      <span className="absolute inset-x-0 top-0 h-[3px] bg-[#C9A227]" />
-                    </span>
-                    Vacances scolaires — liseré doré, ajoutées automatiquement
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span aria-hidden className="relative h-5 w-5 shrink-0 overflow-hidden rounded-md">
-                      <span className="absolute inset-x-0 top-0 h-1/2 bg-p1-bg" />
-                      <span className="absolute inset-x-0 bottom-0 h-1/2 bg-p2-bg" />
-                      <span className="absolute inset-x-0 top-1/2 h-px bg-ink/25" />
-                    </span>
-                    Jour de changement — case coupée, matin en haut
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span aria-hidden className="relative h-5 w-5 shrink-0 rounded-md bg-muted">
-                      <span className="absolute bottom-1 left-1 h-1.5 w-1.5 rounded-full bg-[#6741B8]" />
-                    </span>
-                    Rendez-vous — pastille violette, sans effet sur la garde
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span aria-hidden className="relative h-5 w-5 shrink-0 rounded-md bg-muted">
-                      <span className="absolute bottom-1 left-2.5 h-1.5 w-1.5 rounded-full bg-[#2E8B57]" />
-                    </span>
-                    École — pastille verte, masquée pendant les vacances et jours fériés
-                  </li>
-                </ul>
+                {basculeOuverte && jourOuvert && (() => {
+                  // L'info-bulle se place sous la case, ou au-dessus quand il
+                  // ne reste pas deux rangées en dessous ; elle suit la colonne
+                  // pour ne jamais déborder de la grille.
+                  const index = cases.indexOf(jourOuvert);
+                  const rangees = Math.ceil(cases.length / 7);
+                  const rangee = Math.floor(index / 7);
+                  const colonne = index % 7;
+                  const dessous = rangees - 1 - rangee >= 2;
+                  const style: CSSProperties = dessous
+                    ? { top: `calc(${((rangee + 1) / rangees) * 100}% + 4px)` }
+                    : { bottom: `calc(${((rangees - rangee) / rangees) * 100}% + 4px)` };
+                  if (colonne <= 2) style.left = `calc(${(colonne / 7) * 100}% + 4px)`;
+                  else if (colonne >= 4) style.right = `calc(${((6 - colonne) / 7) * 100}% + 4px)`;
+                  else { style.left = '50%'; style.transform = 'translateX(-50%)'; }
+                  const b = basculeOuverte;
+                  const vers = membre(b.vers);
+                  return (
+                    <div role="status" aria-live="polite" style={style}
+                      className="absolute z-30 w-[15rem] max-w-[calc(100%-8px)] rounded-xl border border-line bg-card p-3 text-left shadow-lg">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-soft">
+                          <Icone nom="echange" taille={11} /> Jour de bascule
+                        </p>
+                        <button type="button" aria-label="Fermer l’info-bulle"
+                          className="-mr-1 -mt-1 px-1 text-[15px] leading-none text-soft"
+                          onClick={() => setJourOuvert(null)}>×</button>
+                      </div>
+                      <p className="mt-1.5 text-[14px] leading-snug">
+                        <strong className={vers?.couleur === 'coral' ? 'text-coral-text' : 'text-navy-text'}>
+                          {nom(b.vers)}
+                        </strong>{' '}
+                        récupère les enfants
+                        {b.heure ? <> à <strong>{b.heure.replace(':', ' h ')}</strong></> : null}
+                      </p>
+                      <p className="mt-0.5 text-[12px] leading-snug text-soft">
+                        {b.heure
+                          ? <>Chez {nom(b.depuis)} jusque-là.</>
+                          : <>Heure non précisée — à fixer dans le rythme de garde.</>}
+                      </p>
+                      <p className="mt-1.5 text-[11px] font-bold text-soft/80">
+                        {origineBascule(b)}
+                        {b.origineHeure === 'periode' && ' · heure de la période'}
+                      </p>
+                    </div>
+                  );
+                })()}
+                </div>
               </section>
 
               {/* Détail du jour sélectionné */}
@@ -453,17 +473,21 @@ function ContenuPlanning() {
                           {m && <ParentBadge name={m.nom} initial={m.initiale}
                                   colorKey={m.couleur === 'coral' ? 'coral' : 'navy'} compact />}
                         </p>
-                        {partagees.get(jourOuvert) && (() => {
-                          const t = partagees.get(jourOuvert)!;
-                          const mMat = membre(t.matin);
-                          const mApr = membre(t.apresMidi);
-                          return (
-                            <p className="rounded-xl bg-muted px-3 py-2 text-[13px] leading-snug">
-                              Journée partagée : chez <strong>{mMat?.nom}</strong> le matin,
-                              puis chez <strong>{mApr?.nom}</strong> à partir de <strong>{t.heure}</strong>.
-                            </p>
-                          );
-                        })()}
+                        {basculeOuverte && (
+                          <p className="rounded-xl bg-muted px-3 py-2 text-[13px] leading-snug">
+                            <strong>Jour de bascule</strong> : chez {nom(basculeOuverte.depuis)}
+                            {basculeOuverte.heure ? ' le matin' : ' la veille'}, puis{' '}
+                            <strong>{nom(basculeOuverte.vers)}</strong> récupère les enfants
+                            {basculeOuverte.heure
+                              ? <> à <strong>{basculeOuverte.heure.replace(':', ' h ')}</strong>.</>
+                              : <> — heure non précisée.{' '}
+                                  <Link href="/app/foyer" className="underline">La fixer</Link></>}
+                            <span className="block text-[12px] text-soft">
+                              {origineBascule(basculeOuverte)}
+                              {basculeOuverte.origineHeure === 'periode' && ' · heure fixée par la période'}
+                            </span>
+                          </p>
+                        )}
                         <p className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[12px] font-bold text-soft">
                           {a.source === 'holiday' && <span aria-hidden>🌴</span>}
                           {a.source !== 'rule' && a.source !== 'holiday'
@@ -557,6 +581,56 @@ function ContenuPlanning() {
                   </Link>
                 </section>
               )}
+
+              {/* Légende */}
+              <section className="card space-y-2 p-3">
+                <h2 className="text-[11px] font-bold uppercase tracking-wide text-soft/80">Légende</h2>
+                <ul className="space-y-1.5 text-[13px]">
+                  <li className="flex items-center gap-2">
+                    <span aria-hidden className="h-5 w-5 shrink-0 rounded-md bg-p1-bg" />
+                    Garde habituelle — couleur pleine du parent
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span aria-hidden className="relative h-5 w-5 shrink-0 rounded-md bg-p2-bg text-[8px] leading-5">
+                      <span className="absolute inset-0 grid place-items-center">🌴</span>
+                    </span>
+                    Vacances — prioritaire sur tout
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span aria-hidden className="grid h-5 w-5 shrink-0 place-items-center rounded-md border-2 border-dashed border-ink/40 bg-p1-bg text-soft">
+                      <Icone nom="echange" taille={9} />
+                    </span>
+                    Changement ponctuel — bordure pointillée
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span aria-hidden className="relative h-5 w-5 shrink-0 overflow-hidden rounded-md bg-muted">
+                      <span className="absolute inset-x-0 top-0 h-[3px] bg-[#C9A227]" />
+                    </span>
+                    Vacances scolaires — liseré doré, ajoutées automatiquement
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span aria-hidden className="relative h-5 w-5 shrink-0 overflow-hidden rounded-md">
+                      <span className="absolute inset-x-0 top-0 h-1/2 bg-p1-bg" />
+                      <span className="absolute inset-x-0 bottom-0 h-1/2 bg-p2-bg" />
+                      <span className="absolute inset-x-0 top-1/2 h-px bg-ink/25" />
+                    </span>
+                    Jour de changement — case coupée, matin en haut
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span aria-hidden className="relative h-5 w-5 shrink-0 rounded-md bg-muted">
+                      <span className="absolute bottom-1 left-1 h-1.5 w-1.5 rounded-full bg-[#6741B8]" />
+                    </span>
+                    Rendez-vous — pastille violette, sans effet sur la garde
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span aria-hidden className="relative h-5 w-5 shrink-0 rounded-md bg-muted">
+                      <span className="absolute bottom-1 left-2.5 h-1.5 w-1.5 rounded-full bg-[#2E8B57]" />
+                    </span>
+                    École — pastille verte, masquée pendant les vacances et jours fériés
+                  </li>
+                </ul>
+              </section>
+
 
               <div className="flex flex-col gap-2">
                 <Link href="/app/exceptions" className="btn btn-primary w-full">

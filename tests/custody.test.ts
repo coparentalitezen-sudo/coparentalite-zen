@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { assignDays, buildSchedule, validateSchedule, whereToday, holidayAssignments, isoWeek, addDays, dernierJourTenu, type CustodyRule, buildDayMap , journeesPartagees } from '../src/lib/custody';
+import { assignDays, buildSchedule, validateSchedule, whereToday, holidayAssignments, isoWeek, addDays, dernierJourTenu, type CustodyRule, buildDayMap , journeesPartagees, joursDeBascule } from '../src/lib/custody';
 
 const P1 = 'alice', P2 = 'bob';
 // Lundi 5 janvier 2026 comme ancre (2026-01-05 est bien un lundi)
@@ -587,5 +587,46 @@ describe('périodes qui s’achèvent en cours de journée', () => {
       { startsOn: '2026-08-23', endsOn: '2026-08-31', parentId: P2, source: 'swap', priorite: 10 },
     ]);
     expect(avecRegle.get('2026-08-23')!.parentId).toBe(P2);
+  });
+});
+
+describe('jours de bascule (info-bulle du planning)', () => {
+  const rythme: CustodyRule = {
+    pattern: 'alternating_weeks', startDate: '2026-07-06', parent1: 'p1', parent2: 'p2',
+  };
+
+  it('relève la bascule du rythme avec son heure habituelle', () => {
+    const carte = buildDayMap(rythme, '2026-07-06', '2026-07-26');
+    const b = joursDeBascule(carte, '18:00').get('2026-07-13');
+    expect(b).toMatchObject({ depuis: 'p1', vers: 'p2', heure: '18:00', origineHeure: 'rythme', source: 'rule' });
+    expect(joursDeBascule(carte, '18:00').has('2026-07-14')).toBe(false);
+  });
+
+  it('relève la bascule même sans heure connue, sans en inventer une', () => {
+    const carte = buildDayMap(rythme, '2026-07-06', '2026-07-26');
+    const b = joursDeBascule(carte, null).get('2026-07-13');
+    expect(b).toMatchObject({ vers: 'p2', heure: null, origineHeure: null });
+  });
+
+  it('un changement ponctuel déplace la bascule et impose son heure', () => {
+    // p2 prend les enfants du jeudi 9 au dimanche 12 : la bascule se fait le 9,
+    // et plus le 13 (p2 les garde déjà).
+    const carte = buildDayMap(rythme, '2026-07-06', '2026-07-26', [], [
+      { startsOn: '2026-07-09', endsOn: '2026-07-12', parentId: 'p2', source: 'echange' },
+    ]);
+    const heures = new Map([['2026-07-09', '16:30']]);
+    const b = joursDeBascule(carte, '18:00', heures);
+    expect(b.get('2026-07-09')).toMatchObject({
+      depuis: 'p1', vers: 'p2', heure: '16:30', origineHeure: 'periode', source: 'echange',
+    });
+    expect(b.has('2026-07-13')).toBe(false);
+  });
+
+  it('le retour au rythme après une exception est attribué à cette exception', () => {
+    const carte = buildDayMap(rythme, '2026-07-06', '2026-07-26', [], [
+      { startsOn: '2026-07-08', endsOn: '2026-07-09', parentId: 'p2', source: 'echange' },
+    ]);
+    const b = joursDeBascule(carte, '18:00');
+    expect(b.get('2026-07-10')).toMatchObject({ depuis: 'p2', vers: 'p1', source: 'echange' });
   });
 });

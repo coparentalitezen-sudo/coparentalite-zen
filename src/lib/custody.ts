@@ -385,6 +385,55 @@ export function journeesPartagees(
   return partagees;
 }
 
+/**
+ * Jour de bascule : les enfants passent d'un parent à l'autre ce jour-là.
+ *
+ * Contrairement aux journées partagées, une bascule est relevée même sans
+ * heure connue — l'info-bulle du planning doit pouvoir dire qui accueille
+ * les enfants, et signaler honnêtement qu'aucune heure n'a été fixée.
+ */
+export interface JourDeBascule {
+  date: string;
+  /** Parent qui avait les enfants la veille. */
+  depuis: ParentId;
+  /** Parent qui accueille les enfants. */
+  vers: ParentId;
+  /** Heure du passage (HH:MM), ou null si personne ne l'a précisée. */
+  heure: string | null;
+  /** Origine de l'heure : propre à une période, ou heure habituelle du rythme. */
+  origineHeure: 'periode' | 'rythme' | null;
+  /** Source ayant provoqué le changement : celle du jour, sinon celle de la veille. */
+  source: Source;
+}
+
+export function joursDeBascule(
+  carte: Map<string, DayAssignment>,
+  heurePassage: string | null | undefined,
+  heuresParticulieres?: Map<string, string>,
+): Map<string, JourDeBascule> {
+  const bascules = new Map<string, JourDeBascule>();
+  const dates = [...carte.keys()].sort();
+  for (let i = 1; i < dates.length; i += 1) {
+    // Deux dates non consécutives ne disent rien de la veille réelle.
+    if (addDays(dates[i - 1], 1) !== dates[i]) continue;
+    const veille = carte.get(dates[i - 1])!;
+    const jour = carte.get(dates[i])!;
+    if (veille.parentId === jour.parentId) continue;
+    const particuliere = heuresParticulieres?.get(dates[i]);
+    const heure = particuliere ?? heurePassage ?? null;
+    bascules.set(dates[i], {
+      date: dates[i],
+      depuis: veille.parentId,
+      vers: jour.parentId,
+      heure,
+      origineHeure: particuliere ? 'periode' : heure ? 'rythme' : null,
+      // Le retour au rythme après une exception reste dû à cette exception.
+      source: jour.source !== 'rule' ? jour.source : veille.source,
+    });
+  }
+  return bascules;
+}
+
 export function buildDayMap(
   rule: CustodyRule,
   from: string,
