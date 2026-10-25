@@ -32,6 +32,14 @@
     {
       "path": "/api/marketing/mesures",
       "schedule": "0 21 * * *"
+    },
+    {
+      "path": "/api/youtube/publier",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/youtube/publier?passage=rattrapage",
+      "schedule": "0 16 * * *"
     }
   ],
   "rewrites": [

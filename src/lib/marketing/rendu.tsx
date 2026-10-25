@@ -1,7 +1,9 @@
 import { ImageResponse } from 'next/og';
 import { genererSemaine, type Contenu } from '@/lib/marketing/generateur';
 import { dateDepuisReference } from '@/lib/marketing/pinterest';
-import { planifierVisuel, plancheVisuel, COULEURS, type NomFormat } from '@/lib/marketing/visuel';
+import {
+  planifierVisuel, plancheVisuel, COULEURS, type NomFormat, type Planche,
+} from '@/lib/marketing/visuel';
 
 /**
  * Rendu des planches en image.
@@ -66,7 +68,15 @@ export async function rendreVisuel(
   formatForce?: NomFormat,
 ) {
   const format: NomFormat = formatForce ?? (contenu.format === 'reel' ? 'vertical' : 'carre');
-  const planche = plancheVisuel(contenu, page, format);
+  return rendrePlanche(plancheVisuel(contenu, page, format), format);
+}
+
+/**
+ * Dessine une planche quelconque. Séparé de rendreVisuel pour les YouTube
+ * Shorts, dont les planches ne viennent pas du générateur hebdomadaire :
+ * même dessin, même charte, sans en maintenir une seconde copie.
+ */
+export async function rendrePlanche(planche: Planche, format: NomFormat) {
   const plan = planifierVisuel(planche, format);
 
   return new ImageResponse(

@@ -104,6 +104,23 @@ export interface PlanVisuel {
   signature: string;
 }
 
+/**
+ * Corps de l'appel à l'action : un tiers plus grand que le texte, sauf si son
+ * mot le plus long ne tiendrait pas sur la largeur. Une adresse comme
+ * « www.coparentalitezen.fr » ne contient aucune espace : elle ne peut pas
+ * passer à la ligne, et débordait coupée sur les planches de 1080 pixels.
+ * La largeur moyenne d'un caractère d'Inter gras est prise à 0,62 em, par
+ * excès, pour garder une marge.
+ */
+export function tailleAppel(appel: string | undefined, taille: number, largeur: number): number {
+  const voulue = Math.round(taille * 1.35);
+  if (!appel) return voulue;
+  const motLePlusLong = Math.max(...appel.split(/\s+/).map((m) => m.length));
+  // Marges latérales de la planche (2 × 90) et filet de l'appel (10 + 32).
+  const disponible = largeur - 180 - 42;
+  return Math.min(voulue, Math.floor(disponible / (motLePlusLong * 0.62)));
+}
+
 export function planifierVisuel(planche: Planche, format: NomFormat): PlanVisuel {
   const { largeur, hauteur } = FORMATS[format];
   const couverture = planche.couverture ?? false;
@@ -119,7 +136,7 @@ export function planifierVisuel(planche: Planche, format: NomFormat): PlanVisuel
     appel: planche.appel ?? null,
     // Un tiers plus grand : assez pour trancher au premier coup d'œil, pas
     // assez pour déborder d'une planche déjà chargée.
-    tailleAppel: Math.round(taille * 1.35),
+    tailleAppel: tailleAppel(planche.appel, taille, largeur),
     couleurAppel: couverture ? COULEURS.corailClair : COULEURS.corail,
     pagination: planche.rang ? `${planche.rang.position} / ${planche.rang.total}` : null,
     signature: 'coparentalitezen.fr',

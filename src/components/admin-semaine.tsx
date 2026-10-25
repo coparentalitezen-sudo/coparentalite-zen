@@ -414,9 +414,14 @@ export function AdminSemaine({
           <Link href="/app/accueil" className="text-sm font-bold text-navy-text underline">
             ← Retour à l’application
           </Link>
-          <Link href="/admin/mesures" className="text-sm font-bold text-navy-text underline">
-            Résultats →
-          </Link>
+          <span className="flex gap-4">
+            <Link href="/admin/youtube" className="text-sm font-bold text-navy-text underline">
+              YouTube →
+            </Link>
+            <Link href="/admin/mesures" className="text-sm font-bold text-navy-text underline">
+              Résultats →
+            </Link>
+          </span>
         </div>
         <h1 className="font-display text-2xl font-semibold">Publications · {semaine}</h1>
         <p className="text-sm text-soft">

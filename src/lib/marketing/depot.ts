@@ -17,7 +17,7 @@ import { genererSemaine, semaineIso, type Contenu } from './generateur';
 
 export type Statut = 'brouillon' | 'en_attente' | 'valide' | 'rejete' | 'publie' | 'echec';
 
-export type Plateforme = 'global' | 'instagram' | 'facebook' | 'pinterest';
+export type Plateforme = 'global' | 'instagram' | 'facebook' | 'pinterest' | 'youtube';
 
 export interface Parametres {
   mode: 'validation' | 'automatique';

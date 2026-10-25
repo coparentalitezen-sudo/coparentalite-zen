@@ -27,6 +27,7 @@ export default {
   outputFileTracingIncludes: {
     '/api/marketing/publier-planifie': ['./node_modules/ffmpeg-static/ffmpeg'],
     '/api/marketing/publier': ['./node_modules/ffmpeg-static/ffmpeg'],
+    '/api/youtube/publier': ['./node_modules/ffmpeg-static/ffmpeg'],
     '/admin': ['./node_modules/ffmpeg-static/ffmpeg'],
     '/admin/**': ['./node_modules/ffmpeg-static/ffmpeg'],
   },
