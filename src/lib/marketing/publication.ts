@@ -49,7 +49,7 @@ export async function publierContenu(
   if (!prete.ok) return { ok: false, erreur: prete.erreur };
   const config = prete.donnees!;
 
-  const base = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://coparentalitezen.fr';
+  const base = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://www.coparentalitezen.fr';
 
   // La semaine est enregistrée d'abord : un contenu doit exister en base pour
   // qu'une publication puisse s'y rattacher.

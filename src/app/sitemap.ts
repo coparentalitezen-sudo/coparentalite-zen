@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { PAGES_THEMATIQUES } from '@/lib/marketing/pages-thematiques';
 
-const BASE = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://coparentalitezen.fr';
+const BASE = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://www.coparentalitezen.fr';
 
 /**
  * Plan du site.

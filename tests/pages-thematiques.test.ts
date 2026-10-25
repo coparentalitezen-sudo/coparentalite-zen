@@ -8,7 +8,7 @@ import {
 } from '../src/lib/marketing/pages-thematiques';
 import { elementsDuContenu, lienEpinglePinterest } from '../src/lib/marketing/pinterest';
 
-const BASE = 'https://coparentalitezen.fr';
+const BASE = 'https://www.coparentalitezen.fr';
 
 function contenuDeLaNiche(niche: string): Contenu {
   const contenu = genererSemaine(new Date('2026-08-17T10:00:00Z'), BASE)[0];

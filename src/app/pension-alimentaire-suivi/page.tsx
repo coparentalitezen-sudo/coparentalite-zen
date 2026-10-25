@@ -14,7 +14,7 @@ import { construireLien } from '@/lib/marketing/utm';
  * peut réellement apporter : le suivi des versements et de leurs preuves.
  */
 
-const BASE = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://coparentalitezen.fr';
+const BASE = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://www.coparentalitezen.fr';
 
 const CHEMIN = '/pension-alimentaire-suivi';
 const CANONIQUE = new URL(CHEMIN, BASE).toString();

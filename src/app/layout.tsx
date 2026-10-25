@@ -5,7 +5,7 @@ import { ServiceWorker } from '@/components/service-worker';
 import { SuiviOrigine } from '@/components/suivi-origine';
 import { PINTEREST_DOMAIN_VERIFICATION } from '@/lib/marketing/configuration-pinterest';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://coparentalitezen.fr';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://www.coparentalitezen.fr';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

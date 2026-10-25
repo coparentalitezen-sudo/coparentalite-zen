@@ -10,7 +10,7 @@ export const maxDuration = 60;
 export async function GET(requete: Request) {
   const parametres = new URL(requete.url).searchParams;
   const reference = parametres.get('ref') ?? '';
-  const base = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://coparentalitezen.fr';
+  const base = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://www.coparentalitezen.fr';
   const contenu = contenuPinterest(reference, base);
   if (!contenu) return new NextResponse('Not found', { status: 404 });
 

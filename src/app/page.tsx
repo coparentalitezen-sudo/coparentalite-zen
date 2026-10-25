@@ -225,11 +225,14 @@ export default async function Landing() {
               Créer mon espace — 3 mois gratuits
             </Link>
 
+            {/* Aucune démonstration publique n'existe : /app exige une session et
+                renvoyait le visiteur vers la connexion. Le lien mène plutôt à la
+                présentation du fonctionnement, sur cette même page. */}
             <Link
-              href="/app/accueil"
+              href="#comment-ca-marche"
               className="btn btn-ghost px-6 py-3"
             >
-              Voir la démonstration
+              Voir comment ça marche
             </Link>
           </div>
 
@@ -301,7 +304,7 @@ export default async function Landing() {
         </div>
       </section>
 
-      <section className="py-14">
+      <section id="comment-ca-marche" className="scroll-mt-4 py-14">
         <div className="mx-auto max-w-6xl px-5">
           <div className="mx-auto max-w-2xl text-center">
             <p className="text-sm font-bold text-navy-text">
@@ -488,7 +491,9 @@ export default async function Landing() {
               >
                 {extension.recommande && (
                   <span className="absolute right-3 top-3 rounded-full bg-muted px-3 py-1 text-xs font-bold text-navy-text">
-                    Le plus choisi
+                    {/* « Le plus choisi » affirmait un fait de vente non constaté :
+                        `recommande` est notre conseil, pas une statistique. */}
+                    Recommandé
                   </span>
                 )}
 

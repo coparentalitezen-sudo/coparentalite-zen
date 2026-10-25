@@ -19,7 +19,7 @@ import { construireLien } from '@/lib/marketing/utm';
  * personne venue chercher un calendrier.
  */
 
-const BASE = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://coparentalitezen.fr';
+const BASE = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://www.coparentalitezen.fr';
 
 const CANONIQUE = new URL('/calendrier-garde-alternee', BASE).toString();
 

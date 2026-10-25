@@ -10,7 +10,7 @@ interface Props {
   params: Promise<{ reference: string }>;
 }
 
-const BASE = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://coparentalitezen.fr';
+const BASE = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://www.coparentalitezen.fr';
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { reference } = await params;

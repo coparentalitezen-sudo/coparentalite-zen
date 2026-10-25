@@ -7,7 +7,7 @@ import { creerFluxPinterest } from '@/lib/marketing/pinterest';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const base = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://coparentalitezen.fr';
+  const base = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://www.coparentalitezen.fr';
   const contenus = genererSemaine(new Date(), base);
   const [statuts, parametres, autorisation] = await Promise.all([
     lireStatuts(contenus.map((contenu) => contenu.reference)),

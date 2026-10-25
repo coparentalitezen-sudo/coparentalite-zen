@@ -49,7 +49,7 @@ export async function GET() {
   // décrit mal : ses refus parlent de « type de média » quand l'adresse est
   // en réalité injoignable. On expose donc l'adresse exacte qu'il ira
   // chercher, pour qu'elle puisse être ouverte à la main.
-  const base = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://coparentalitezen.fr';
+  const base = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://www.coparentalitezen.fr';
   const premier = genererSemaine(new Date(), base).find((c) => c.format === 'publication');
   const urlVisuel = premier ? urlVisuelPublic(base, premier.reference, 0) : null;
 

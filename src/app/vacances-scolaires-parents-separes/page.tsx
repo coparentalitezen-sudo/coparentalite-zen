@@ -13,7 +13,7 @@ import { construireLien } from '@/lib/marketing/utm';
  * officiel comme la suite logique.
  */
 
-const BASE = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://coparentalitezen.fr';
+const BASE = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://www.coparentalitezen.fr';
 
 const CHEMIN = '/vacances-scolaires-parents-separes';
 const CANONIQUE = new URL(CHEMIN, BASE).toString();

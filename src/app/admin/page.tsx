@@ -31,7 +31,7 @@ export default async function PageAdmin() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!estAdministrateur(user?.email)) notFound();
 
-  const base = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://coparentalitezen.fr';
+  const base = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://www.coparentalitezen.fr';
   const maintenant = new Date();
 
   // L'enregistrement est rejouable : ouvrir la page deux fois ne crée pas une

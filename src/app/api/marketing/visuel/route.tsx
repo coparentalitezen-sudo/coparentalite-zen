@@ -27,7 +27,7 @@ export async function GET(requete: Request) {
   const url = new URL(requete.url);
   const reference = url.searchParams.get('ref') ?? '';
   const page = Number(url.searchParams.get('page') ?? '0');
-  const base = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://coparentalitezen.fr';
+  const base = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://www.coparentalitezen.fr';
 
   const contenu = contenuDeReference(reference, base);
   if (!contenu || !contenu.pages[page]) return new NextResponse('Not found', { status: 404 });
