@@ -3,6 +3,11 @@ import { InstallAppCard } from '@/components/install-app-card';
 import Link from 'next/link';
 import { BoutonAchat } from '@/components/bouton-achat';
 import { lireGrilleTarifaire, lireGrilleExtensions, formatPrix } from '@/lib/tarifs';
+import { SchemaRythme } from '@/components/rythme';
+import { schemaDeuxSemaines } from '@/lib/rythmes';
+import { PAGES_THEMATIQUES } from '@/lib/marketing/pages-thematiques';
+
+const BASE = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://www.coparentalitezen.fr';
 
 const avantages = [
   {
@@ -164,8 +169,52 @@ export default async function Landing() {
         recommande: e.recommande,
       }))
     : extensions;
+  // Données structurées : la FAQ reprend mot pour mot les questions affichées
+  // plus bas, et l'offre ne cite que des prix lus dans la grille — un montant
+  // annoncé aux moteurs doit être celui facturé, comme partout ailleurs.
+  const donneesStructurees = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: 'Coparentalité Zen',
+      url: BASE,
+      applicationCategory: 'LifestyleApplication',
+      operatingSystem: 'iOS, Android, Web',
+      inLanguage: 'fr',
+      description:
+        'Planning de garde alternée, vacances scolaires et dépenses des enfants '
+        + 'partagés entre parents séparés.',
+      offers: [
+        { '@type': 'Offer', name: 'Gratuit', price: '0', priceCurrency: 'EUR' },
+        ...(zenPlus && zenPlus.prixAnnuelCents > 0
+          ? [{
+              '@type': 'Offer',
+              name: 'Zen Plus (annuel)',
+              price: (zenPlus.prixAnnuelCents / 100).toFixed(2),
+              priceCurrency: 'EUR',
+            }]
+          : []),
+      ],
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: faq.map((item) => ({
+        '@type': 'Question',
+        name: item.question,
+        acceptedAnswer: { '@type': 'Answer', text: item.reponse },
+      })),
+    },
+  ];
+
   return (
     <main className="min-h-screen bg-bg">
+      <script
+        type="application/ld+json"
+        // Contenu entièrement construit côté serveur à partir de constantes et
+        // de la grille tarifaire : aucune saisie d'utilisateur n'y transite.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(donneesStructurees) }}
+      />
       <header className="border-b border-line bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
           <Link
@@ -179,7 +228,9 @@ export default async function Landing() {
               width={180}
               height={80}
               priority
-              className="h-auto w-[145px] object-contain sm:w-[170px]"
+              // Logo rond : à 145 px de large, l'en-tête montait à près de
+              // 190 px et repoussait l'accroche sous la ligne de flottaison.
+              className="h-auto w-[72px] object-contain sm:w-[96px]"
             />
           </Link>
 
@@ -204,17 +255,22 @@ export default async function Landing() {
       <section className="mx-auto max-w-6xl px-5 pb-14 pt-12 text-center sm:pt-16">
         <div className="mx-auto max-w-3xl">
           <p className="mx-auto inline-flex rounded-full bg-muted px-4 py-2 text-xs font-bold text-navy-text">
-            Planning partagé et dépenses de coparentalité
+            Fini les « c’est ton week-end ou le mien ? »
           </p>
 
+          {/* Le titre reprend les mots que les parents tapent réellement —
+              « garde alternée », « frais des enfants » — plutôt que
+              « coparentalité », qui désigne en France un tout autre service
+              (voir la page calendrier-garde-alternee). */}
           <h1 className="mt-5 font-display text-4xl font-semibold leading-tight tracking-tight text-navy-text sm:text-5xl">
-            Une coparentalité mieux organisée, pour un quotidien plus serein.
+            Le planning de garde alternée et les frais des enfants, clairs pour les deux parents.
           </h1>
 
           <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-soft sm:text-lg">
-            Coparentalité Zen réunit le planning de garde, les vacances,
-            les changements ponctuels et les dépenses liées aux enfants dans
-            un espace simple partagé entre les deux parents.
+            Qui a les enfants ce week-end, qui prend quelle moitié des
+            vacances, qui doit combien pour la cantine : tout est au même
+            endroit, calculé automatiquement, et chacun voit la même chose
+            depuis son téléphone.
           </p>
 
           <div className="mx-auto mt-7 flex max-w-sm flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center">
@@ -222,44 +278,53 @@ export default async function Landing() {
               href="/inscription"
               className="btn btn-primary px-6 py-3"
             >
-              Créer mon espace — 3 mois gratuits
+              Créer mon planning gratuit
             </Link>
 
-            {/* Aucune démonstration publique n'existe : /app exige une session et
-                renvoyait le visiteur vers la connexion. Le lien mène plutôt à la
-                présentation du fonctionnement, sur cette même page. */}
+            {/* Le questionnaire ne demande aucun compte et rend un planning
+                tout de suite : c'est la porte d'entrée la moins engageante
+                pour qui n'est pas encore prêt à s'inscrire. Le rythme trouvé
+                est présélectionné s'il crée son espace ensuite. */}
             <Link
-              href="#comment-ca-marche"
+              href="/quiz"
               className="btn btn-ghost px-6 py-3"
             >
-              Voir comment ça marche
+              Trouver mon rythme de garde en 1 minute
             </Link>
           </div>
 
           <p className="mt-3 text-xs text-soft">
-            3 mois gratuits pour commencer. Aucune carte bancaire demandée à l’inscription.
+            3 mois gratuits · Aucune carte bancaire · Le questionnaire ne demande aucun compte
           </p>
         </div>
 
-        <div className="mx-auto mt-10 grid max-w-3xl grid-cols-3 gap-2">
-          <div className="card p-3">
-            <p className="text-xl font-bold text-navy-text">1</p>
-            <p className="mt-1 text-xs text-soft">planning commun</p>
+        {/* Aperçu du produit. Les visiteurs ne voyaient jamais l'application
+            avant de s'inscrire ; ce schéma est celui que dessine réellement
+            l'application, appliqué à un exemple signalé comme tel. */}
+        <figure className="card mx-auto mt-10 max-w-md p-5 text-left">
+          <figcaption className="flex items-baseline justify-between gap-3">
+            <span className="text-sm font-bold text-ink">Une semaine sur deux</span>
+            <span className="text-[11px] font-bold uppercase tracking-wide text-soft/70">Exemple</span>
+          </figcaption>
+          <div className="mt-3">
+            <SchemaRythme
+              schema={schemaDeuxSemaines('alternating_weeks')}
+              parent1={{ nom: 'Camille', initiale: 'C', couleur: 'navy' }}
+              parent2={{ nom: 'Julien', initiale: 'J', couleur: 'coral' }}
+            />
           </div>
-
-          <div className="card p-3">
-            <p className="text-xl font-bold text-navy-text">2</p>
-            <p className="mt-1 text-xs text-soft">parents connectés</p>
+          <div className="mt-4 space-y-2 border-t border-line pt-4 text-sm">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-soft">Cantine de septembre · Camille</span>
+              <span className="font-bold text-ink">86,40 €</span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-soft">Montant à régulariser par Julien</span>
+              <span className="font-bold text-navy-text">43,20 €</span>
+            </div>
           </div>
-
-          <div className="card p-3">
-            <p className="text-xl font-bold text-navy-text">3 mois</p>
-            <p className="mt-1 text-xs text-soft">offerts à l’avance</p>
-          </div>
-        </div>
+        </figure>
       </section>
-
-      <section className="mx-auto max-w-3xl px-5 py-8"><InstallAppCard permanent /></section>
 
       <section className="bg-white py-14">
         <div className="mx-auto max-w-6xl px-5">
@@ -336,6 +401,41 @@ export default async function Landing() {
               </article>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Maillage interne : les pages thématiques n'étaient liées depuis
+          aucune page du site, seul le plan du site les signalait. Les relier
+          depuis l'accueil, la page la plus forte, leur transmet son poids et
+          offre au visiteur une réponse sans inscription. */}
+      <section className="py-14">
+        <div className="mx-auto max-w-6xl px-5">
+          <div className="mx-auto max-w-2xl text-center">
+            <p className="text-sm font-bold text-navy-text">
+              Guides gratuits
+            </p>
+
+            <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight">
+              Les réponses aux questions de chaque séparation
+            </h2>
+          </div>
+
+          <ul className="mx-auto mt-8 grid max-w-4xl gap-3 sm:grid-cols-2">
+            <li>
+              <Link href="/quiz" className="card flex h-full items-center justify-between gap-3 p-5 font-bold text-navy-text">
+                <span>Quel rythme de garde choisir ? Le questionnaire</span>
+                <span aria-hidden>→</span>
+              </Link>
+            </li>
+            {PAGES_THEMATIQUES.map((page) => (
+              <li key={page.chemin}>
+                <Link href={page.chemin} className="card flex h-full items-center justify-between gap-3 p-5 font-bold text-navy-text">
+                  <span>{page.libelle}</span>
+                  <span aria-hidden>→</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 
@@ -568,6 +668,10 @@ export default async function Landing() {
         </div>
       </section>
 
+      {/* Installer l'application intéresse qui l'utilise déjà ; placé sous
+          l'accroche, ce bloc détournait le nouveau visiteur de l'inscription. */}
+      <section className="mx-auto max-w-3xl px-5 pt-14"><InstallAppCard permanent /></section>
+
       <section className="px-5 py-14">
         <div className="mx-auto max-w-3xl rounded-3xl bg-navy px-6 py-10 text-center text-white">
           <h2 className="font-display text-3xl font-semibold">
@@ -583,7 +687,7 @@ export default async function Landing() {
             href="/inscription"
             className="mt-6 inline-flex min-h-12 items-center justify-center rounded-xl bg-white px-6 font-bold text-navy-text"
           >
-            Commencer — 3 mois gratuits
+            Créer mon planning gratuit
           </Link>
         </div>
       </section>
@@ -608,6 +712,10 @@ export default async function Landing() {
             <Link href="/confidentialite" className="underline">Politique de confidentialité</Link>
             <Link href="/cgu" className="underline">Conditions générales</Link>
             <Link href="/mentions-legales" className="underline">Mentions légales</Link>
+            {PAGES_THEMATIQUES.map((page) => (
+              <Link key={page.chemin} href={page.chemin} className="underline">{page.libelle}</Link>
+            ))}
+            <Link href="/quiz" className="underline">Questionnaire</Link>
             <Link href="/aide" className="underline">Aide</Link>
             <Link href="/contact" className="underline">Contact</Link>
           </div>
