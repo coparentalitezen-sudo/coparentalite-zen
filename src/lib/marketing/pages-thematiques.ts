@@ -27,6 +27,13 @@ export const PAGES_THEMATIQUES: PageThematique[] = [
     niches: ['garde-alternee'],
   },
   {
+    // Pas de niche : aucun sujet de la banque ne vise Noël, et la niche
+    // « vacances-scolaires » appartient déjà à la page générale.
+    chemin: '/vacances-noel-garde-alternee',
+    libelle: 'Vacances de Noël en garde alternée : qui a les enfants ?',
+    niches: [],
+  },
+  {
     chemin: '/vacances-scolaires-parents-separes',
     libelle: 'Partage des vacances scolaires entre parents séparés',
     niches: ['vacances-scolaires'],
