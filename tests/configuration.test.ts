@@ -67,6 +67,14 @@ describe('avancement', () => {
     expect(avancement(sansVacances).terminee).toBe(true);
   });
 
+  it('un parent seul termine sa configuration sans inviter l’autre', () => {
+    // Le second parent est nommé mais ne rejoindra peut-être jamais le foyer :
+    // l'application doit être pleinement utilisable sans lui.
+    const seul = { ...complet, secondParentInscrit: false, invitationEnvoyee: false };
+    expect(avancement(seul).terminee).toBe(true);
+    expect(etapes(seul).find((e) => e.cle === 'invitation')?.facultative).toBe(true);
+  });
+
   it('le pourcentage progresse étape par étape', () => {
     const a = avancement({ ...vierge, foyerCree: true, nbEnfants: 1 });
     expect(a.faites).toBe(2);

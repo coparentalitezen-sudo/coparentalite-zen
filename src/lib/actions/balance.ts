@@ -3,7 +3,7 @@
 /** Solde entre parents. L'autorité est la fonction serveur household_balance. */
 import { supabaseBrowser, ok, err, lisible, detail, type ActionResult } from './core';
 import { computePairBalance, type ExpenseForBalance, type ReimbursementForBalance } from '../money';
-import type { Solde, DepenseListe, Remboursement } from './types';
+import type { Solde, EnAttente, DepenseListe, Remboursement } from './types';
 
 // ---------------- Solde du foyer (autorité : le serveur) ----------------
 export async function getSolde(householdId: string): Promise<ActionResult<Solde>> {
@@ -32,6 +32,38 @@ export async function getSolde(householdId: string): Promise<ActionResult<Solde>
     remboursementsTotalCents: Number(l.remboursements_total_cents ?? 0),
     provisoire: false,
   });
+}
+
+/**
+ * Dépenses en attente de vérification (fonction serveur depenses_en_attente).
+ *
+ * Complément d'affichage seulement : renvoie null — et l'écran n'affiche
+ * rien de plus — si la fonction n'est pas encore installée ou ne répond pas.
+ * Le solde, lui, ne dépend jamais de ce calcul.
+ */
+export async function getDepensesEnAttente(householdId: string): Promise<EnAttente | null> {
+  const supabase = supabaseBrowser();
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('depenses_en_attente', { p_household: householdId });
+  if (error) return null;
+  const l = Array.isArray(data) ? data[0] : data;
+  if (!l) return null;
+  return {
+    netCents: Number(l.net_cents ?? 0),
+    parent1: l.parent_1 as string,
+    parent2: (l.parent_2 as string) ?? null,
+    nombre: Number(l.nombre ?? 0),
+    totalCents: Number(l.total_cents ?? 0),
+  };
+}
+
+/**
+ * Montant en attente vu par un parent : positif s'il le recevrait une fois les
+ * dépenses vérifiées, négatif s'il aurait à le régulariser.
+ */
+export function monMontantEnAttente(attente: EnAttente | null, moi: string | null): number {
+  if (!attente || !moi || !attente.parent2) return 0;
+  return moi === attente.parent1 ? attente.netCents : -attente.netCents;
 }
 
 /**

@@ -9,6 +9,7 @@ import {
   listerJustificatifs, urlJustificatifParId, retirerJustificatif, type Justificatif,
   urlJustificatifRemboursement, annulerRemboursement, modifierDepense, supprimerDepense, METHODES,
   getSolde, soldeLocalTransitoire, type Solde,
+  getDepensesEnAttente, monMontantEnAttente, type EnAttente,
   type DepenseListe, type Membre, type Remboursement,
 } from '@/lib/actions';
 import { balanceLabel, formatCents } from '@/lib/money';
@@ -47,6 +48,7 @@ export default function Depenses() {
   const [depenses, setDepenses] = useState<DepenseListe[] | null>(null);
   const [remboursements, setRemboursements] = useState<Remboursement[]>([]);
   const [solde, setSolde] = useState<Solde | null>(null);
+  const [attente, setAttente] = useState<EnAttente | null>(null);
   const [formRemb, setFormRemb] = useState(false);
   const [montantR, setMontantR] = useState('');
   const [methodeR, setMethodeR] = useState<string>('bank_transfer');
@@ -72,9 +74,11 @@ export default function Depenses() {
 
 
   const charger = useCallback(async (householdId: string, p1?: string, p2?: string | null) => {
-    const [d, rb, sd] = await Promise.all([
+    const [d, rb, sd, at] = await Promise.all([
       listerDepenses(householdId), listerRemboursements(householdId), getSolde(householdId),
+      getDepensesEnAttente(householdId),
     ]);
+    setAttente(at);
     if (d.status === 'ok') { setDepenses(d.data); setErreur(null); }
     else if (d.status === 'error') setErreur(d.message);
     if (rb.status === 'ok') setRemboursements(rb.data);
@@ -162,6 +166,7 @@ export default function Depenses() {
     : 0;
   const jeDois = monDu < 0 ? Math.abs(monDu) : 0;
   const autre = membres.find((m) => m.profileId !== moi);
+  const monAttente = monMontantEnAttente(attente, moi);
 
   async function enregistrerRemboursement(householdId: string) {
     if (!moi || !autre) return;
@@ -296,6 +301,34 @@ export default function Depenses() {
                 Calculé sur les dépenses validées, remboursements déduits.
                 {solde?.provisoire && ' — calcul provisoire, mise à jour de la base en attente.'}
               </p>
+
+              {/* Hors du solde, et dit comme tel : ces montants n'ont pas été
+                  vérifiés par l'autre parent. Sans eux, un parent qui utilise
+                  l'application seul verrait 0 € quoi qu'il ait avancé. */}
+              {attente && attente.nombre > 0 && autre && (
+                <div className="space-y-1 rounded-xl bg-muted px-3 py-2 text-sm">
+                  <p className="font-bold text-ink">
+                    {attente.nombre === 1
+                      ? '1 dépense en attente de vérification'
+                      : `${attente.nombre} dépenses en attente de vérification`}
+                    {' '}par {autre.nom} ({formatCents(attente.totalCents)})
+                  </p>
+                  {monAttente !== 0 && (
+                    <p className="text-soft">
+                      {monAttente > 0
+                        ? `Une fois vérifiées, ${autre.nom} aurait ${formatCents(monAttente)} à régulariser.`
+                        : `Une fois vérifiées, vous auriez ${formatCents(-monAttente)} à régulariser.`}
+                    </p>
+                  )}
+                  {autre.provisoire && (
+                    <p className="text-xs text-soft">
+                      {autre.nom} n’a pas encore de compte : ces dépenses restent en attente
+                      jusqu’à ce qu’il ou elle rejoigne le foyer. Chacune est conservée, datée,
+                      avec ses justificatifs.
+                    </p>
+                  )}
+                </div>
+              )}
 
               {!formRemb && jeDois > 0 && (
                 <button className="btn btn-primary w-full"

@@ -116,6 +116,18 @@ export interface Solde {
   provisoire: boolean;
 }
 
+/**
+ * Dépenses en attente de vérification par l'autre parent. Distinctes du
+ * solde, qui ne compte que les dépenses validées : jamais additionnées à lui.
+ */
+export interface EnAttente {
+  netCents: number;          // même convention que Solde.netCents
+  parent1: string;
+  parent2: string | null;
+  nombre: number;
+  totalCents: number;
+}
+
 export interface NouvelleDepense {
   householdId: string; titre: string; montantCents: number; date: string;
   categorieId: string | null; payePar: string; enfantIds: string[];

@@ -21,6 +21,9 @@ import {
   type ExceptionGarde,
   getSolde,
   soldeLocalTransitoire,
+  getDepensesEnAttente,
+  monMontantEnAttente,
+  type EnAttente,
   type DepenseListe,
   type RegleGarde,
   type Remboursement,
@@ -278,6 +281,7 @@ export default function Accueil() {
    */
   const [exceptions, setExceptions] = useState<ExceptionGarde[]>([]);
   const [solde, setSolde] = useState<Solde | null>(null);
+  const [attente, setAttente] = useState<EnAttente | null>(null);
 
   useEffect(() => {
     if (ctx.etat !== 'pret') return;
@@ -285,6 +289,8 @@ export default function Accueil() {
     const hid = ctx.contexte.foyer.id;
     const p1 = ctx.contexte.membres[0]?.profileId;
     const p2 = ctx.contexte.membres[1]?.profileId ?? null;
+
+    getDepensesEnAttente(hid).then(setAttente);
 
     Promise.all([
       listerDepenses(hid),
@@ -778,6 +784,13 @@ export default function Accueil() {
                       Dépenses validées, remboursements déduits.
                       {solde?.provisoire && ' Calcul provisoire.'}
                     </p>
+
+                    {monMontantEnAttente(attente, moi) !== 0 && (
+                      <p className="mt-1 text-[11px] font-bold leading-snug text-navy-text">
+                        {monMontantEnAttente(attente, moi) > 0 ? '+' : '−'}
+                        {formatCents(Math.abs(monMontantEnAttente(attente, moi)))} en attente de vérification
+                      </p>
+                    )}
                   </>
                 )}
 

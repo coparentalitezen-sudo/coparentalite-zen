@@ -56,9 +56,9 @@ const avantages = [
   },
   {
     icone: '👨‍👩‍👧',
-    titre: 'Un espace commun pour les deux parents',
+    titre: 'À deux, ou seul si l’autre ne suit pas',
     description:
-      'Invitez l’autre parent afin que chacun consulte les mêmes informations depuis son propre compte.',
+      'Invitez l’autre parent pour que chacun voie les mêmes informations. S’il refuse, vous utilisez l’application seul : planning, dépenses et justificatifs restent complets.',
   },
   {
     icone: '🏖️',
@@ -83,9 +83,9 @@ const etapes = [
   },
   {
     numero: '2',
-    titre: 'Invitez l’autre parent',
+    titre: 'Invitez l’autre parent, si vous le souhaitez',
     description:
-      'Chaque parent accède au même planning et aux mêmes dépenses.',
+      'Chaque parent accède au même planning et aux mêmes dépenses. Rien ne vous oblige à attendre son inscription.',
   },
   {
     numero: '3',
@@ -143,6 +143,11 @@ const extensions = [
 
 const faq = [
   {
+    question: 'Puis-je utiliser Coparentalité Zen sans l’autre parent ?',
+    reponse:
+      'Oui, entièrement. Vous indiquez simplement son prénom : il sert de repère dans le planning et les dépenses, sans qu’il ait de compte ni ne reçoive quoi que ce soit. Vos dépenses restent conservées, datées, avec leurs justificatifs, et vous voyez ce qu’elles représentent. S’il rejoint un jour l’application, il retrouve tout l’historique.',
+  },
+  {
     question: 'Que comprennent les 3 mois gratuits ?',
     reponse:
       'À la création de votre espace, vous pouvez planifier librement pendant 3 mois. Passé ce délai, votre historique reste consultable et vos données ne sont jamais supprimées : seule la planification vers le futur demande une extension ou Zen Plus.',
@@ -156,11 +161,6 @@ const faq = [
     question: 'L’achat d’une extension est-il un abonnement ?',
     reponse:
       'Non. Une extension est un achat ponctuel qui repousse votre limite de planification. Elle ne se renouvelle pas automatiquement.',
-  },
-  {
-    question: 'Puis-je utiliser Coparentalité Zen sans l’autre parent ?',
-    reponse:
-      'Oui. Vous pouvez créer votre espace et l’utiliser seul. Vous pourrez inviter l’autre parent lorsque vous le souhaitez.',
   },
   {
     question: 'L’application remplace-t-elle une convention parentale ?',
@@ -315,7 +315,7 @@ export default async function Landing() {
           </div>
 
           <p className="mt-3 text-xs text-soft">
-            3 mois gratuits · Aucune carte bancaire · Le questionnaire ne demande aucun compte
+            3 mois gratuits · Aucune carte bancaire · Fonctionne même si l’autre parent ne s’inscrit pas
           </p>
         </div>
 

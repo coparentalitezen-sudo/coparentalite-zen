@@ -64,10 +64,14 @@ export function etapes(e: EtatConfiguration): Etape[] {
       aQuoiCaSert: 'Les dates officielles sont proposées, vous les ajustez.',
       fait: e.zoneScolaireDefinie, facultative: true, href: '/app/vacances',
     },
+    // Facultative : un parent dont l'ex ne veut pas de l'application doit
+    // pouvoir l'utiliser pleinement seul. Obligatoire, cette étape laissait sa
+    // configuration « en cours » pour toujours, et le relançait sans fin.
     {
       cle: 'invitation', numero: 6, titre: 'Inviter le second parent',
-      aQuoiCaSert: 'Votre configuration est prête : il la découvrira terminée.',
-      fait: e.secondParentInscrit, facultative: false, href: '/app/foyer',
+      aQuoiCaSert: 'Quand vous le souhaitez : il découvrira une configuration terminée. '
+        + 'L’application fonctionne aussi sans lui.',
+      fait: e.secondParentInscrit, facultative: true, href: '/app/foyer',
     },
   ];
 }

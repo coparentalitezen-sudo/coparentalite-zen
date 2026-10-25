@@ -49,6 +49,11 @@ export const PAGES_THEMATIQUES: PageThematique[] = [
     niches: ['pension'],
   },
   {
+    chemin: '/garde-alternee-sans-communication',
+    libelle: 'Garde alternée sans communication avec l’autre parent',
+    niches: ['communication'],
+  },
+  {
     chemin: '/echange-des-enfants',
     libelle: 'Organiser les échanges d’enfants après une séparation',
     niches: ['echange-enfants'],
