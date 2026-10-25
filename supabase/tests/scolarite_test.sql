@@ -7,7 +7,7 @@
 \set ON_ERROR_STOP on
 
 -- ============ Contexte : DIANE (owner, Foyer Édu, premium + flag actif) ============
-select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000e1', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000d5', false);
 
 -- Test 1 : import nominal réussit et pose bien les créneaux.
 do $$
@@ -100,7 +100,7 @@ begin
 end $$;
 
 -- ============ Contexte : ERIK (owner, Foyer Édu Gratuit, sans le flag) ============
-select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000e2', false);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000d6', false);
 
 -- Test 5 : entitlement — un foyer non premium ne peut pas importer, même
 -- avec can_write() = true (propriétaire de son propre foyer).

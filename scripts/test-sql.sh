@@ -63,6 +63,11 @@ do \$\$ begin
   if not exists (select 1 from pg_roles where rolname = 'service_role') then
     create role service_role login password 'service';
   end if;
+  -- Comme sur Supabase, service_role contourne la RLS. Sans cet attribut, une
+  -- table fermée par RLS sans policy (marketing_parcours_quiz) lui paraissait
+  -- vide : l'écriture passait, la relecture ne trouvait rien, et le test
+  -- échouait sur une différence entre le banc et la production.
+  alter role service_role bypassrls;
   -- Sur Supabase, PostgREST endosse service_role directement. Ici, la suite de
   -- tests se connecte en applicatif : on l'autorise à basculer vers ce rôle
   -- pour vérifier ses droits. Cela ne lui donne aucun privilège tant qu'il n'a

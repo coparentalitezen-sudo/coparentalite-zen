@@ -17,7 +17,9 @@ reset role;
 set role service_role;
 select public.compter_etape_quiz('commence', 'site', 'quiz', 'quiz-resultat');
 select public.compter_etape_quiz('commence', 'site', 'quiz', 'quiz-resultat');
-reset role;
+-- La relecture se fait sous service_role, seul rôle autorisé sur la table :
+-- la suite tourne avec le rôle applicatif, et « reset role » y ramène — la
+-- lecture échouait alors sur un refus de droit, pas sur le compteur.
 do $$
 declare n integer;
 begin
@@ -30,6 +32,7 @@ begin
     raise exception 'ÉCHEC — QZ2 compteur attendu 2, obtenu %', n;
   end if;
 end $$;
+reset role;
 
 -- QZ3 — une étape arbitraire est rejetée par la base.
 set role service_role;
