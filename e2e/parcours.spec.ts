@@ -82,7 +82,7 @@ test('inscription : validation du mot de passe trop court', async ({ page }) => 
   await page.getByLabel('Prénom').fill('Test');
   await page.getByLabel('Adresse e-mail').fill('test@exemple.fr');
   await page.getByLabel('Mot de passe').fill('court');
-  await page.getByRole('button', { name: 'Créer mon compte' }).click();
+  await page.getByRole('button', { name: 'Créer mon planning' }).click();
   await expect(page.locator('p[role="alert"]')).toContainText('8 caractères');
 });
 

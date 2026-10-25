@@ -280,6 +280,23 @@ export function memoriserRythmeSuggere(pattern: CustodyPattern): void {
 }
 
 /**
+ * Consulte le rythme conseillé sans l'effacer.
+ *
+ * Pour l'écran d'inscription, qui l'annonce : la relecture définitive, avec
+ * effacement, reste celle de la configuration du foyer, plus loin.
+ */
+export function apercuRythmeSuggere(): CustodyPattern | null {
+  try {
+    const brut = window.localStorage.getItem(CLE_RYTHME_SUGGERE);
+    return brut && (PATTERNS_CONNUS as string[]).includes(brut)
+      ? (brut as CustodyPattern)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Relit le rythme conseillé, une seule fois : il est effacé à la lecture.
  *
  * Sans cet effacement, un parent qui changerait de rythme des mois plus tard

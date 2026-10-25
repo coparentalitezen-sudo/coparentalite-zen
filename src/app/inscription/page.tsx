@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { origineMemorisee } from '@/components/suivi-origine';
+import { apercuRythmeSuggere } from '@/lib/quiz';
+import { modele } from '@/lib/rythmes';
 
 export default function Inscription() {
   const router = useRouter();
@@ -16,7 +18,15 @@ export default function Inscription() {
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [legalAccepted, setLegalAccepted] = useState(false);
+  // Rythme trouvé dans le questionnaire, lu après le montage : le stockage du
+  // navigateur n'existe pas au rendu serveur.
+  const [rythme, setRythme] = useState<string | null>(null);
   const supabase = supabaseBrowser();
+
+  useEffect(() => {
+    const pattern = apercuRythmeSuggere();
+    setRythme(pattern ? modele(pattern)?.nom ?? null : null);
+  }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -61,19 +71,33 @@ export default function Inscription() {
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center px-6 py-8">
-      <Image src="/logo-complet.png" alt="Coparentalité Zen" width={200} height={200} priority />
+      <Image src="/logo-complet.png" alt="Coparentalité Zen" width={96} height={96} priority />
       {sent ? (
         <div className="card mt-6 w-full space-y-3 p-5 text-center">
           <h1 className="font-display text-xl font-semibold">Vérifiez votre boîte mail</h1>
           <p className="text-sm text-soft">
             Un e-mail de confirmation vient d’être envoyé à <strong>{email}</strong>. Cliquez sur le lien
-            qu’il contient pour activer votre compte, puis connectez-vous.
+            qu’il contient : vous arriverez directement dans votre espace.
+          </p>
+          {/* Le lien s'échange contre une session grâce à une clé gardée par ce
+              navigateur : ouvert sur un autre appareil, il échoue. */}
+          <p className="text-xs leading-relaxed text-soft">
+            Ouvrez-le <strong>sur cet appareil</strong>, dans ce navigateur. Rien reçu d’ici
+            quelques minutes ? Regardez dans les courriers indésirables.
           </p>
           <Link href="/connexion" className="btn btn-primary w-full">Retour à la connexion</Link>
         </div>
       ) : (
         <form onSubmit={submit} className="card mt-6 w-full space-y-4 p-5">
-          <h1 className="font-display text-xl font-semibold">Créer un compte</h1>
+          <div className="space-y-1">
+            <h1 className="font-display text-xl font-semibold">Créer mon planning gratuit</h1>
+            <p className="text-xs text-soft">3 mois gratuits · Aucune carte bancaire · Sans engagement</p>
+          </div>
+          {rythme && (
+            <p className="rounded-xl bg-muted px-3 py-2 text-sm text-navy-text">
+              Votre rythme <strong>{rythme}</strong> sera déjà sélectionné.
+            </p>
+          )}
           <label className="block">
             <span className="mb-1 block text-sm font-bold">Prénom</span>
             <input autoComplete="given-name" required value={name} onChange={(e) => setName(e.target.value)} />
@@ -93,7 +117,7 @@ export default function Inscription() {
             <span>J’accepte les <Link className="font-bold underline" href="/cgu" target="_blank">conditions générales</Link> et la <Link className="font-bold underline" href="/confidentialite" target="_blank">politique de confidentialité</Link>.</span>
           </label>
           <button className="btn btn-primary w-full" disabled={loading || !legalAccepted}>
-            {loading ? 'Création…' : 'Créer mon compte'}
+            {loading ? 'Création…' : 'Créer mon planning'}
           </button>
           <p className="text-sm">
             Déjà un compte ? <Link className="font-bold text-navy-text underline" href="/connexion">Se connecter</Link>

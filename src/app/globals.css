@@ -53,7 +53,14 @@ body { color: var(--color-ink); font-family: var(--font-sans); -webkit-tap-highl
 .btn-primary { background: var(--color-navy); color: #fff; }
 .btn-ghost { background: var(--color-muted); color: var(--color-ink); }
 
-input, select, textarea {
+/*
+ * Les cases à cocher et boutons radio sont exclus : la règle leur donnait
+ * toute la largeur et 44 px de haut, et l'emportait sur leurs classes de
+ * taille. La case des conditions générales de l'inscription apparaissait
+ * ainsi comme un grand champ vide — et sans elle cochée, impossible de
+ * créer un compte. Leur cible tactile vient du libellé qui les entoure.
+ */
+input:not([type='checkbox']):not([type='radio']), select, textarea {
   min-height: 44px; border-radius: var(--radius-btn);
   border: 1px solid var(--color-line); background: #fff;
   padding: .5rem .875rem; width: 100%;
@@ -80,6 +87,9 @@ input, select, textarea {
  */
 input[type='date'], input[type='time'], input[type='datetime-local'] {
   min-width: 0;
+}
+input[type='checkbox'], input[type='radio'] {
+  accent-color: var(--color-navy);
 }
 input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible, button:focus-visible {
   outline: 2px solid var(--color-navy); outline-offset: 2px;

@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Image from 'next/image';
 import { InstallAppCard } from '@/components/install-app-card';
 import Link from 'next/link';
@@ -8,6 +9,31 @@ import { schemaDeuxSemaines } from '@/lib/rythmes';
 import { PAGES_THEMATIQUES } from '@/lib/marketing/pages-thematiques';
 
 const BASE = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://www.coparentalitezen.fr';
+
+// Le titre par défaut du site commençait par « Coparentalité », mot qui
+// désigne en France un autre service (voir calendrier-garde-alternee) : la
+// page d'accueil porte les termes que les parents séparés recherchent.
+export const metadata: Metadata = {
+  title: 'Planning de garde alternée et frais des enfants partagés | Coparentalité Zen',
+  description:
+    'Le planning de garde alternée, les vacances scolaires et les dépenses des '
+    + 'enfants, partagés entre les deux parents dans une application simple. '
+    + '3 mois gratuits, sans carte bancaire.',
+  alternates: { canonical: BASE },
+};
+
+/**
+ * Garanties affichées sous l'aperçu. Chacune est vérifiable : base Supabase
+ * en région eu-west-3 (Paris), politique de confidentialité (aucune revente,
+ * mesure d'audience sans cookie), règles de l'offre (export toujours
+ * accessible) et règles comptables (validation par l'autre parent).
+ */
+const garanties = [
+  'Données hébergées à Paris',
+  'Aucune publicité ni revente de données',
+  'Chaque dépense validée par l’autre parent',
+  'Vos données exportables à tout moment',
+];
 
 const avantages = [
   {
@@ -319,6 +345,15 @@ export default async function Landing() {
             </div>
           </div>
         </figure>
+
+        <ul className="mx-auto mt-6 flex max-w-3xl flex-wrap justify-center gap-x-5 gap-y-2 text-xs font-bold text-soft">
+          {garanties.map((garantie) => (
+            <li key={garantie} className="flex items-center gap-1.5">
+              <span aria-hidden className="text-ok">✓</span>
+              {garantie}
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section className="bg-white py-14">
