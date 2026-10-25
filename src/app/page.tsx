@@ -102,21 +102,16 @@ const extensions = [
   {
     id: null,
     duree: '+1 mois',
-    prix: '0,99 €',
+    prix: '2,99 €',
     description: 'Pour préparer une période ponctuelle un peu plus éloignée.',
+    recommande: false,
   },
   {
     id: null,
     duree: '+6 mois',
-    prix: '3,99 €',
+    prix: '14,99 €',
     description: 'Idéal pour organiser les prochaines vacances et la rentrée.',
-    recommande: true,
-  },
-  {
-    id: null,
-    duree: '+12 mois',
-    prix: '5,99 €',
-    description: 'Pour préparer sereinement une année complète.',
+    recommande: false,
   },
 ];
 
@@ -509,23 +504,43 @@ export default async function Landing() {
 
                 {zenPlus ? (
                   <>
-                    <div className="mt-2 flex items-end gap-2">
-                      <span className="font-display text-4xl font-semibold">
-                        {formatPrix(zenPlus.prixMensuelCents)}
-                      </span>
+                    {/* Le bouton ouvre la formule annuelle : c'est elle qu'on
+                        affiche en premier, ramenée au mois, le tarif mensuel
+                        restant indiqué juste dessous. */}
+                    {zenPlus.prixAnnuelCents > 0 ? (
+                      <>
+                        <div className="mt-2 flex items-end gap-2">
+                          <span className="font-display text-4xl font-semibold">
+                            {formatPrix(Math.round(zenPlus.prixAnnuelCents / 12))}
+                          </span>
 
-                      <span className="pb-1 text-sm text-soft">
-                        par mois
-                      </span>
-                    </div>
+                          <span className="pb-1 text-sm text-soft">
+                            par mois, pour tout le foyer
+                          </span>
+                        </div>
 
-                    {zenPlus.prixAnnuelCents > 0 && (
-                      <p className="mt-1 text-xs text-soft">
-                        ou {formatPrix(zenPlus.prixAnnuelCents)} par an
-                        {zenPlus.economieAnnuelleCents > 0
-                          && ` — ${formatPrix(zenPlus.economieAnnuelleCents)} d’économie`}
-                      </p>
+                        <p className="mt-1 text-xs text-soft">
+                          Facturé {formatPrix(zenPlus.prixAnnuelCents)} par an
+                          {zenPlus.economieAnnuelleCents > 0
+                            && ` (${formatPrix(zenPlus.economieAnnuelleCents)} d’économie)`}
+                          {`, ou ${formatPrix(zenPlus.prixMensuelCents)} au mois sans engagement.`}
+                        </p>
+                      </>
+                    ) : (
+                      <div className="mt-2 flex items-end gap-2">
+                        <span className="font-display text-4xl font-semibold">
+                          {formatPrix(zenPlus.prixMensuelCents)}
+                        </span>
+
+                        <span className="pb-1 text-sm text-soft">
+                          par mois
+                        </span>
+                      </div>
                     )}
+
+                    <p className="mt-2 text-xs font-bold text-navy-text">
+                      Un seul abonnement couvre les deux parents.
+                    </p>
                   </>
                 ) : (
                   /* Grille injoignable : mieux vaut ne rien annoncer qu'un prix
@@ -581,7 +596,7 @@ export default async function Landing() {
             </p>
           </div>
 
-          <div className="mx-auto mt-8 grid max-w-4xl gap-4 md:grid-cols-3">
+          <div className="mx-auto mt-8 grid max-w-2xl gap-4 md:grid-cols-2">
             {extensionsAffichees.map((extension) => (
               <article
                 key={extension.duree}
