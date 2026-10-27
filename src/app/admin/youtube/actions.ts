@@ -35,6 +35,8 @@ export async function actionVisibilite(visibilite: 'private' | 'unlisted' | 'pub
   return { ok: !error, message: error ? 'L’enregistrement n’a pas abouti.' : 'Visibilité enregistrée.' };
 }
 
+const LIBELLES: Record<string, string> = { private: 'privée', unlisted: 'non répertoriée', public: 'publique' };
+
 export async function actionPublierEssai(): Promise<Retour> {
   if (!await estAdministrateurConnecte()) return { ok: false, message: 'Accès refusé.' };
   const r = await executerPublicationYoutube({ essai: true });
@@ -42,7 +44,7 @@ export async function actionPublierEssai(): Promise<Retour> {
   return {
     ok: r.publie,
     message: r.publie
-      ? `Short d’essai envoyé en privé (vidéo ${r.videoId}).`
+      ? `Short d’essai envoyé (vidéo ${r.videoId}, visibilité obtenue : ${LIBELLES[r.visibilite ?? ''] ?? r.visibilite ?? 'inconnue'}).`
       : `Rien n’a été publié : ${r.motif ?? r.statut}.`,
   };
 }

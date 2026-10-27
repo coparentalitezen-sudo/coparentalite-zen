@@ -131,7 +131,7 @@ export default async function PageYoutube({
         </p>
         <Interrupteur actif={Boolean(reglages?.actif)} />
         {active && <ChoixVisibilite valeur={connexion?.visibilite ?? 'private'} />}
-        {active && <BoutonEssai />}
+        {active && <BoutonEssai visibilite={connexion?.visibilite ?? 'private'} />}
       </section>
 
       <section className="grid grid-cols-3 gap-2">

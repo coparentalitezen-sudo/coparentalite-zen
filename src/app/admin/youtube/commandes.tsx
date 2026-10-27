@@ -56,7 +56,10 @@ export function ChoixVisibilite({ valeur }: { valeur: string }) {
   );
 }
 
-export function BoutonEssai() {
+const MOTS_VISIBILITE: Record<string, string> = { private: 'privé', unlisted: 'non répertorié', public: 'public' };
+
+export function BoutonEssai({ visibilite }: { visibilite: string }) {
+  const mot = MOTS_VISIBILITE[visibilite] ?? 'privé';
   const c = useCommande();
   const [arme, setArme] = useState(false);
   return (
@@ -68,7 +71,7 @@ export function BoutonEssai() {
           c.lancer(actionPublierEssai);
         }}>
         {c.enCours ? 'Fabrication et envoi… (jusqu’à une minute)'
-          : arme ? 'Confirmer l’envoi d’un Short privé' : 'Publier un Short d’essai (privé)'}
+          : arme ? `Confirmer l’envoi d’un Short ${mot}` : `Publier un Short d’essai (${mot})`}
       </button>
       <Retour retour={c.retour} />
     </div>

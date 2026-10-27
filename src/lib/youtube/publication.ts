@@ -180,7 +180,7 @@ async function envoyer(
 // ---------------- Exécution ----------------
 
 export interface Options {
-  /** Publication d'essai depuis l'administration : toujours privée, hors Short du jour. */
+  /** Publication d'essai depuis l'administration, hors Short du jour, dans la visibilité réglée. */
   essai?: boolean;
   maintenant?: Date;
 }
@@ -226,7 +226,7 @@ export async function executerPublicationYoutube(options: Options = {}): Promise
   const s = shortDuJour(jour);
   const base = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://www.coparentalitezen.fr';
   const cleIdem = options.essai ? `essai-${maintenant.getTime()}` : `short-${jour}`;
-  const visibilite: Visibilite = options.essai ? 'private' : (connexion.visibilite as Visibilite);
+  const visibilite = connexion.visibilite as Visibilite;
   const offre = await offreGratuiteActive();
 
   await service.from('marketing_youtube_shorts').upsert({
