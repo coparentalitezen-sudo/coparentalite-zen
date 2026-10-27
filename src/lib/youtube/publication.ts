@@ -2,7 +2,7 @@ import 'server-only';
 import { supabaseService } from '@/lib/supabase/server';
 import { lireParametresPlateforme, publicationAutorisee } from '@/lib/marketing/depot';
 import { rendrePlanche } from '@/lib/marketing/rendu';
-import { assemblerVideo, SEAU_REELS } from '@/lib/marketing/video';
+import { assemblerVideo, SEAU_REELS, type PlancheRendue } from '@/lib/marketing/video';
 import { lireGrilleTarifaire } from '@/lib/tarifs';
 import { chiffrer, cleDeChiffrement, dechiffrer } from './chiffrement';
 import {
@@ -119,11 +119,16 @@ async function fichierVideo(service: Service, cle: string, s: ShortDuJour): Prom
   const offre = await offreGratuiteActive();
   // Une planche après l'autre : le rendu en parallèle de sept images
   // 1080×1920 s'ajoutait à l'encodage et dépassait la mémoire de Vercel.
-  const images: ArrayBuffer[] = [];
+  // Deux calques par planche, pour que le texte entre en mouvement.
+  const planches: PlancheRendue[] = [];
   for (const p of planchesDuShort(s, offre)) {
-    images.push(await (await rendrePlanche(p, 'vertical')).arrayBuffer());
+    planches.push({
+      fond: await (await rendrePlanche(p, 'vertical', 'fond')).arrayBuffer(),
+      texte: await (await rendrePlanche(p, 'vertical', 'texte')).arrayBuffer(),
+    });
   }
-  const video = await assemblerVideo(images);
+  // Le rang change chaque jour : deux Shorts consécutifs n’ont pas la même musique.
+  const video = await assemblerVideo(planches, s.rang);
   await service.storage.createBucket(SEAU_REELS, { public: true }).catch(() => undefined);
   const { error } = await seau.upload(nom, video, { contentType: 'video/mp4', upsert: true });
   if (error) throw new Error(`Dépôt de la vidéo : ${error.message}`);

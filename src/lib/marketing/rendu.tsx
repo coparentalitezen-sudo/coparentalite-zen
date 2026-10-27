@@ -71,20 +71,31 @@ export async function rendreVisuel(
   return rendrePlanche(plancheVisuel(contenu, page, format), format);
 }
 
+/** Planche entière, fond seul, ou texte seul sur fond transparent. */
+export type Calque = 'complet' | 'fond' | 'texte';
+
 /**
  * Dessine une planche quelconque. Séparé de rendreVisuel pour les YouTube
  * Shorts, dont les planches ne viennent pas du générateur hebdomadaire :
  * même dessin, même charte, sans en maintenir une seconde copie.
  */
-export async function rendrePlanche(planche: Planche, format: NomFormat) {
+export async function rendrePlanche(planche: Planche, format: NomFormat, calque: Calque = 'complet') {
   const plan = planifierVisuel(planche, format);
+  // Pour l'animation, la planche se dessine en deux calques superposables :
+  // le fond seul, puis le texte seul sur fond transparent. Les éléments
+  // retirés d'un calque sont rendus transparents plutôt que supprimés, pour
+  // que la mise en page — donc la position du texte — reste identique.
+  const voirFond = calque !== 'texte';
+  const voirTexte = calque !== 'fond';
+  const cache = (visible: boolean, couleur: string) => (visible ? couleur : 'transparent');
 
   return new ImageResponse(
     (
       <div
         style={{
           width: plan.largeur, height: plan.hauteur,
-          background: plan.fond, color: plan.couleurTexte,
+          background: voirFond ? plan.fond : 'transparent',
+          color: cache(voirFond, plan.couleurTexte),
           display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
           padding: '110px 90px', fontFamily: 'Inter',
         }}
@@ -99,6 +110,7 @@ export async function rendrePlanche(planche: Planche, format: NomFormat) {
             style={{
               display: 'flex', fontSize: plan.taille, lineHeight: 1.28,
               fontWeight: 700, letterSpacing: '-0.02em',
+              color: cache(voirTexte, plan.couleurTexte),
             }}
           >
             {plan.texte}
@@ -109,10 +121,10 @@ export async function rendrePlanche(planche: Planche, format: NomFormat) {
               style={{
                 display: 'flex', fontSize: plan.tailleAppel, lineHeight: 1.2,
                 fontWeight: 700, letterSpacing: '-0.02em',
-                color: plan.couleurAppel,
+                color: cache(voirTexte, plan.couleurAppel),
                 // Un filet à gauche : l'appel n'est plus un paragraphe parmi
                 // d'autres, il devient un bloc à part.
-                borderLeft: `10px solid ${plan.couleurAppel}`,
+                borderLeft: `10px solid ${cache(voirTexte, plan.couleurAppel)}`,
                 paddingLeft: 32,
               }}
             >
@@ -124,7 +136,7 @@ export async function rendrePlanche(planche: Planche, format: NomFormat) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 22 }}>
           <div style={{
             width: 18, height: 18, borderRadius: 9,
-            background: plan.fond === COULEURS.marine ? '#FFFFFF' : COULEURS.marine,
+            background: cache(voirFond, plan.fond === COULEURS.marine ? '#FFFFFF' : COULEURS.marine),
           }} />
           <span style={{ fontSize: 32, opacity: 0.7 }}>{plan.signature}</span>
         </div>

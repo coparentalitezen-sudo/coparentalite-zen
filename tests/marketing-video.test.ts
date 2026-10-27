@@ -10,21 +10,55 @@ vi.mock('@/lib/supabase/server', () => ({ supabaseService: () => null }));
 
 const {
   argumentsPlanche, argumentsConcatenation, dureeVideo, nomVideo, DUREE_PLANCHE,
+  expressionMusique, ambianceDe, AMBIANCES,
 } = await import('../src/lib/marketing/video');
 
 describe('arguments d’assemblage', () => {
+  const milieu = { index: 1, total: 3 };
+
   it('fond par le blanc entre deux planches, jamais au début ni à la fin', () => {
-    const milieu = argumentsPlanche('a', 'o.mp4', { premiere: false, derniere: false }).join(' ');
-    expect(milieu.match(/fade=t=(in|out)/g)).toHaveLength(2);
-    const seule = argumentsPlanche('a', 'o.mp4', { premiere: true, derniere: true }).join(' ');
-    expect(seule).not.toContain('fade=');
+    const m = argumentsPlanche('a', 'o.mp4', milieu).join(' ');
+    expect(m.match(/fade=t=(in|out):st=[\d.]+:d=[\d.]+:color=white/g)).toHaveLength(2);
+    const seule = argumentsPlanche('a', 'o.mp4', { index: 0, total: 1 }).join(' ');
+    expect(seule).not.toContain('fade=t=');
   });
 
-  it('borne la mémoire de l’encodage et concatène sans réencoder', () => {
+  it('fait entrer le texte en mouvement quand la planche a deux calques', () => {
+    const anime = argumentsPlanche({ fond: 'f', texte: 't' }, 'o.mp4', milieu).join(' ');
+    expect(anime).toContain('alpha=1');
+    expect(anime).toMatch(/overlay=x=0:y='/);
+    const fixe = argumentsPlanche('a', 'o.mp4', milieu).join(' ');
+    expect(fixe).not.toContain('alpha=1');
+    // L'accroche, elle, est là dès la première image.
+    const accroche = argumentsPlanche({ fond: 'f', texte: 't' }, 'o.mp4', { index: 0, total: 3 }).join(' ');
+    expect(accroche).not.toContain('alpha=1');
+    expect(accroche).toContain('overlay=x=0:y=0');
+  });
+
+  it('fait avancer la barre de progression depuis la place de la planche', () => {
+    const a = argumentsPlanche('a', 'o.mp4', { index: 2, total: 7 }).join(' ');
+    expect(a).toContain(`(2+t/${DUREE_PLANCHE})/7`);
+  });
+
+  it('borne la mémoire de l’encodage et recopie l’image sans la réencoder', () => {
     // Un graphe unique pour toutes les planches dépassait la mémoire de Vercel.
-    expect(argumentsPlanche('a', 'o.mp4', { premiere: true, derniere: false }))
-      .toEqual(expect.arrayContaining(['-threads', '2']));
-    expect(argumentsConcatenation('l.txt', 'o.mp4')).toEqual(expect.arrayContaining(['-c', 'copy']));
+    expect(argumentsPlanche('a', 'o.mp4', milieu)).toEqual(expect.arrayContaining(['-threads', '2']));
+    expect(argumentsConcatenation('l.txt', 'o.mp4', { duree: 10, ambiance: 0 }))
+      .toEqual(expect.arrayContaining(['-c:v', 'copy']));
+  });
+
+  it('compose une musique différente selon l’ambiance, et toujours valide', () => {
+    const ambiances = Array.from({ length: AMBIANCES }, (_, i) => expressionMusique(i));
+    expect(new Set(ambiances).size).toBe(AMBIANCES);
+    // Indices négatifs ou au-delà : on retombe sur une ambiance existante.
+    expect(ambiances).toContain(expressionMusique(-1));
+    expect(ambiances).toContain(expressionMusique(AMBIANCES + 1));
+  });
+
+  it('garde la même musique pour une même référence', () => {
+    expect(ambianceDe('2026s44-reel-1')).toBe(ambianceDe('2026s44-reel-1'));
+    expect(ambianceDe('x')).toBeGreaterThanOrEqual(0);
+    expect(ambianceDe('x')).toBeLessThan(AMBIANCES);
   });
 
   it('calcule une durée cohérente avec les planches', () => {
@@ -54,15 +88,15 @@ describe('assemblage réel', () => {
     });
     const segments = images.map((image, i) => {
       const segment = path.join(dossier, `s${i}.mp4`);
-      execFileSync(cheminFfmpeg!, argumentsPlanche(image, segment, {
-        premiere: i === 0, derniere: i === images.length - 1,
-      }));
+      // Une planche sur deux en calques, pour éprouver les deux chemins.
+      const entree = i % 2 ? { fond: image, texte: image } : image;
+      execFileSync(cheminFfmpeg!, argumentsPlanche(entree, segment, { index: i, total: images.length }));
       return segment;
     });
     const liste = path.join(dossier, 'segments.txt');
     writeFileSync(liste, segments.map((f) => `file '${f}'`).join('\n'));
     const sortie = path.join(dossier, 'reel.mp4');
-    execFileSync(cheminFfmpeg!, argumentsConcatenation(liste, sortie));
+    execFileSync(cheminFfmpeg!, argumentsConcatenation(liste, sortie, { duree: dureeVideo(4), ambiance: 1 }));
     expect(existsSync(sortie)).toBe(true);
     expect(statSync(sortie).size).toBeGreaterThan(10_000);
 
@@ -74,5 +108,12 @@ describe('assemblage réel', () => {
     const duree = /Duration: (\d+):(\d+):([\d.]+)/.exec(infos)!;
     const secondes = Number(duree[2]) * 60 + Number(duree[3]);
     expect(secondes).toBeCloseTo(dureeVideo(4), 0);
+
+    // La musique est bien audible : la piste n'est pas muette.
+    const volume = spawnSync(cheminFfmpeg!, ['-hide_banner', '-i', sortie, '-af', 'volumedetect', '-f', 'null', '-'])
+      .stderr.toString();
+    const moyenne = Number(/mean_volume: (-?[\d.]+) dB/.exec(volume)![1]);
+    expect(moyenne).toBeGreaterThan(-40);
+    expect(volume).not.toMatch(/max_volume: 0\.0 dB/);
   }, 60_000);
 });
