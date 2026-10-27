@@ -3,7 +3,7 @@ import { legal, LEGAL_VERSION } from '@/lib/legal';
 
 export const metadata = {
   title: 'Politique de confidentialité | Coparentalité Zen',
-  description: 'Politique de confidentialité de Coparentalité Zen, incluant les usages liés à Etsy et Pinterest.',
+  description: 'Politique de confidentialité de Coparentalité Zen, incluant les usages liés à YouTube, Etsy et Pinterest.',
 };
 
 export default function ConfidentialiteCoparentaliteZen() {
@@ -45,11 +45,35 @@ export default function ConfidentialiteCoparentaliteZen() {
         </p>
       </SectionJuridique>
 
+      <SectionJuridique title="YouTube (services d’API YouTube)">
+        <p>
+          Coparentalité Zen publie de courtes vidéos d’information sur sa propre chaîne YouTube au moyen
+          des services d’API YouTube. Cet usage concerne uniquement la chaîne de l’éditeur : l’application
+          ne demande pas l’accès au compte YouTube ou Google de ses utilisateurs et ne collecte aucune
+          donnée sur les spectateurs des vidéos.
+        </p>
+        <p>
+          Les données obtenues de YouTube se limitent à l’identifiant et au nom de la chaîne, aux jetons
+          d’autorisation (conservés chiffrés côté serveur) et aux informations publiques des vidéos
+          publiées, dont leur nombre de vues. Elles servent seulement à publier les vidéos et à vérifier
+          leur bonne mise en ligne. Lorsque la chaîne est déconnectée, l’autorisation est révoquée auprès
+          de Google et les jetons sont effacés.
+        </p>
+        <p>
+          En utilisant ces fonctionnalités, vous acceptez les{' '}
+          <a className="underline" href="https://www.youtube.com/t/terms">conditions d’utilisation de YouTube</a>.
+          Les données sont traitées conformément aux{' '}
+          <a className="underline" href="https://policies.google.com/privacy">règles de confidentialité de Google</a>.
+          L’accès accordé peut être retiré à tout moment depuis la page{' '}
+          <a className="underline" href="https://security.google.com/settings/security/permissions">autorisations de sécurité de Google</a>.
+        </p>
+      </SectionJuridique>
+
       <SectionJuridique title="Sous-traitants et services tiers">
         <p>
           Supabase peut être utilisé pour la base de données et le stockage, Vercel pour l’hébergement
           applicatif et la mesure d’audience, Stripe pour les paiements, Resend pour l’envoi des e-mails,
-          ainsi qu’Etsy et Pinterest pour les usages décrits ci-dessus. Les données bancaires ne sont
+          ainsi que YouTube, Etsy et Pinterest pour les usages décrits ci-dessus. Les données bancaires ne sont
           jamais stockées par Coparentalité Zen.
         </p>
       </SectionJuridique>
