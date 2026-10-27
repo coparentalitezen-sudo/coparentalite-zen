@@ -168,15 +168,18 @@ export function expressionMusique(ambiance: number): string {
   const f = (n: number) => selon(grille.map((a) => a[n]), k);
   const u = `mod(t,${d})`;
   const enveloppe = `min(1,${u}/0.6)*min(1,(${d}-${u})/0.9)`;
-  const nappe = `(0.11*sin(2*PI*${f(0)}*t)+0.09*sin(2*PI*${f(1)}*t)+0.09*sin(2*PI*${f(2)}*t)`
-    + `+0.03*sin(2*PI*2*${f(0)}*t))*${enveloppe}`;
-  const basse = `0.14*sin(PI*${f(0)}*t)*${enveloppe}`;
+  // Une octave au-dessus des grilles : un haut-parleur de téléphone ne rend
+  // presque rien sous 250 Hz, et la première version, logée dans les graves,
+  // y était inaudible.
+  const nappe = `(0.11*sin(4*PI*${f(0)}*t)+0.09*sin(4*PI*${f(1)}*t)+0.09*sin(4*PI*${f(2)}*t)`
+    + `+0.04*sin(8*PI*${f(0)}*t)+0.02*sin(12*PI*${f(2)}*t))*${enveloppe}`;
+  const basse = `0.10*sin(2*PI*${f(0)}*t)*${enveloppe}`;
   // Arpège : huit notes par accord, fondamentale-tierce-quinte-octave.
   const pas = d / 8;
   const v = `mod(t,${pas})`;
   const rang = `mod(floor(t/${pas}),4)`;
   const note = `if(eq(${rang},0),${f(0)},if(eq(${rang},1),${f(1)},if(eq(${rang},2),${f(2)},2*${f(0)})))`;
-  const arpege = `0.06*sin(4*PI*${note}*t)*min(1,${v}/0.01)*exp(-5*${v})`;
+  const arpege = `(0.08*sin(8*PI*${note}*t)+0.03*sin(16*PI*${note}*t))*min(1,${v}/0.01)*exp(-5*${v})`;
   return `${nappe}+${basse}+${arpege}`;
 }
 
@@ -197,7 +200,9 @@ export function argumentsConcatenation(
     '-f', 'lavfi', '-i',
     `aevalsrc='${expression}|${expression}':s=44100:d=${musique.duree.toFixed(2)}`,
     '-filter_complex',
-    `[1:a]aecho=0.8:0.6:90:0.25,lowpass=f=5000,volume=1.6,`
+    // Volume ramené à la norme des plateformes (−14 LUFS) : réglé à l'oreille
+    // sur un ordinateur, il restait trop bas pour un téléphone.
+    `[1:a]aecho=0.8:0.6:90:0.25,lowpass=f=6000,loudnorm=I=-14:TP=-1.5:LRA=11,aresample=44100,`
       + `afade=t=in:st=0:d=1,afade=t=out:st=${fin}:d=1.5[a]`,
     '-map', '0:v', '-map', '[a]',
     '-c:v', 'copy', '-c:a', 'aac', '-b:a', '128k',
