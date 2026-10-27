@@ -117,8 +117,12 @@ async function fichierVideo(service: Service, cle: string, s: ShortDuJour): Prom
   if (existant) return Buffer.from(await existant.arrayBuffer());
 
   const offre = await offreGratuiteActive();
-  const images = await Promise.all(planchesDuShort(s, offre).map(async (p) =>
-    (await rendrePlanche(p, 'vertical')).arrayBuffer()));
+  // Une planche après l'autre : le rendu en parallèle de sept images
+  // 1080×1920 s'ajoutait à l'encodage et dépassait la mémoire de Vercel.
+  const images: ArrayBuffer[] = [];
+  for (const p of planchesDuShort(s, offre)) {
+    images.push(await (await rendrePlanche(p, 'vertical')).arrayBuffer());
+  }
   const video = await assemblerVideo(images);
   await service.storage.createBucket(SEAU_REELS, { public: true }).catch(() => undefined);
   const { error } = await seau.upload(nom, video, { contentType: 'video/mp4', upsert: true });

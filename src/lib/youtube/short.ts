@@ -57,7 +57,7 @@ export function shortDuJour(jour: string): ShortDuJour {
 /**
  * Les planches de la vidéo, dans l'ordre de lecture.
  *
- * Sept planches de quatre secondes, fondus compris : environ vingt-quatre
+ * Sept planches de trois secondes et demie, fondus compris : environ vingt-quatre
  * secondes. L'accroche occupe les premières secondes, puis viennent le
  * problème, les trois conseils, ce que l'application apporte, et l'appel.
  * La mention « 3 mois gratuits » n'apparaît que si l'offre est confirmée par
