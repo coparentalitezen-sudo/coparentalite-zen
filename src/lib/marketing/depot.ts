@@ -36,13 +36,41 @@ export interface Parametres {
 export async function lireParametresPlateforme(
   plateforme: Plateforme,
 ): Promise<Parametres | null> {
+  return (await lireParametresDetail(plateforme)).parametres;
+}
+
+/**
+ * Lecture des réglages avec nouvelle tentative.
+ *
+ * Incident du 27 au 29 octobre 2026 : la passerelle Supabase a renvoyé par
+ * intermittence 401 (PGRST303) à l'une des deux lectures parallèles faites au
+ * démarrage à froid de la tâche YouTube, alors que la même clé réussissait
+ * l'autre. L'erreur était avalée, la ligne lue comme absente, et l'arrêt
+ * d'urgence se déclenchait : cinq passages de suite « suspendus » alors que
+ * tout était activé. On retente donc une erreur passagère, et l'on distingue
+ * « réglages illisibles » de « canal arrêté » pour que l'écran dise vrai.
+ */
+async function lireParametresDetail(
+  plateforme: Plateforme,
+): Promise<{ parametres: Parametres | null; erreur: string | null }> {
   const service = supabaseService();
-  if (!service) return null;
-  const { data } = await service
-    .from('marketing_parametres')
-    .select('mode, actif, suspendu_motif').eq('plateforme', plateforme).maybeSingle();
-  if (!data) return null;
-  return { mode: data.mode, actif: data.actif, suspenduMotif: data.suspendu_motif };
+  if (!service) return { parametres: null, erreur: 'service indisponible' };
+  let erreur: string | null = null;
+  for (let tentative = 0; tentative < 3; tentative++) {
+    if (tentative > 0) await new Promise((r) => setTimeout(r, 400 * tentative));
+    const { data, error } = await service
+      .from('marketing_parametres')
+      .select('mode, actif, suspendu_motif').eq('plateforme', plateforme).maybeSingle();
+    if (!error) {
+      if (!data) return { parametres: null, erreur: null };
+      return {
+        parametres: { mode: data.mode, actif: data.actif, suspenduMotif: data.suspendu_motif },
+        erreur: null,
+      };
+    }
+    erreur = error.code ? `${error.code} ${error.message}` : error.message;
+  }
+  return { parametres: null, erreur };
 }
 
 /**
@@ -60,15 +88,21 @@ export async function lireParametresPlateforme(
 export async function publicationAutorisee(
   plateforme: Exclude<Plateforme, 'global'>,
 ): Promise<{ autorisee: boolean; motif?: string }> {
-  const [global, propre] = await Promise.all([
-    lireParametresPlateforme('global'),
-    lireParametresPlateforme(plateforme),
-  ]);
+  // L'une après l'autre : c'est la lecture parallèle à froid qui échouait.
+  const global = await lireParametresDetail('global');
+  const propre = await lireParametresDetail(plateforme);
 
-  if (!global?.actif) {
+  // Illisible = bloqué (un arrêt d'urgence doit échouer fermé), mais dit comme tel.
+  if (global.erreur || propre.erreur) {
+    return {
+      autorisee: false,
+      motif: `Réglages illisibles (${global.erreur ?? propre.erreur}) : publication bloquée par sécurité.`,
+    };
+  }
+  if (!global.parametres?.actif) {
     return { autorisee: false, motif: 'Publication suspendue pour toutes les plateformes.' };
   }
-  if (!propre?.actif) {
+  if (!propre.parametres?.actif) {
     return { autorisee: false, motif: `Publication suspendue pour ${plateforme}.` };
   }
   return { autorisee: true };

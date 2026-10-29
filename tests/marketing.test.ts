@@ -156,8 +156,19 @@ describe('leçon de la migration 00045', () => {
   it('ferme la publication si le réglage global manque ou est inactif', async () => {
     const fs = await import('node:fs/promises');
     const depot = await fs.readFile('src/lib/marketing/depot.ts', 'utf8');
-    expect(depot).toContain('if (!global?.actif)');
-    expect(depot).toContain('if (!propre?.actif)');
+    expect(depot).toContain('if (!global.parametres?.actif)');
+    expect(depot).toContain('if (!propre.parametres?.actif)');
+  });
+
+  it('retente une lecture des réglages en erreur et la bloque en le disant (incident du 29/10/2026)', async () => {
+    const fs = await import('node:fs/promises');
+    const depot = await fs.readFile('src/lib/marketing/depot.ts', 'utf8');
+    expect(depot).toContain('tentative < 3');
+    expect(depot).toContain('if (global.erreur || propre.erreur)');
+    expect(depot).toContain('publication bloquée par sécurité');
+    // Plus de lecture parallèle à froid dans le contrôle d'autorisation.
+    const bloc = depot.slice(depot.indexOf('export async function publicationAutorisee'));
+    expect(bloc.slice(0, bloc.indexOf('\n}\n'))).not.toContain('Promise.all');
   });
 
   it('remplace les trois anciens lecteurs par leur plateforme explicite', async () => {
