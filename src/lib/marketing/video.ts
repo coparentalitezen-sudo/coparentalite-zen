@@ -86,10 +86,17 @@ export function argumentsPlanche(
   const barre = calques ? 2 : 1;
   const silence = barre + 1;
 
-  const filtres = [
-    `[0:v]scale=${LARGEUR}:${HAUTEUR}:force_original_aspect_ratio=decrease,`
-      + `pad=${LARGEUR}:${HAUTEUR}:(ow-iw)/2:(oh-ih)/2:color=white,setsar=1,format=yuv420p[fond]`,
-  ];
+  // Chaîne construite par join et non par concaténation de gabarits : le
+  // minifieur de production (SWC) fusionnait les deux gabarits de travers et
+  // supprimait « :force_original_aspect_ratio=decrease, », d'où
+  // « scale=1080:1920pad=… » et l'échec de tous les Shorts du 30/10/2026.
+  const miseAEchelle = [
+    'scale=' + [LARGEUR, HAUTEUR, 'force_original_aspect_ratio=decrease'].join(':'),
+    'pad=' + [LARGEUR, HAUTEUR, '(ow-iw)/2', '(oh-ih)/2', 'color=white'].join(':'),
+    'setsar=1',
+    'format=yuv420p',
+  ].join(',');
+  const filtres = ['[0:v]' + miseAEchelle + '[fond]'];
   let courant = 'fond';
   if (calques && premiere) {
     // L'accroche est visible dès la première image : YouTube s'en sert

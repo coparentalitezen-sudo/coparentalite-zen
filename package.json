@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "postbuild": "node scripts/verifier-build-video.mjs",
     "start": "next start",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
