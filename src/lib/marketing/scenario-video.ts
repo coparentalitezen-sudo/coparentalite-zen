@@ -55,10 +55,10 @@ const PICTO_NICHE: Record<string, Pictogramme> = {
 const PICTO_VERBE: [RegExp, Pictogramme][] = [
   [/^photographiez/i, 'photo'],
   [/^(rangez|ajoutez)/i, 'dossier'],
-  [/^listez/i, 'liste'],
+  [/^(listez|résumez)/i, 'liste'],
   [/^(vérifiez|regardez|lisez|repérez)/i, 'oeil'],
   [/^(fixez|gardez la même heure|réservez)/i, 'epingle'],
-  [/^(notez|écrivez|résumez|datez|indiquez|précisez|dites|tenez-vous)/i, 'stylo'],
+  [/^(notez|écrivez|datez|indiquez|précisez|dites|tenez-vous)/i, 'stylo'],
   [/(attendez|quelques heures|à l’avance|trimestre)/i, 'horloge'],
   [/(demande par message|parlez)/i, 'bulle'],
 ];

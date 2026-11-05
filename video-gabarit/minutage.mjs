@@ -9,7 +9,7 @@
 // Le plan dure le temps de sa voix et de sa lecture, plus une respiration avant et après.
 
 export const AVANT = 0.35;         // la voix part 0,35 s après le début du plan (pendant la transition)
-export const APRES = 0.3;          // respiration après le texte, avant le plan suivant
+export const APRES = 0.2;          // respiration après le texte, avant le plan suivant
 export const ACCROCHE_MIN = 3.0;   // l'accroche tient au moins 3 s : c'est la miniature
 export const FIN = { fusion: 0.9, iris: 0.5, site: 0.3, tenue: 3.2 };   // la fin, sans voix
 export const DUREE_MIN = 20, DUREE_MAX = 35;
