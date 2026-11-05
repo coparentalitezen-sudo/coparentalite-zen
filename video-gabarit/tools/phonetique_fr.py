@@ -34,7 +34,7 @@ def mot_phonetique(w):
     for a, b in (('eau', 'o'), ('au', 'o'), ('ph', 'f'), ('qu', 'k'), ('mpt', 'nt'), ('ss', 's'),
                  ('ai', 'e'), ('ei', 'e'), ('y', 'i'), ('h', '')):
         w = w.replace(a, b)
-    w = re.sub(r'c(?=[eiy])', 's', w); w = w.replace('c', 'k')
+    w = re.sub(r'c(?=[eiy])', 's', w); w = w.replace('c', 'k').replace('q', 'k')
     w = re.sub(r'(aient|ait|ais)$', 'e', w)
     if len(w) > 4: w = re.sub(r'ent$', 'e', w)
     w = re.sub(r'(ez|er|ees|ee|es)$', 'e', w)
