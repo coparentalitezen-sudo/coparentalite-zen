@@ -8,7 +8,7 @@ import {
   scenarioVideo, graineDe, enLettres, textePrononce, lignesVoix, scenarioDuContenu,
 } from '@/lib/marketing/scenario-video';
 import { genererSemaine } from '@/lib/marketing/generateur';
-// @ts-expect-error module JavaScript partagé avec la page de rendu, sans déclaration de types
+// Module JavaScript partagé avec la page de rendu.
 import { minuter, ecarts, lecture, DUREE_MAX, FIN } from '../video-gabarit/minutage.mjs';
 
 /** Voix estimée de la synthèse « Denise » : environ 12,5 caractères par seconde (mesure prudente). */
@@ -71,7 +71,8 @@ describe('minutage', () => {
   it('tient chaque sous-titre au moins max(1,8 s ; voix + 0,6 s ; caractères/12 + 1 s)', () => {
     const s = scenarioVideo(BANQUE[3], BANQUE[3].accroches[2], 'x');
     const m = minutageDe(s);
-    for (const p of m.plans.filter((q: { sousTitre: unknown }) => q.sousTitre)) {
+    for (const p of m.plans) {
+      if (!p.sousTitre || !p.voix) continue;
       const tenue = p.sousTitre.t1 - p.sousTitre.t0;
       expect(tenue).toBeGreaterThanOrEqual(lecture(p.sousTitre.texte, p.voix.duree) - 1e-3);
       expect(tenue).toBeGreaterThanOrEqual(1.8);
@@ -84,8 +85,8 @@ describe('minutage', () => {
     const lente = minutageDe(s, (t) => [...t].length / 6);   // une voix deux fois plus lente
     const vive = minutageDe(s);
     expect(lente.duree).toBeGreaterThan(vive.duree);
-    const e1 = lente.plans.find((p: { id: string }) => p.id === 'e1');
-    expect(e1.t1 - e1.t0).toBeGreaterThan(e1.voix.duree);
+    const e1 = lente.plans.find((p) => p.id === 'e1')!;
+    expect(e1.t1 - e1.t0).toBeGreaterThan(e1.voix!.duree);
   });
   it('tient toutes les combinaisons sujet × accroche entre 20 et 35 s, sans chevauchement', () => {
     for (const sujet of BANQUE) for (const a of sujet.accroches) {
