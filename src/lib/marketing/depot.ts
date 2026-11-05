@@ -17,12 +17,14 @@ import { genererSemaine, semaineIso, type Contenu } from './generateur';
 
 export type Statut = 'brouillon' | 'en_attente' | 'valide' | 'rejete' | 'publie' | 'echec';
 
-export type Plateforme = 'global' | 'instagram' | 'facebook' | 'pinterest' | 'youtube';
+export type Plateforme = 'global' | 'instagram' | 'facebook' | 'pinterest' | 'youtube' | 'tiktok';
 
 export interface Parametres {
   mode: 'validation' | 'automatique';
   actif: boolean;
   suspenduMotif: string | null;
+  /** Heure de publication à Paris (0–23), réglable par plateforme (migration 00061). */
+  heure?: number | null;
 }
 
 /**
@@ -60,11 +62,11 @@ async function lireParametresDetail(
     if (tentative > 0) await new Promise((r) => setTimeout(r, 400 * tentative));
     const { data, error } = await service
       .from('marketing_parametres')
-      .select('mode, actif, suspendu_motif').eq('plateforme', plateforme).maybeSingle();
+      .select('mode, actif, suspendu_motif, heure').eq('plateforme', plateforme).maybeSingle();
     if (!error) {
       if (!data) return { parametres: null, erreur: null };
       return {
-        parametres: { mode: data.mode, actif: data.actif, suspenduMotif: data.suspendu_motif },
+        parametres: { mode: data.mode, actif: data.actif, suspenduMotif: data.suspendu_motif, heure: data.heure },
         erreur: null,
       };
     }

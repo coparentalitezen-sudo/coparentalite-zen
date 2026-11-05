@@ -1,8 +1,10 @@
 import 'server-only';
 import { supabaseService } from '@/lib/supabase/server';
 import { lireParametresPlateforme, publicationAutorisee } from '@/lib/marketing/depot';
-import { rendrePlanche } from '@/lib/marketing/rendu';
-import { assemblerVideo, SEAU_REELS, type PlancheRendue } from '@/lib/marketing/video';
+import { evaluerVideo, telechargerVideo, cleYoutube, type LigneVideo } from '@/lib/marketing/videos';
+import { lireVideo, appliquerIssue } from '@/lib/marketing/publication-video-serveur';
+import { heureAtteinte } from '@/lib/marketing/horaire';
+import { signaler } from '@/lib/marketing/alertes';
 import { lireGrilleTarifaire } from '@/lib/tarifs';
 import { chiffrer, cleDeChiffrement, dechiffrer } from './chiffrement';
 import {
@@ -13,8 +15,7 @@ import {
 } from './envoi';
 import { decider, VERROU_MS, type LigneShort, type Visibilite } from './decision';
 import {
-  shortDuJour, planchesDuShort, titreDuShort, descriptionDuShort, motsClesDuShort,
-  jourAParis, type ShortDuJour,
+  shortDuJour, titreDuShort, descriptionDuShort, motsClesDuShort, jourAParis,
 } from './short';
 
 /**
@@ -106,33 +107,13 @@ async function offreGratuiteActive(): Promise<boolean> {
 }
 
 /**
- * Le MP4 du Short, fabriqué une fois puis relu du stockage : une nouvelle
- * tentative renvoie exactement le même fichier, de la même taille — ce
- * qu'exige la reprise d'une session d'envoi.
+ * Le MP4 du Short : la vidéo animée du jour, rendue et contrôlée hors Vercel
+ * (video-gabarit/, GitHub Actions), lue dans l'espace de stockage privé. Le
+ * même fichier à chaque tentative : la reprise d'une session d'envoi l'exige.
+ * Les anciennes planches fixes ne servent plus de repli.
  */
-async function fichierVideo(service: Service, cle: string, s: ShortDuJour): Promise<Buffer> {
-  const nom = `youtube/${cle.replace(/[^a-z0-9-]/gi, '')}.mp4`;
-  const seau = service.storage.from(SEAU_REELS);
-  const { data: existant } = await seau.download(nom);
-  if (existant) return Buffer.from(await existant.arrayBuffer());
-
-  const offre = await offreGratuiteActive();
-  // Une planche après l'autre : le rendu en parallèle de sept images
-  // 1080×1920 s'ajoutait à l'encodage et dépassait la mémoire de Vercel.
-  // Deux calques par planche, pour que le texte entre en mouvement.
-  const planches: PlancheRendue[] = [];
-  for (const p of planchesDuShort(s, offre)) {
-    planches.push({
-      fond: await (await rendrePlanche(p, 'vertical', 'fond')).arrayBuffer(),
-      texte: await (await rendrePlanche(p, 'vertical', 'texte')).arrayBuffer(),
-    });
-  }
-  // Le rang change chaque jour : deux Shorts consécutifs n’ont pas la même musique.
-  const video = await assemblerVideo(planches, s.rang);
-  await service.storage.createBucket(SEAU_REELS, { public: true }).catch(() => undefined);
-  const { error } = await seau.upload(nom, video, { contentType: 'video/mp4', upsert: true });
-  if (error) throw new Error(`Dépôt de la vidéo : ${error.message}`);
-  return video;
+async function fichierVideo(service: Service, video: LigneVideo): Promise<Buffer> {
+  return telechargerVideo(service, video.chemin_video!);
 }
 
 // ---------------- Envoi avec reprise ----------------
@@ -187,6 +168,8 @@ async function envoyer(
 export interface Options {
   /** Publication d'essai depuis l'administration, hors Short du jour, dans la visibilité réglée. */
   essai?: boolean;
+  /** Ignore l'heure réglée (« Republier » depuis l'administration). Les contrôles et l'idempotence restent. */
+  ignorerHeure?: boolean;
   maintenant?: Date;
 }
 
@@ -209,7 +192,27 @@ export async function executerPublicationYoutube(options: Options = {}): Promise
     if (reglages?.mode !== 'automatique') {
       return fin({ jour, publie: false, statut: 'ignore', motif: 'Mode validation : publication manuelle.' });
     }
+    // L'horloge passe toutes les heures : avant l'heure réglée, on ne fait rien et on ne journalise rien.
+    if (!options.ignorerHeure && !heureAtteinte(reglages.heure, maintenant)) {
+      return { jour, publie: false, statut: 'ignore', motif: `Heure de publication (${reglages.heure ?? 10} h) pas encore atteinte.` };
+    }
   }
+
+  // 1 bis. La vidéo animée du jour, avec tous ses contrôles verts. Sinon : rien ne part.
+  const etatVideo = evaluerVideo(await lireVideo(service, cleYoutube(jour)));
+  if (!etatVideo.ok) {
+    if (!options.essai) {
+      const definitif = etatVideo.code === 'refusee' || etatVideo.code === 'incoherente';
+      await signaler(service, {
+        cle: `video-bloquee:${cleYoutube(jour)}:youtube:${etatVideo.code}`, niveau: 'echec',
+        sujet: definitif ? `YouTube : Short du ${jour} refusé, non publié` : `YouTube : Short du ${jour} pas prêt à l’heure prévue`,
+        message: definitif ? etatVideo.motif
+          : `${etatVideo.motif} Nouvelle tentative à chaque passage horaire ; rien ne part tant que la vidéo n’a pas passé ses contrôles.`,
+      });
+    }
+    return fin({ jour, publie: false, statut: 'ignore', motif: etatVideo.motif });
+  }
+  const videoDuJour = etatVideo.ligne;
 
   // 2. Configuration et connexion.
   const config = configOAuth();
@@ -249,6 +252,10 @@ export async function executerPublicationYoutube(options: Options = {}): Promise
   const decision = decider(ligne, maintenant.getTime());
   if (decision === 'deja') return fin({ jour, publie: false, statut: 'deja', cle: cleIdem, videoId: ligne.video_id ?? undefined, motif: 'Short du jour déjà publié.' });
   if (decision === 'occupe') return fin({ jour, publie: false, statut: 'occupe', cle: cleIdem, motif: 'Une autre exécution traite ce Short.' });
+  if (decision === 'a_verifier' && !options.essai) {
+    await signaler(service, { cle: `a-verifier:${cleIdem}:youtube`, niveau: 'echec',
+      sujet: `YouTube : Short du ${jour} à vérifier`, message: 'Envoi interrompu ou chaîne inattendue : vérifiez dans YouTube Studio. Aucune nouvelle tentative automatique.' });
+  }
   if (decision === 'a_verifier') return fin({ jour, publie: false, statut: 'a_verifier', cle: cleIdem, motif: 'Short en attente de vérification humaine.' });
   if (decision === 'abandon') return fin({ jour, publie: false, statut: 'echec', cle: cleIdem, motif: `Abandonné après ${ligne.tentatives} tentatives.` });
 
@@ -269,7 +276,7 @@ export async function executerPublicationYoutube(options: Options = {}): Promise
   let derniere: unknown = null;
   for (let essai = 0; essai < 3; essai += 1) {
     try {
-      const video = await fichierVideo(service, cleIdem, s);
+      const video = await fichierVideo(service, videoDuJour);
       let acces = await jetonAcces(service, config, cle);
       let creee: VideoCreee;
       try {
@@ -281,7 +288,9 @@ export async function executerPublicationYoutube(options: Options = {}): Promise
         acces = await jetonAcces(service, config, cle);
         creee = await envoyer(service, { ...ligne, ...(await relire(service, ligne.id)) }, acces, video);
       }
-      return fin(await conclure(service, ligne.id, creee, acces, visibilite, jour, cleIdem));
+      const conclu = await conclure(service, ligne.id, creee, acces, visibilite, jour, cleIdem);
+      if (!options.essai && conclu.publie) await appliquerIssue(service, 'youtube', true);
+      return fin(conclu);
     } catch (e) {
       derniere = e;
       const temporaire = (e instanceof ErreurEnvoi || e instanceof ErreurOAuth) ? e.temporaire : false;
@@ -295,7 +304,15 @@ export async function executerPublicationYoutube(options: Options = {}): Promise
     statut: 'echec', verrou_jusqua: null,
     erreur_code: err?.code ?? 'inconnue', erreur_message: err?.message ?? String(derniere),
   }).eq('id', ligne.id);
-  return fin({ jour, publie: false, statut: 'echec', cle: cleIdem, motif: err?.message ?? 'Échec sans message.' });
+  const motifEchec = err?.message ?? 'Échec sans message.';
+  if (!options.essai) {
+    await appliquerIssue(service, 'youtube', false, motifEchec);
+    await signaler(service, {
+      cle: `echec-publication:${cleIdem}:youtube:${ligne.tentatives + 1}`, niveau: 'echec',
+      sujet: `YouTube : échec de publication du Short du ${jour}`, message: motifEchec,
+    });
+  }
+  return fin({ jour, publie: false, statut: 'echec', cle: cleIdem, motif: motifEchec });
 }
 
 async function relire(service: Service, id: string) {

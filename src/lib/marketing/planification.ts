@@ -4,6 +4,9 @@ import { lireParametresPlateforme } from '@/lib/marketing/depot';
 import { publierContenu } from '@/lib/marketing/publication';
 import { publierReserve, type PlateformeMeta } from '@/lib/marketing/reserve';
 import { assurerVisuelDuJour } from '@/lib/marketing/quotidien';
+import { heureAtteinte, jourParis } from '@/lib/marketing/horaire';
+import { publierReelAnime, appliquerIssue } from '@/lib/marketing/publication-video-serveur';
+import { signaler } from '@/lib/marketing/alertes';
 
 /**
  * Exécution de la publication planifiée.
@@ -28,7 +31,7 @@ export interface RapportPlateforme {
 
 export interface RapportPublication {
   jour: string;
-  source: 'reserve' | 'quotidien' | 'generateur' | 'aucune';
+  source: 'reserve' | 'quotidien' | 'generateur' | 'video' | 'aucune';
   rapports: RapportPlateforme[];
   motif?: string;
 }
@@ -45,6 +48,24 @@ async function journaliser(
   service: ServiceSupabase,
   rapport: RapportPublication,
 ): Promise<void> {
+  // Visuels (réserve ou visuel du jour) : même suivi que les vidéos. Un échec de
+  // plateforme ouverte compte pour la suspension automatique et déclenche une
+  // alerte ; un succès remet le compteur à zéro. Les Reels animés sont déjà
+  // comptés par publierReelAnime.
+  if (rapport.source === 'reserve' || rapport.source === 'quotidien') {
+    for (const r of rapport.rapports) {
+      const ferme = /hors service|Mode validation|pas encore atteinte|suspendue/i.test(r.motif ?? '');
+      if (ferme) continue;
+      await appliquerIssue(service, r.plateforme, r.publie, r.motif);
+      if (!r.publie) {
+        await signaler(service, {
+          cle: `echec-visuel:${rapport.jour}:${r.plateforme}`, niveau: 'echec',
+          sujet: `${r.plateforme} : visuel du jour non publié`,
+          message: `${r.reference ?? 'visuel'} — ${r.motif ?? 'échec sans message'}`,
+        });
+      }
+    }
+  }
   const { error } = await service.from('marketing_journal').insert({
     tache: 'publier-planifie',
     jour: rapport.jour,
@@ -55,7 +76,9 @@ async function journaliser(
   if (error) console.error('[publier-planifie] journal', error);
 }
 
-export async function executerPublicationPlanifiee(): Promise<RapportPublication> {
+export async function executerPublicationPlanifiee(
+  options: { ignorerHeure?: boolean } = {},
+): Promise<RapportPublication> {
   const service: ServiceSupabase | null = supabaseService();
   if (!service) {
     return {
@@ -78,9 +101,32 @@ export async function executerPublicationPlanifiee(): Promise<RapportPublication
       fermes.set(plateforme, 'Canal hors service.');
     } else if (reglages.mode !== 'automatique') {
       fermes.set(plateforme, 'Mode validation : publication manuelle.');
+    } else if (!options.ignorerHeure && !heureAtteinte(reglages.heure)) {
+      fermes.set(plateforme, `Heure de publication (${reglages.heure ?? 10} h) pas encore atteinte.`);
     } else {
       ouverts.push(plateforme);
     }
+  }
+
+  // Jour de Reel : la vidéo animée du générateur, et rien d'autre ce jour-là.
+  // Vidéo absente ou refusée par ses contrôles : aucune publication de repli,
+  // une alerte part, et le jour saute sur cette plateforme.
+  const { data: reel } = await service.from('marketing_contenus')
+    .select('reference').eq('format', 'reel').eq('prevu_le', jourParis())
+    .neq('statut', 'rejete').order('reference').limit(1).maybeSingle();
+  if (reel) {
+    for (const plateforme of PLATEFORMES) {
+      const ferme = fermes.get(plateforme);
+      if (ferme) { rapports.push({ plateforme, publie: false, reference: reel.reference, motif: ferme }); continue; }
+      const r = await publierReelAnime(reel.reference, plateforme, { ignorerHeure: options.ignorerHeure });
+      rapports.push({
+        plateforme, publie: r.publie, reference: reel.reference,
+        motif: r.publie ? undefined : `${r.statut} : ${r.motif ?? ''}`.trim(),
+      });
+    }
+    const rapport: RapportPublication = { jour: aujourdhui, source: 'video', rapports };
+    await journaliser(service, rapport);
+    return rapport;
   }
 
   // La réserve passe devant : un visuel déposé à la main est toujours plus
@@ -122,6 +168,11 @@ export async function executerPublicationPlanifiee(): Promise<RapportPublication
         motif: 'Visuel du jour non fabriqué — aucune publication de repli.',
       };
       await journaliser(service, rapport);
+      await signaler(service, {
+        cle: `echec-visuel-fabrication:${aujourdhui}`, niveau: 'echec',
+        sujet: 'Visuel du jour non fabriqué',
+        message: 'Le visuel illustré du jour n’a pas pu être fabriqué : rien n’a été publié sur Instagram ni Facebook aujourd’hui.',
+      });
       return rapport;
     }
 
