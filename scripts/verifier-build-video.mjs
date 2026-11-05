@@ -12,7 +12,7 @@ const racine = '.next/server';
 const attendu = 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:';
 const casse = /scale=\d+:\d+pad=/;
 
-let trouve = false;
+let trouve = false, present = false;
 const fautifs = [];
 const parcourir = (dossier) => {
   for (const nom of readdirSync(dossier)) {
@@ -21,11 +21,15 @@ const parcourir = (dossier) => {
     if (!nom.endsWith('.js')) continue;
     const code = readFileSync(chemin, 'utf8');
     if (code.includes(attendu)) trouve = true;
+    if (code.includes('scale=1080:1920')) present = true;
     if (casse.test(code)) fautifs.push(chemin);
   }
 };
 parcourir(racine);
 
+// Depuis les vidéos animées (novembre 2026), le montage de planches fixes peut ne plus être
+// embarqué : son absence n'est pas une erreur. Un filtre présent mais altéré en reste une.
+if (!present && !fautifs.length) { console.log('✓ Montage ffmpeg de planches absent du build (vidéos animées).'); process.exit(0); }
 if (fautifs.length || !trouve) {
   console.error('✗ Filtre ffmpeg altéré dans le build :', fautifs.length ? fautifs.join(', ') : 'filtre attendu introuvable');
   process.exit(1);

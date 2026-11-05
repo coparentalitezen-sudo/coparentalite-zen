@@ -415,6 +415,9 @@ export function AdminSemaine({
             ← Retour à l’application
           </Link>
           <span className="flex gap-4">
+            <Link href="/admin/videos" className="text-sm font-bold text-navy-text underline">
+              Vidéos →
+            </Link>
             <Link href="/admin/youtube" className="text-sm font-bold text-navy-text underline">
               YouTube →
             </Link>

@@ -14,7 +14,9 @@ const FORMAT_JOUR_SEMAINE = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe
 
 /** Heure (0 à 23) à Paris. */
 export function heureParis(maintenant = new Date()): number {
-  return Number(FORMAT_HEURE.format(maintenant)) % 24;
+  // formatToParts : selon la version d'ICU, « format » rend « 11 » ou « 11 h ».
+  const h = FORMAT_HEURE.formatToParts(maintenant).find((p) => p.type === 'hour')?.value;
+  return Number(h) % 24;
 }
 
 /** Date du jour à Paris, AAAA-MM-JJ. */

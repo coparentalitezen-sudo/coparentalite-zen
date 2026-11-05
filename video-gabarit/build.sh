@@ -31,7 +31,7 @@ for DEBIT in -2% +0% -6%; do
   "$PY" -c "import json,sys; L=json.load(open(sys.argv[1])); [l.__setitem__('rate', sys.argv[2]) for l in L]; json.dump(L, open(sys.argv[1],'w'), ensure_ascii=False, indent=1)" "$D/lines.json" "$DEBIT"
   if [ "$MOTEUR" = kokoro ]; then "$PY" -I "$GAB/tools/kokoro.py" "$D/lines.json" "$D/voices"
   else "$PY" -I "$GAB/tools/tts_edge.py" "$D/lines.json" "$D/voices"; fi
-  if (cd "$LIB" && "$PY" core/tts/asr_check.py "$D/out/lines_asr.json" "$D/voices" --lang fr --model "${WHISPER_MODEL:-small}") > "$D/out/asr.log" 2>&1; then VOIX_OK=1; break; fi
+  if "$PY" "$GAB/tools/asr_fr.py" "$D/out/lines_asr.json" "$D/voices" --lang fr --model "${WHISPER_MODEL:-small}" > "$D/out/asr.log" 2>&1; then VOIX_OK=1; break; fi
   echo "voix : écart détecté au débit $DEBIT, nouvel essai"; tail -5 "$D/out/asr.log"
 done
 cp "$D/out/asr.log" "$D/out/asr-final.log"
