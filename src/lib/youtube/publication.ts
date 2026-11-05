@@ -250,7 +250,8 @@ export async function executerPublicationYoutube(options: Options = {}): Promise
   if (!ligne) return fin({ jour, publie: false, statut: 'echec', cle: cleIdem, motif: 'Short introuvable après création.' });
 
   const decision = decider(ligne, maintenant.getTime());
-  if (decision === 'deja') return fin({ jour, publie: false, statut: 'deja', cle: cleIdem, videoId: ligne.video_id ?? undefined, motif: 'Short du jour déjà publié.' });
+  // Déjà publié : constaté à chaque passage horaire, sans journal.
+  if (decision === 'deja') return ({ jour, publie: false, statut: 'deja', cle: cleIdem, videoId: ligne.video_id ?? undefined, motif: 'Short du jour déjà publié.' });
   if (decision === 'occupe') return fin({ jour, publie: false, statut: 'occupe', cle: cleIdem, motif: 'Une autre exécution traite ce Short.' });
   if (decision === 'a_verifier' && !options.essai) {
     await signaler(service, { cle: `a-verifier:${cleIdem}:youtube`, niveau: 'echec',

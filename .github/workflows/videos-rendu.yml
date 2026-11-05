@@ -1,0 +1,115 @@
+name: Vidéos animées — rendu
+
+# Rend, contrôle et dépose dans l'espace privé « videos » les vidéos des trois prochains jours.
+# Ne publie RIEN et ne voit aucun jeton de publication (Meta, YouTube) : ils restent dans Vercel.
+# Le dépôt est public, donc ces journaux aussi : on n'y écrit ni secret ni adresse signée.
+#
+# Secrets requis (Settings → Secrets and variables → Actions) : SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
+# Variable facultative : VOIX_MOTEUR (edge par défaut, ou kokoro).
+# Une tâche planifiée GitHub ne tourne que depuis la branche par défaut du dépôt.
+
+on:
+  schedule:
+    - cron: '17 2 * * *'        # chaque nuit (≈ 3 h 17 à Paris) : vidéos des trois prochains jours
+  workflow_dispatch:
+    inputs:
+      cle:
+        description: 'Une seule vidéo (ex. yt-2026-11-07), vide = toutes'
+        required: false
+  pull_request:
+    paths: ['video-gabarit/**', 'scripts/videos/**', 'src/lib/marketing/scenario-video.ts', 'src/lib/marketing/etapes-courtes.ts', '.github/workflows/videos-rendu.yml']
+  push:
+    branches: [feat/videos-animees]
+    paths: ['video-gabarit/**', 'scripts/videos/**', '.github/workflows/videos-rendu.yml']
+
+concurrency:
+  group: videos-rendu-${{ github.event_name == 'schedule' && 'planifie' || github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  LIB: ${{ github.workspace }}/../lemo-opuscar
+  LEMO_COMMIT: bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00   # version figée de la bibliothèque (MIT)
+  VOIX_MOTEUR: ${{ vars.VOIX_MOTEUR || 'edge' }}
+  WHISPER_MODEL: small
+  RENDU_TRAVAILLEURS: 4
+
+jobs:
+  rendu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Bibliothèque Lemo-Opuscar (version figée)
+        run: |
+          git clone --quiet --filter=blob:none --sparse https://github.com/lemomo-ai/lemo-opuscar.git "$LIB"
+          git -C "$LIB" sparse-checkout set --no-cone '/*' '!/styles/*/demo/' '!/styleboard/' '!/docs/'
+          git -C "$LIB" checkout --quiet "$LEMO_COMMIT"
+
+      - name: Cache (environnement Python, navigateur, instruments, modèle Whisper)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.LIB }}/.venv
+            ${{ env.LIB }}/node_modules
+            ${{ env.LIB }}/core/audio/instruments
+            ~/.cache/huggingface
+            ~/.cache/ms-playwright
+          key: lemo-${{ env.LEMO_COMMIT }}-v1
+
+      - name: Dépendances du rendu (voix, instruments CC0)
+        run: |
+          LEMO_OPUSCAR_HOME="$LIB" sh "$LIB/plugin/skills/lemo-opuscar/scripts/setup.sh" deps voice
+          for l in vcsl vsco2ce karoryfer; do (cd "$LIB" && sh tools/fetch.sh instruments $l); done
+
+      - name: ffmpeg ≥ 7 en tête du PATH (Ubuntu fournit la 6.1)
+        run: |
+          python -m venv ~/.ffmpeg7 && ~/.ffmpeg7/bin/pip install -q imageio-ffmpeg
+          mkdir -p ~/.ffmpeg7/lien
+          # le binaire fourni par le paquet, pas celui du système (get_ffmpeg_exe peut renvoyer le second)
+          ln -sf "$(ls ~/.ffmpeg7/lib/python*/site-packages/imageio_ffmpeg/binaries/ffmpeg-linux-* | head -1)" ~/.ffmpeg7/lien/ffmpeg
+          echo "$HOME/.ffmpeg7/lien" >> "$GITHUB_PATH"
+          ~/.ffmpeg7/lien/ffmpeg -version | head -1
+
+      # Pull request ou branche de travail : un rendu d'essai, sans base ni secret, livré en artefact.
+      - name: Rendu d'essai (sans publication)
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
+        env:
+          NODE_OPTIONS: --conditions=react-server
+        run: npx tsx scripts/videos/rendre.ts --essai rendus/essai "$(TZ=Europe/Paris date -d tomorrow +%F)"
+
+      - name: Artefact de l'essai
+        if: always() && (github.event_name == 'pull_request' || github.event_name == 'push')
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-essai
+          path: |
+            rendus/essai/video.mp4
+            rendus/essai/affiche.jpg
+            rendus/essai/sous-titres.srt
+            rendus/essai/controles.json
+          retention-days: 14
+
+      - name: Rendu des vidéos à publier
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        env:
+          NODE_OPTIONS: --conditions=react-server
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CLE: ${{ inputs.cle }}
+        run: |
+          if [ -n "$CLE" ]; then npx tsx scripts/videos/rendre.ts --cle "$CLE"
+          else npx tsx scripts/videos/rendre.ts; fi

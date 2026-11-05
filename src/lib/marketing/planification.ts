@@ -108,6 +108,13 @@ export async function executerPublicationPlanifiee(
     }
   }
 
+  // Avant l'heure réglée de toutes les plateformes : rien à faire, rien à journaliser
+  // (l'horloge passe toutes les heures).
+  if (ouverts.length === 0 && [...fermes.values()].some((m) => /pas encore atteinte/.test(m))
+    && [...fermes.values()].every((m) => /pas encore atteinte|hors service|Mode validation/.test(m))) {
+    return { jour: aujourdhui, source: 'aucune', rapports: [], motif: 'Heure de publication pas encore atteinte.' };
+  }
+
   // Jour de Reel : la vidéo animée du générateur, et rien d'autre ce jour-là.
   // Vidéo absente ou refusée par ses contrôles : aucune publication de repli,
   // une alerte part, et le jour saute sur cette plateforme.
@@ -125,7 +132,8 @@ export async function executerPublicationPlanifiee(
       });
     }
     const rapport: RapportPublication = { jour: aujourdhui, source: 'video', rapports };
-    await journaliser(service, rapport);
+    // Les passages horaires suivants ne font que constater « déjà publié » : inutile de les journaliser.
+    if (!rapports.every((r) => !r.publie && /^deja/.test(r.motif ?? ''))) await journaliser(service, rapport);
     return rapport;
   }
 
@@ -154,10 +162,8 @@ export async function executerPublicationPlanifiee(
     const base = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://www.coparentalitezen.fr';
     const quotidien = await assurerVisuelDuJour(service, aujourdhui, base);
     if (quotidien === 'deja') {
-      const rapport: RapportPublication = { jour: aujourdhui, source: 'quotidien', rapports: [],
-        motif: 'Visuel du jour déjà traité.' };
-      await journaliser(service, rapport);
-      return rapport;
+      // Constaté à chaque passage horaire après la publication : pas de journal.
+      return { jour: aujourdhui, source: 'quotidien', rapports: [], motif: 'Visuel du jour déjà traité.' };
     }
     if (quotidien === 'echec') {
       // Pas de repli sur les planches texte : un visuel manquant vaut mieux

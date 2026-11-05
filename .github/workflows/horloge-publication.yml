@@ -1,0 +1,36 @@
+name: Horloge de publication
+
+# Appelle chaque heure la route /api/marketing/horloge de l'application (Vercel).
+# C'est la route qui décide, d'après l'heure réglée par plateforme dans l'administration,
+# s'il faut publier ; elle applique les contrôles, l'idempotence et l'arrêt d'urgence.
+# Ce workflow ne détient que CRON_SECRET (qui permet seulement de déclencher la route) ;
+# aucun jeton de publication. La réponse n'est pas affichée dans les journaux publics.
+# Une tâche planifiée GitHub ne tourne que depuis la branche par défaut du dépôt.
+
+on:
+  schedule:
+    - cron: '7 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: horloge-publication
+  cancel-in-progress: false
+
+jobs:
+  appel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Appeler l'horloge
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE: ${{ vars.SITE_URL || 'https://www.coparentalitezen.fr' }}
+        run: |
+          [ -n "$CRON_SECRET" ] || { echo "Secret CRON_SECRET absent."; exit 1; }
+          code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 290 \
+            -H "Authorization: Bearer $CRON_SECRET" "$SITE/api/marketing/horloge")
+          echo "Réponse HTTP : $code"
+          [ "$code" = "200" ]
