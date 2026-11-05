@@ -33,7 +33,7 @@ env:
   LIB: ${{ github.workspace }}/../lemo-opuscar
   LEMO_COMMIT: bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00   # version figée de la bibliothèque (MIT)
   VOIX_MOTEUR: ${{ vars.VOIX_MOTEUR || 'edge' }}
-  WHISPER_MODEL: small
+  WHISPER_MODEL: medium   # plus fiable en français que « small » (banc vocal du 5/11/2026)
   RENDU_TRAVAILLEURS: 4
 
 jobs:
