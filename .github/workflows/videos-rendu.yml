@@ -91,6 +91,12 @@ jobs:
           NODE_OPTIONS: --conditions=react-server
         run: npx tsx scripts/videos/rendre.ts --essai rendus/essai "$(TZ=Europe/Paris date -d tomorrow +%F)"
 
+      - name: Banc vocal (toutes les phrases de la banque)
+        if: always() && (github.event_name == 'pull_request' || github.event_name == 'push')
+        env:
+          NODE_OPTIONS: --conditions=react-server
+        run: npx tsx scripts/videos/rendre.ts --banc rendus/banc
+
       - name: Artefact de l'essai
         if: always() && (github.event_name == 'pull_request' || github.event_name == 'push')
         uses: actions/upload-artifact@v4

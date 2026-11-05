@@ -18,7 +18,10 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, statSync, mkdirSync, appendFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
-import { scenarioVideo, sujetDeNiche, type ScenarioVideo } from '@/lib/marketing/scenario-video';
+import { scenarioVideo, sujetDeNiche, textePrononce, type ScenarioVideo } from '@/lib/marketing/scenario-video';
+import { BANQUE } from '@/lib/marketing/banque';
+import { ETAPES_COURTES } from '@/lib/marketing/etapes-courtes';
+import { writeFileSync } from 'node:fs';
 import { cleYoutube, SEAU_VIDEOS } from '@/lib/marketing/videos';
 import { jourParis, decalerJour } from '@/lib/marketing/horaire';
 import { ecrireDossier, scenarioYoutube } from './scenario';
@@ -72,6 +75,23 @@ async function main() {
     const r = rendreDossier(path.resolve(dossier));
     for (const c of r.controles.controles) resume(`${c.ok ? '✅' : '❌'} ${c.nom} ${c.mesure !== undefined ? JSON.stringify(c.mesure) : ''} ${c.detail ?? ''}`);
     if (!r.ok) { console.log(r.journal); process.exit(1); }
+    return;
+  }
+
+  // Banc vocal : toutes les phrases que les vidéos peuvent prononcer, synthétisées et vérifiées d'un coup.
+  // Sert à repérer à l'avance une phrase que Whisper comprend mal (elle bloquerait sa vidéo le jour venu).
+  if (args[0] === '--banc') {
+    const dossier = path.resolve(args[1]); mkdirSync(dossier, { recursive: true });
+    const textes = [...new Set(BANQUE.flatMap((s) => [...s.accroches, ...(ETAPES_COURTES[s.niche] ?? []), s.apport]))];
+    const lignes = textes.map((t, i) => ({ id: `b${String(i).padStart(3, '0')}`, text: textePrononce(t), say: textePrononce(t), voice: 'fr-FR-DeniseNeural', rate: '-2%' }));
+    writeFileSync(path.join(dossier, 'lines.json'), JSON.stringify(lignes, null, 1));
+    const py = path.join(process.env.LIB, '.venv', 'bin', 'python');
+    const tts = spawnSync(py, ['-I', path.join(GABARIT, 'tools', 'tts_edge.py'), path.join(dossier, 'lines.json'), path.join(dossier, 'voices')], { encoding: 'utf8', env: process.env });
+    if (tts.status !== 0) { console.log(tts.stdout, tts.stderr); process.exit(1); }
+    const asr = spawnSync(py, [path.join(GABARIT, 'tools', 'asr_fr.py'), path.join(dossier, 'lines.json'), path.join(dossier, 'voices'), '--lang', 'fr', '--model', process.env.WHISPER_MODEL ?? 'small'], { encoding: 'utf8', env: process.env, maxBuffer: 16 * 1024 * 1024 });
+    const diffs = (asr.stdout ?? '').split('\n').filter((l) => l.startsWith('DIFF'));
+    resume(`### Banc vocal : ${textes.length} phrases, ${diffs.length} mal comprises`);
+    for (const d of diffs) resume(`- ${d}`);
     return;
   }
 

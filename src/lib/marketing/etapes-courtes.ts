@@ -48,7 +48,7 @@ export const ETAPES_COURTES: Record<string, [string, string, string]> = {
   ],
   'rendez-vous-medicaux': [
     'Notez le prochain rendez-vous sur place.',
-    'Résumez : dit, prescrit, à suivre.',
+    'Notez les consignes et la suite à donner.',
     'Rangez l’ordonnance avec les précédentes.',
   ],
   'documents-familiaux': [

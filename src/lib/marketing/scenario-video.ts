@@ -56,6 +56,7 @@ const PICTO_VERBE: [RegExp, Pictogramme][] = [
   [/^photographiez/i, 'photo'],
   [/^(rangez|ajoutez)/i, 'dossier'],
   [/^(listez|résumez)/i, 'liste'],
+  [/^notez les consignes/i, 'liste'],
   [/^(vérifiez|regardez|lisez|repérez)/i, 'oeil'],
   [/^(fixez|gardez la même heure|réservez)/i, 'epingle'],
   [/^(notez|écrivez|datez|indiquez|précisez|dites|tenez-vous)/i, 'stylo'],
