@@ -27,6 +27,7 @@ describe.skipIf(!python)('comparaison phonétique de la voix', () => {
       ['Tenez-vous aux faits : quoi, quand, où, qui.', 'Tenez-vous au fait quoi, quand ou qui.'],
       ['À trois cents kilomètres, un week-end se prépare un mois avant.', 'À 300 km, un week-end se prépare un mois avant.'],
       ['Vérifiez que l’autre parent l’a vue.', "Vérifiez que l'autre parent l'a vu."],
+      ['Deux gâteaux, deux fois le même cadeau : ça s’évite.', "2 gâteaux, 2 fois le même cadeau, ça c'est vite"],
     ]);
     expect(r).toEqual(r.map(() => true));
   });

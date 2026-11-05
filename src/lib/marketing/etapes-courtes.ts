@@ -24,11 +24,11 @@ export const ETAPES_COURTES: Record<string, [string, string, string]> = {
   'vacances-scolaires': [
     'Partez des dates officielles de votre zone.',
     'Attribuez chaque segment un par un.',
-    'Écrivez la décision là où tous deux liront.',
+    'Notez la décision là où chacun la retrouve.',
   ],
   'echange-enfants': [
     'Gardez la même heure et le même lieu.',
-    'Listez ce qui voyage avec l’enfant.',
+    'Listez les affaires qui suivent l’enfant.',
     'Parlez entre adultes à un autre moment.',
   ],
   'depenses-partagees': [

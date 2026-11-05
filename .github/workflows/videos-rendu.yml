@@ -77,6 +77,9 @@ jobs:
 
       - name: ffmpeg ≥ 7 en tête du PATH (Ubuntu fournit la 6.1)
         run: |
+          # ffprobe (mux.sh, controles.py) vient du paquet Ubuntu ; imageio-ffmpeg ne fournit que ffmpeg
+          command -v ffprobe >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg; }
+          ffprobe -version | head -1
           python -m venv ~/.ffmpeg7 && ~/.ffmpeg7/bin/pip install -q imageio-ffmpeg
           mkdir -p ~/.ffmpeg7/lien
           # le binaire fourni par le paquet, pas celui du système (get_ffmpeg_exe peut renvoyer le second)

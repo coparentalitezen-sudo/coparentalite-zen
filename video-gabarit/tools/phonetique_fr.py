@@ -30,6 +30,7 @@ def centaines(n):
 def mot_phonetique(w):
     """Clé phonétique d'un mot : ce qui s'entend, pas ce qui s'écrit."""
     if w in ('et', 'est', 'es'): return 'e'
+    if w == 'c': return 's'                   # « c' » élidé : « c'est » = « s'est »
     for a, b in (('eau', 'o'), ('au', 'o'), ('ph', 'f'), ('qu', 'k'), ('mpt', 'nt'), ('ss', 's'),
                  ('ai', 'e'), ('ei', 'e'), ('y', 'i'), ('h', '')):
         w = w.replace(a, b)
@@ -44,7 +45,7 @@ def mot_phonetique(w):
     return w
 
 def norm_fr(s):
-    s = sans_accents(s.lower()).replace('’', ' ').replace("'", ' ').replace('-', ' ')
+    s = sans_accents(s.lower().replace('ç', 's')).replace('’', ' ').replace("'", ' ').replace('-', ' ')
     mots = []
     for w in re.findall(r'[a-z0-9]+', s):
         if w.isdigit() and len(w) <= 3: mots += centaines(int(w))
