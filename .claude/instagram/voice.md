@@ -83,7 +83,8 @@ d'utilisateurs). Rien n'est inventé : sans preuve, les brouillons gardent
 ## The ask
 
 - **My keyword CTA, if I use one:** ZEN
-- **What the keyword sends them:** le lien pour essayer l'application
+- **What the keyword sends them:** le lien vers l'application :
+  https://www.coparentalitezen.fr
 - **Where my link goes:** deux liens en bio :
   - « Lien pour tester l'application » : https://coparentalitezen.fr/?utm_source=instagram…
   - https://coparentalitezen.fr/i : redirige vers le quiz
