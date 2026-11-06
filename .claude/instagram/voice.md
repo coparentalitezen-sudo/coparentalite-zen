@@ -1,8 +1,7 @@
 # voice.md — Coparentalité Zen
 
 Brouillon établi à partir des réponses du fondateur et des règles du produit
-(AGENTS.md du dépôt coparentalite-zen). Les positions marquées « à confirmer »
-attendent sa validation.
+(AGENTS.md du dépôt coparentalite-zen), validé par le fondateur.
 
 ---
 
@@ -49,8 +48,6 @@ attendent sa validation.
   pour chaque texte à l'écran.
 
 ## My positions
-
-Proposées à partir du produit, à confirmer ou remplacer :
 
 1. Les disputes entre parents séparés portent moins sur l'éducation que sur
    l'organisation et l'argent. Rendre ça clair et neutre retire la moitié des
