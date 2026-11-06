@@ -13,8 +13,7 @@ attendent sa validation.
 - **What I do, in one sentence:** Une application qui aide les parents séparés à
   organiser la garde, les vacances et les dépenses des enfants, sans se disputer
   sur les chiffres.
-- **Who I am talking to:** des parents séparés ou divorcés en France (aussi
-  Belgique, Suisse, Québec), avec un ou plusieurs enfants en garde partagée,
+- **Who I am talking to:** des parents séparés ou divorcés en France, avec un ou plusieurs enfants en garde partagée,
   fatigués des tableaux Excel, des captures de SMS et des « tu me dois combien
   déjà ? ».
 - **What I sell:** l'application Coparentalité Zen (planning de garde,
@@ -23,9 +22,12 @@ attendent sa validation.
 
 ## What I sound like
 
-- **Three of my own reels or captions that sound most like me:** aucun pour
-  l'instant (compte qui démarre). Mettre à jour avec les 3 premiers posts qui
-  marchent.
+- **Three of my own reels or captions that sound most like me:** à ajouter.
+  Le compte a déjà 59 publications : coller ici les 3 légendes qui sonnent le
+  plus juste.
+- **Bio actuelle:** « Organiser la garde, les dépenses et les infos des
+  enfants, à deux. Application française, données hébergées en France. »
+  (catégorie : Création digitale)
 - **On camera I am:** pas de caméra. Chaleureux, complice, avec de l'humour sur
   le quotidien des parents séparés. On rit des situations, jamais de l'autre
   parent.
@@ -71,19 +73,24 @@ Proposées à partir du produit, à confirmer ou remplacer :
 
 ## Proof I can use
 
-À remplir avec de vrais chiffres uniquement (nombre de familles, retours
+À compléter avec de vrais chiffres uniquement (nombre de familles, retours
 d'utilisateurs). Rien n'est inventé : sans preuve, les brouillons gardent
 `{{ton chiffre}}`.
 
--
--
--
+- Application française, données hébergées en France (affirmé dans la bio).
+- Vacances scolaires officielles françaises intégrées au calendrier (autres
+  pays prévus mais pas encore actifs : ne pas les promettre).
+- Répartition des dépenses au centime près, solde identique pour les deux
+  parents.
 
 ## The ask
 
 - **My keyword CTA, if I use one:** ZEN
 - **What the keyword sends them:** le lien pour essayer l'application
-- **Where my link goes:** https://coparentalitezen.fr
+- **Where my link goes:** deux liens en bio :
+  - « Lien pour tester l'application » : https://coparentalitezen.fr/?utm_source=instagram…
+  - https://coparentalitezen.fr/i : redirige vers le quiz
+    (https://www.coparentalitezen.fr/quiz, campagne « lancement_quiz »)
 
 ## Identité visuelle (pour les carrousels)
 
