@@ -73,14 +73,18 @@ function drawArm(ctx, P, which, seed) {
   const J = armJoints(P, which);
   sleeve(ctx, J, seed, P.top, P.topD);
   const hk = P[which === 'F' ? 'handF' : 'handB'] || 'open';
-  drawHand(ctx, J.ha[0], J.ha[1], J.a2, hk, which === 'F' ? -1 : 1, 1, P.skin);
   if (P.phone && P.phone === which) {
-    const [hx, hy] = J.ha;
-    ctx.save(); ctx.translate(hx - (which === 'F' ? 6 : -6), hy - 22); ctx.rotate(which === 'F' ? -0.12 : 0.12);
-    drawPhone(ctx, 0, 0, 60, 104, { screen: P.screen === 'question' ? qScreen : miniWeek });
+    // Téléphone tenu : la paume et le poignet sont derrière le boîtier, seuls le pouce (côté
+    // d'où vient l'avant-bras) et le bout de trois doigts (côté opposé) passent sur les bords.
+    // Avant le 7/11, un poing dessiné dans l'axe de l'avant-bras débordait du téléphone.
+    const [hx, hy] = J.ha, cote = Math.cos(J.a2) < 0 ? 1 : -1; // l'avant-bras arrive par la droite → pouce à droite
+    ctx.save(); ctx.translate(hx, hy); ctx.rotate(-cote * 0.1);
+    drawPhone(ctx, 0, -14, 60, 104, { screen: P.screen === 'question' ? qScreen : miniWeek });
+    const doigt = (x, y, rx, ry, rot, sd) => shape(ctx, ellipse(x, y, rx, ry, 16, 0, TAU, rot), { fill: P.skin, line: 4.5, seed: sd, grain: 0, off: [0, 0] });
+    doigt(cote * 29, 10, 7.5, 13, cote * 0.25, seed + 5);
+    [-12, 2, 16].forEach((y, i) => doigt(-cote * 31, y, 7, 5.5, 0, seed + 6 + i));
     ctx.restore();
-    drawHand(ctx, J.ha[0], J.ha[1], J.a2, 'grip', which === 'F' ? -1 : 1, 1, P.skin);
-  }
+  } else drawHand(ctx, J.ha[0], J.ha[1], J.a2, hk, which === 'F' ? -1 : 1, 1, P.skin);
   return J;
 }
 function qScreen(ctx, sx, sy, sw, sh) {
