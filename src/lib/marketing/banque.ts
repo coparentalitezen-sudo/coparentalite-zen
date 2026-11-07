@@ -222,7 +222,7 @@ export const BANQUE: Sujet[] = [
     accroches: [
       'Qui a le carnet de santé ?',
       'Le rendez-vous s’est bien passé. Encore faut-il le dire.',
-      'Trois lignes après le rendez-vous, et l’autre parent sait tout.',
+      'Après le rendez-vous, trois lignes suffisent.',
     ],
     etapes: [
       'Notez la date du prochain rendez-vous avant de quitter le cabinet.',
