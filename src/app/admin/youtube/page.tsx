@@ -35,15 +35,6 @@ const STATUTS: Record<string, string> = {
   echec: 'Échec', a_verifier: 'À vérifier',
 };
 
-/** Prochain passage de la tâche (08:00 UTC), affiché à l'heure de Paris. */
-function prochainPassage(maintenant = new Date()): string {
-  const p = new Date(Date.UTC(maintenant.getUTCFullYear(), maintenant.getUTCMonth(), maintenant.getUTCDate(), 8));
-  if (p <= maintenant) p.setUTCDate(p.getUTCDate() + 1);
-  return new Intl.DateTimeFormat('fr-FR', {
-    timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit',
-  }).format(p);
-}
-
 export default async function PageYoutube({
   searchParams,
 }: { searchParams: Promise<{ connexion?: string }> }) {
@@ -121,8 +112,9 @@ export default async function PageYoutube({
           {!global?.actif && <span className="text-err"> · arrêt général de toutes les publications en vigueur</span>}
         </p>
         <p className="text-sm text-soft">
-          Prochain passage : {prochainPassage()} (rattrapage à 16 h UTC si besoin).
-          Short prévu aujourd’hui : « {titreDuShort(aujourdhui)} ».
+          Publication à partir de {reglages?.heure ?? 10} h (heure de Paris), réglable dans
+          {' '}<Link href="/admin/videos" className="underline">Publication automatique</Link> ; vidéo animée du jour,
+          publiée seulement si tous ses contrôles sont verts. Short prévu aujourd’hui : « {titreDuShort(aujourdhui)} ».
         </p>
         <p className="text-sm text-soft">
           Dernier Short publié : {dernier ? `${dernier.jour}${dernier.video_id ? ` (${dernier.video_id})` : ''}` : 'aucun'}.

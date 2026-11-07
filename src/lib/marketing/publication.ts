@@ -1,12 +1,12 @@
 import 'server-only';
 import {
   configurationPrete, publierImageInstagram, publierCarrouselInstagram,
-  publierFacebook, publierAlbumFacebook, publierReelInstagram, publierReelFacebook,
+  publierFacebook, publierAlbumFacebook,
   expurger, type ResultatMeta,
 } from './meta';
-import { videoPublique } from './video';
+import { publierReelAnime } from './publication-video-serveur';
 import { urlVisuelPublic } from './signature';
-import { contenuDeReference, rendreVisuel } from './rendu';
+import { contenuDeReference } from './rendu';
 import {
   reserverPublication, conclurePublication, enregistrerSemaine, publicationAutorisee,
 } from './depot';
@@ -60,6 +60,17 @@ export async function publierContenu(
     return { ok: false, erreur: 'Contenu ou planche introuvable.' };
   }
 
+  // Les Reels partent uniquement en vidéo animée, rendue et contrôlée hors
+  // Vercel (video-gabarit/), par leur propre circuit (même clé d'idempotence).
+  // Pas de repli en planches : une vidéo absente ou refusée par ses contrôles
+  // ne publie rien, et une alerte part.
+  if (contenu.format === 'reel') {
+    const r = await publierReelAnime(reference, plateforme, { ignorerHeure: true });
+    return r.publie
+      ? { ok: true, metaId: r.idExterne ?? null }
+      : { ok: false, erreur: `${r.statut} : ${r.motif ?? ''}`.trim(), dejaPublie: r.statut === 'deja' };
+  }
+
   const urlImage = urlVisuelPublic(base, reference, page);
   if (!urlImage) {
     return { ok: false, erreur: 'Visuel non signable : CRON_SECRET manquant.' };
@@ -100,38 +111,7 @@ export async function publierContenu(
             config, urlImage, contenu.legendeInstagram, contenu.texteAlternatif)
   );
 
-  let resultat: ResultatMeta<unknown>;
-
-  if (contenu.format === 'reel') {
-    // Les contenus « reel » partent en vraie vidéo : c'est le format que les
-    // deux réseaux montrent le plus à ceux qui ne suivent pas encore le
-    // compte. Les planches sont dessinées au format vertical du réel.
-    const video = await videoPublique(reference, async () => Promise.all(
-      contenu.pages.map(async (_, i) =>
-        (await rendreVisuel(contenu, i, 'vertical')).arrayBuffer()),
-    ));
-
-    const reel = video.ok
-      ? plateforme === 'facebook'
-        ? await publierReelFacebook(config, video.url, contenu.legendeFacebook)
-        : await publierReelInstagram(config, video.url, contenu.legendeInstagram)
-      : { ok: false as const, erreur: video.erreur };
-
-    // Si la vidéo n'a pas pu être fabriquée ou que Meta l'a refusée, on
-    // publie les mêmes planches en carrousel plutôt que rien : un contenu
-    // publié sous une autre forme vaut mieux qu'une journée muette. Aucun des
-    // échecs ci-dessus ne laisse de réel publié, le repli ne fait donc pas
-    // doublon.
-    if (reel.ok) {
-      resultat = reel;
-    } else {
-      console.info('[publication]', reference, plateforme,
-        'réel impossible, repli en planches :', expurger(reel.erreur ?? '', config.jeton));
-      resultat = await publierEnPlanches();
-    }
-  } else {
-    resultat = await publierEnPlanches();
-  }
+  const resultat: ResultatMeta<unknown> = await publierEnPlanches();
 
   const idPublication = reservation.deja!.id;
 

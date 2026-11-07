@@ -33,6 +33,7 @@
     "next-env.d.ts",
     "src",
     "tests",
+    "scripts/videos",
     ".next/types/**/*.ts"
   ],
   "exclude": [
