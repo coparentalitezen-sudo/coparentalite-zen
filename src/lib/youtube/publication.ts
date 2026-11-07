@@ -11,7 +11,7 @@ import {
   CHAINE_ATTENDUE, configOAuth, rafraichir, ErreurOAuth, type ConfigOAuth,
 } from './oauth';
 import {
-  ouvrirSession, etatSession, transferer, lireVideos, ErreurEnvoi, type VideoCreee,
+  ouvrirSession, etatSession, transferer, lireVideos, poserMiniature, ErreurEnvoi, type VideoCreee,
 } from './envoi';
 import { decider, VERROU_MS, type LigneShort, type Visibilite } from './decision';
 import {
@@ -291,6 +291,9 @@ export async function executerPublicationYoutube(options: Options = {}): Promise
       }
       const conclu = await conclure(service, ligne.id, creee, acces, visibilite, jour, cleIdem);
       if (!options.essai && conclu.publie) await appliquerIssue(service, 'youtube', true);
+      if (conclu.publie && conclu.videoId && videoDuJour.chemin_affiche) {
+        await miniature(service, acces, conclu.videoId, videoDuJour.chemin_affiche, jour);
+      }
       return fin(conclu);
     } catch (e) {
       derniere = e;
@@ -320,6 +323,27 @@ async function relire(service: Service, id: string) {
   const { data } = await service.from('marketing_youtube_shorts')
     .select('session_envoi, taille_octets').eq('id', id).maybeSingle();
   return data ?? {};
+}
+
+/**
+ * Pose la vignette dessinée comme miniature. Jamais bloquant : la vidéo est
+ * déjà publiée. Un refus est signalé une seule fois par motif (une chaîne non
+ * éligible le serait sinon tous les jours).
+ */
+async function miniature(service: Service, acces: string, videoId: string, chemin: string, jour: string): Promise<void> {
+  let r: Awaited<ReturnType<typeof poserMiniature>>;
+  try {
+    r = await poserMiniature(acces, videoId, await telechargerVideo(service, chemin));
+  } catch (e) {
+    r = { ok: false, code: 'lecture', motif: (e as Error).message };
+  }
+  if (r.ok) return;
+  await signaler(service, {
+    cle: `vignette:youtube:${r.code}`, niveau: 'information',
+    sujet: 'YouTube : miniature personnalisée refusée',
+    message: `Le Short du ${jour} est bien publié, avec la miniature choisie par YouTube. ${r.motif} `
+      + 'Les vidéos portent de toute façon l’accroche en bandeau pendant les étapes.',
+  });
 }
 
 /** Vérifie la vidéo créée et fixe le statut final. */

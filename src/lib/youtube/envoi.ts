@@ -210,3 +210,27 @@ export async function lireVideos(
   }
   return resultat;
 }
+
+/**
+ * Miniature personnalisée d'une vidéo envoyée (thumbnails.set).
+ *
+ * YouTube ne l'accepte que pour les chaînes éligibles (téléphone vérifié ;
+ * pour les Shorts, déploiement progressif depuis juillet 2026). Un refus est
+ * donc attendu tant que la chaîne n'y a pas droit : il ne remet jamais en cause
+ * la vidéo, déjà publiée ; l'appelant le signale une fois.
+ */
+export async function poserMiniature(
+  acces: string, videoId: string, image: Uint8Array, f: Fetch = fetch,
+): Promise<{ ok: true } | { ok: false; motif: string; code: string }> {
+  try {
+    const r = await f(
+      `https://www.googleapis.com/upload/youtube/v3/thumbnails/set?videoId=${encodeURIComponent(videoId)}&uploadType=media`,
+      { method: 'POST', headers: { Authorization: `Bearer ${acces}`, 'Content-Type': 'image/jpeg' }, body: image as BodyInit },
+    );
+    if (r.ok) return { ok: true };
+    const code = await raison(r);
+    return { ok: false, code, motif: `YouTube a refusé la miniature (HTTP ${r.status}, ${code}).` };
+  } catch (e) {
+    return { ok: false, code: 'reseau', motif: `Requête impossible : ${(e as Error).message}` };
+  }
+}

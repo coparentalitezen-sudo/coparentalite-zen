@@ -61,12 +61,20 @@ function medaillon(ctx, t, t0, x, y, r, interieur) {
 }
 const interieurCoeur = (ctx, r) => shape(ctx, coeur(0, 4, r * 0.034), { fill: C.coral, line: 4.5, seed: 735, grain: 0.2 });
 const interieurNumero = n => (ctx, r) => text(ctx, String(n), 0, r * 0.38, { font: `${Math.round(r * 1.1)}px Slab`, fill: C.ink, plate: C.white, off: [5, 5], align: 'center' });
+// Bandeau tenu pendant les trois étapes : la question courte de la vignette, en haut de l'image.
+// Une miniature choisie par la plateforme au milieu de la vidéo porte ainsi toujours l'accroche.
+const BANDEAU = { x: 60, y: 64, w: 960, h: 124 }, Y_ENTETE = 300;
+function bandeau(ctx) {
+  const b = BANDEAU, f = fit(ctx, SC.vignette, '700 {px}px Oleo', 74, b.w - 90, 1, 44);
+  shape(ctx, rrect(b.x, b.y, b.w, b.h, 30), { fill: C.ink, line: 4.5, seed: 705, grain: 0.15, off: [8, 7] });
+  text(ctx, f.lines[0], W / 2, b.y + b.h / 2 + f.px * 0.34, { font: f.font, fill: C.white, plate: C.coral, off: [5, 4], align: 'center', maxW: b.w - 70 });
+}
 function enTete(ctx, t, p) {
   const k = eo(seg(twos(t), p.t0 + 0.05, p.t0 + 0.45)); if (k <= 0) return;
   ctx.save(); ctx.translate(-(1 - k) * 700, 0);
-  shape(ctx, ellipse(116, 196, 56, 56, 40), { fill: C.ink, line: 0, seed: 700, grain: 0.1, off: [0, 0] });
-  text(ctx, String(p.numero), 116, 220, { font: '66px Slab', fill: C.paper, align: 'center' });
-  text(ctx, `ÉTAPE ${p.numero} SUR 3`, 196, 210, { font: '600 34px Jost', fill: C.ink, track: 6 });
+  shape(ctx, ellipse(116, Y_ENTETE, 56, 56, 40), { fill: C.ink, line: 0, seed: 700, grain: 0.1, off: [0, 0] });
+  text(ctx, String(p.numero), 116, Y_ENTETE + 24, { font: '66px Slab', fill: C.paper, align: 'center' });
+  text(ctx, `ÉTAPE ${p.numero} SUR 3`, 196, Y_ENTETE + 14, { font: '600 34px Jost', fill: C.ink, track: 6 });
   ctx.restore();
 }
 function cercle(ctx, t, t0, cx, cy, r, interieur, fond) {
@@ -116,7 +124,7 @@ const REPOS_F = { a1: 1.36, a2: 1.5 }, REPOS_B = { a1: 1.78, a2: 1.64 };
 const TEL_F = { a1: 1.85, a2: -2.35 }, TEL_B = { a1: 1.29, a2: -0.79 };
 const HAUT_F = { a1: -0.95, a2: -1.25 }, HAUT_B = { a1: -2.19, a2: -1.89 };
 // u : temps depuis le début de la fin (0 = accroche). Fin compressée : fusion 0→0,9 s, iris 0,9→1,4 s.
-function maisons(ctx, t, u) {
+function maisons(ctx, t, u, titre = true) {
   const fin = u > 0;
   const ouvre = fin ? eio(seg(u, 0.35, 0.9)) : 0, rapproche = fin ? eio(seg(u, 0, 0.5)) : 0;
   bg(ctx, C.paper);
@@ -126,7 +134,7 @@ function maisons(ctx, t, u) {
   [[0, C.navyT, C.navyL, C.navyD, -1], [1, C.coralT, C.coralL, C.coralD, 1]].forEach(([i, mur, sol, sombre, sgn]) => {
     ctx.save(); ctx.translate(sgn * ouvre * 620, 0);
     const x0 = i ? 540 : -400, x1 = i ? 1480 : 540;
-    plane(ctx, rect(x0, -400, x1 - x0, SOL + 400), mur);
+    plane(ctx, rect(x0, -1200, x1 - x0, SOL + 1200), mur);
     plane(ctx, rect(x0, SOL, x1 - x0, 1200), sol);
     ink(ctx, [[x0 + (i ? 30 : 40), SOL], [x1 - (i ? 40 : 30), SOL]], 4, { seed: 200 + i, breaks: 0.3, color: C.ink });
     maison(ctx, i ? 900 : 180, SOL - 4, 230, 210, i ? C.coralL : C.navyL, sombre, 210 + i * 10);
@@ -160,7 +168,7 @@ function maisons(ctx, t, u) {
     }
   }
   ctx.restore();
-  if (!fin) titreHaut(ctx, t, 0.15, ligne('accroche').texte);
+  if (!fin && titre) titreHaut(ctx, t, 0.15, ligne('accroche').texte);
 }
 
 // ------------------------------------------------------------------ les trois étapes
@@ -196,6 +204,7 @@ function sceneEtape(ctx, t, p) {
   if (t > tTape && t < tTape + 0.6) [[-1, -1], [1, -0.7], [0.8, 1]].forEach(([dx, dy], i) => sparkle(ctx, CERCLE.x + dx * (CERCLE.r + 40), CERCLE.y + dy * (CERCLE.r + 30), 26 * (1 - seg(t, tTape, tTape + 0.6)), { fill: i % 2 ? C.gold : C.white }));
   carte(ctx, t, p.voix.t, l.texte, Y_CARTE);
   ctx.restore();
+  bandeau(ctx);
   enTete(ctx, t, p);
 }
 
@@ -288,7 +297,8 @@ export function texts(t) {
   const out = [], p = plan(t);
   if (p.role === 'accroche' && t >= 0.15) out.push({ id: 'accroche', text: ligne('accroche').texte, x0: 40, y0: 120, x1: 1040, y1: 470 });
   if (p.role === 'etape') {
-    out.push({ id: 'entete' + p.numero, text: `ÉTAPE ${p.numero} SUR 3`, x0: 60, y0: 140, x1: 700, y1: 250 });
+    out.push({ id: 'bandeau', text: SC.vignette, x0: BANDEAU.x, y0: BANDEAU.y, x1: BANDEAU.x + BANDEAU.w, y1: BANDEAU.y + BANDEAU.h });
+    out.push({ id: 'entete' + p.numero, text: `ÉTAPE ${p.numero} SUR 3`, x0: 60, y0: Y_ENTETE - 56, x1: 700, y1: Y_ENTETE + 56 });
     if (t >= p.voix.t + 0.3) out.push({ id: 'carte' + p.numero, text: ligne(p.id).texte, x0: CARTE.x, y0: Y_CARTE, x1: CARTE.x + CARTE.w, y1: Y_CARTE + 300 });
   }
   if (p.role === 'apport') {
@@ -328,7 +338,35 @@ function volet(ctx, t, d, avant, apres, sens) {
   else ink(ctx, [[W * k, -10], [W * k, H + 10]], 6, { seed: 964, color: C.ink });
 }
 const TAMPON = 0.42, IRIS = 0.45, VOLET = 0.32;
+// ------------------------------------------------------------------ vignette (image de couverture)
+// Ce qu'on voit avant d'appuyer : la question courte en très gros, la scène des deux maisons au moment
+// où l'enfant s'étonne, et la promesse honnête de la vidéo (trois gestes). Le texte tient dans le
+// cadre 3:4 que la grille Instagram découpe au centre (y 240 → 1680).
+function vignette(ctx) {
+  setClock(3.3);
+  // deux lignes en très gros ; à défaut, trois lignes un peu moins grandes
+  const tient = g => g.lines.length <= 3 && g.lines.every(l => measure(ctx, l, g.font) <= 900);
+  const f2 = fit(ctx, SC.vignette, '700 {px}px Oleo', 168, 900, 2, 110), f3 = fit(ctx, SC.vignette, '700 {px}px Oleo', 140, 900, 3, 96);
+  const f = !tient(f2) || f2.lines.length > 2 || f3.px > f2.px + 12 ? f3 : f2;
+  const lh = f.px * 1.1, h = lh * f.lines.length + 90, y0 = 270;
+  // la scène descend juste assez pour que les bulles passent sous la pastille
+  const decal = Math.max(470, y0 + h + 100 + 52 + 40 - 463);
+  ctx.save(); ctx.translate(0, decal); maisons(ctx, 3.3, 0, false); ctx.restore();
+  ctx.save(); ctx.translate(W / 2, y0 + h / 2); ctx.rotate(-0.035); ctx.translate(-W / 2, -(y0 + h / 2));
+  shape(ctx, rrect(46, y0, 988, h, 36), { fill: C.ink, line: 5.5, seed: 1300, grain: 0.15, off: [12, 10] });
+  f.lines.forEach((l, i) => text(ctx, l, W / 2, y0 + 45 + lh * (i + 0.5) + f.px * 0.34, { font: f.font, fill: C.white, plate: C.coral, off: [7, 6], align: 'center', maxW: 940 }));
+  ctx.restore();
+  const yc = y0 + h + 100;
+  ctx.save(); ctx.translate(W / 2, yc); ctx.rotate(0.02);
+  shape(ctx, rrect(-300, -52, 600, 104, 52), { fill: C.coral, line: 4.5, seed: 1310, grain: 0.2, off: [6, 5] });
+  shape(ctx, ellipse(-238, 0, 34, 34, 32), { fill: C.white, line: 3.5, seed: 1311, grain: 0.1, off: [0, 0] });
+  shape(ctx, [[-250, -17], [-250, 17], [-220, 0]], { fill: C.coral, line: 0, seed: 1312, grain: 0, off: [0, 0] });
+  text(ctx, '3 gestes simples', 30, 16, { font: '600 48px Jost', fill: C.white, align: 'center', maxW: 440 });
+  ctx.restore();
+  paperFinish(ctx, W, H, 0.9);
+}
 export function renderFilm(ctx, t, Q) {
+  if (Q && Q.has('vignette')) return vignette(ctx);
   setClock(t);
   const p = plan(t), A = P.accroche, E1 = P.e1, E2 = P.e2, E3 = P.e3, AP = P.apport;
   ctx.save();
