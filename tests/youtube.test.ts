@@ -163,6 +163,29 @@ describe('contenu du Short', () => {
     }
   });
 
+  it('met l’accroche en tête du titre, puis une recherche réelle', () => {
+    // Un tour complet de la rotation : quinze sujets, trois accroches chacun.
+    let avecRecherche = 0;
+    for (let i = 0; i < 45; i += 1) {
+      const jour = new Date(Date.UTC(2026, 9, 1 + i)).toISOString().slice(0, 10);
+      const s = shortDuJour(jour);
+      const titre = titreDuShort(s);
+      expect(titre.startsWith(s.accroche)).toBe(true);
+      expect(titre).not.toContain('#Shorts');
+      if (titre !== s.accroche) {
+        expect(s.sujet.recherches.some((r) => titre.toLowerCase().endsWith(` | ${r.toLowerCase()}`))).toBe(true);
+        avecRecherche += 1;
+      }
+    }
+    // Seules les accroches les plus longues n'ont pas la place d'une recherche.
+    expect(avecRecherche).toBeGreaterThanOrEqual(40);
+    expect(descriptionDuShort(shortDuJour('2026-10-26'), BASE, true)).toContain('#Shorts');
+  });
+
+  it('n’emploie pas de tiret long dans la description', () => {
+    expect(descriptionDuShort(shortDuJour('2026-10-26'), BASE, true)).not.toContain('—');
+  });
+
   it('mène vers le site avec un lien traçable', () => {
     const d = descriptionDuShort(shortDuJour('2026-10-26'), BASE, true);
     const lien = d.match(/https:\/\/www\.coparentalitezen\.fr\S+/)?.[0];
