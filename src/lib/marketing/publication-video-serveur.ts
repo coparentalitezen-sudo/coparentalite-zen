@@ -1,9 +1,9 @@
 import 'server-only';
 import { supabaseService } from '@/lib/supabase/server';
 import { publicationAutorisee, conclurePublication } from './depot';
-import { configurationPrete, publierReelInstagram, publierReelFacebook, expurger } from './meta';
+import { configurationPrete, publierReelInstagram, publierReelFacebook, vignetteReelFacebook, expurger } from './meta';
 import { signaler } from './alertes';
-import { adresseSignee, COLONNES_VIDEO, type LigneVideo } from './videos';
+import { adresseSignee, telechargerVideo, COLONNES_VIDEO, type LigneVideo } from './videos';
 import {
   publierVideo, apresIssue, etatReservationExistante,
   type Dependances, type Plateforme, type RapportVideo, type Reservation,
@@ -95,10 +95,32 @@ function dependances(service: Service, maintenant: Date): Dependances {
       if (!contenu) return { ok: false, erreur: 'Légendes introuvables.' };
       // Adresse signée créée à l'instant, valable quinze minutes : le temps que Meta récupère la vidéo.
       const url = await adresseSignee(service, ligne.chemin_video!);
+      // La vignette n'est jamais bloquante : sans elle, la plateforme choisit une image du film.
+      const couverture = ligne.chemin_affiche
+        ? await adresseSignee(service, ligne.chemin_affiche).catch(() => undefined) : undefined;
       const res = p === 'instagram'
-        ? await publierReelInstagram(config, url, contenu.legende_instagram)
+        ? await publierReelInstagram(config, url, contenu.legende_instagram, undefined, undefined, couverture)
         : await publierReelFacebook(config, url, contenu.legende_facebook);
       if (!res.ok) return { ok: false, erreur: expurger(res.erreur ?? 'Échec sans message.', config.jeton) };
+      if (p === 'facebook' && ligne.chemin_affiche && res.donnees?.id) {
+        try {
+          const image = await telechargerVideo(service, ligne.chemin_affiche);
+          const v = await vignetteReelFacebook(config, res.donnees.id, image);
+          if (!v.ok) {
+            await signaler(service, {
+              cle: `vignette:facebook:${ligne.reference}`, niveau: 'information',
+              sujet: 'Facebook : vignette non posée',
+              message: `Le Reel ${ligne.reference} est bien publié, avec la miniature choisie par Facebook. Motif : ${v.erreur}`,
+            });
+          }
+        } catch (e) {
+          await signaler(service, {
+            cle: `vignette:facebook:${ligne.reference}`, niveau: 'information',
+            sujet: 'Facebook : vignette non posée',
+            message: `Le Reel ${ligne.reference} est bien publié, avec la miniature choisie par Facebook. Motif : ${(e as Error).message}`,
+          });
+        }
+      }
       return { ok: true, idExterne: res.donnees?.id };
     },
     issue: (p, ok, motif) => appliquerIssue(service, p, ok, motif),

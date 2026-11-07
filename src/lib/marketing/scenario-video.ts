@@ -19,6 +19,7 @@
 
 import { BANQUE, type Sujet } from '@/lib/marketing/banque';
 import { ETAPES_COURTES } from '@/lib/marketing/etapes-courtes';
+import { vignetteDe } from '@/lib/marketing/vignettes';
 import type { Contenu } from '@/lib/marketing/generateur';
 
 export const VERSION_SCENARIO = 1;
@@ -83,6 +84,8 @@ export interface ScenarioVideo {
   /** Une des trois grilles d'accords de la musique. */
   ambiance: 0 | 1 | 2;
   lignes: LigneScenario[];
+  /** Texte court de la vignette (couverture) et du bandeau tenu pendant les étapes. */
+  vignette: string;
   fin: { site: string; puce: string };
 }
 
@@ -155,6 +158,7 @@ export function scenarioVideo(
       })),
       ligne({ id: 'apport', role: 'apport', texte: sujet.apport, pictogramme: picto }),
     ],
+    vignette: vignetteDe(sujet.niche, sujet.accroches, accroche, graine),
     fin: { site: SITE_AFFICHE, puce: options.puce ?? PUCE_PAR_DEFAUT },
   };
 }

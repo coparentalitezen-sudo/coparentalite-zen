@@ -49,8 +49,9 @@ if [ "$VOIX_OK" = 1 ]; then
   node core/render/readcheck.mjs "$D" --size 1080x1920 > "$D/out/readcheck.log" 2>&1 && echo ok > "$D/out/readcheck.ok" || rm -f "$D/out/readcheck.ok"
   node core/render/video.mjs "$D" --fps 24 --workers "$TRAV" --size 1080x1920 --out "$D/out/image.mp4"
   sh core/render/mux.sh "$D/out/image.mp4" "$D/out/mix.wav" "$D/video.mp4" 24 1 > "$D/out/mux.log" 2>&1 || { cat "$D/out/mux.log"; rm -f "$D/video.mp4"; }
-  node core/render/still.mjs "$D" 2.6 --size 1080x1920 --q nosubs=1 --out "$D/out" > /dev/null && \
-    ffmpeg -loglevel error -y -i "$D/out/t_2.6.jpg" -q:v 3 "$D/affiche.jpg"
+  # vignette : image de couverture dessinée exprès (question courte en très gros), pas une image tirée du film
+  node core/render/still.mjs "$D" 1 --size 1080x1920 --q vignette=1 --prefix vignette_ --out "$D/out" > /dev/null && \
+    ffmpeg -loglevel error -y -i "$D/out/vignette_1.jpg" -q:v 3 "$D/affiche.jpg"
 fi
 
 # 4. contrôles bloquants : tous doivent passer, sinon aucune publication

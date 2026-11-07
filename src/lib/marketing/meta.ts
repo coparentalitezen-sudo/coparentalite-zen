@@ -21,6 +21,8 @@
  * 9007 : l'état du conteneur doit donc être vérifié entre les deux.
  */
 
+import { legendeFacebook } from './legende-facebook';
+
 export const VERSION_GRAPH = 'v21.0';
 const BASE = `https://graph.facebook.com/${VERSION_GRAPH}`;
 
@@ -295,6 +297,7 @@ export async function publierReelInstagram(
   legende: string,
   requete?: Requete,
   attente = ATTENTE_VIDEO_MS,
+  couverture?: string,
 ): Promise<ResultatMeta<{ id: string }>> {
   const conteneur = await conteneurAvecRepliSansLieu(
     config,
@@ -305,6 +308,9 @@ export async function publierReelInstagram(
       // Sans ce drapeau, le réel n'apparaît que dans l'onglet Réels et pas
       // dans la grille du profil.
       share_to_feed: 'true',
+      // Vignette dessinée exprès (adresse signée de courte durée) : sans elle,
+      // Instagram prend la première image du film, qui n'a pas encore de titre.
+      ...(couverture ? { cover_url: couverture } : {}),
       ...avecLieu(),
     },
     requete,
@@ -368,12 +374,47 @@ export async function publierReelFacebook(
       methode: 'POST', requete,
       corps: {
         upload_phase: 'finish', video_id: idVideo,
-        video_state: 'PUBLISHED', description,
+        video_state: 'PUBLISHED', description: legendeFacebook(description),
       },
     },
   );
   if (!cloture.ok) return { ok: false, erreur: `Clôture : ${cloture.erreur}` };
   return { ok: true, donnees: { id: idVideo } };
+}
+
+/**
+ * Pose la vignette d'un Reel Facebook déjà publié.
+ *
+ * Facebook n'accepte la miniature qu'après la publication, en fichier joint ;
+ * juste après l'envoi la vidéo est parfois encore en traitement, d'où trois
+ * essais espacés. Un échec ne retire rien : le Reel reste publié avec la
+ * miniature choisie par Facebook, et l'appelant le signale.
+ */
+export async function vignetteReelFacebook(
+  config: ConfigurationMeta,
+  idVideo: string,
+  image: Uint8Array,
+  requete?: Requete,
+  attenteMs = 5000,
+): Promise<ResultatMeta<null>> {
+  const envoyer = requete ?? fetch;
+  let erreur = 'Échec sans message.';
+  for (let essai = 0; essai < 3; essai += 1) {
+    if (essai > 0 && attenteMs > 0) await new Promise((r) => setTimeout(r, attenteMs * essai));
+    const corps = new FormData();
+    corps.append('source', new Blob([image as BlobPart], { type: 'image/jpeg' }), 'vignette.jpg');
+    corps.append('is_preferred', 'true');
+    try {
+      const r = await envoyer(`${BASE}/${idVideo}/thumbnails`, {
+        method: 'POST', headers: { Authorization: `Bearer ${config.jeton}` }, body: corps,
+      });
+      if (r.ok) return { ok: true, donnees: null };
+      erreur = expurger(`${r.status} · ${(await r.text()).slice(0, 300)}`, config.jeton);
+    } catch (e) {
+      erreur = expurger(`Requête impossible : ${String(e)}`, config.jeton);
+    }
+  }
+  return { ok: false, erreur };
 }
 
 /**
@@ -408,7 +449,7 @@ export async function publierAlbumFacebook(
     identifiants.push(photo.donnees!.id);
   }
 
-  const corps: Record<string, string> = { message };
+  const corps: Record<string, string> = { message: legendeFacebook(message) };
   identifiants.forEach((id, i) => {
     corps[`attached_media[${i}]`] = JSON.stringify({ media_fbid: id });
   });
@@ -429,7 +470,7 @@ export async function publierFacebook(
 ): Promise<ResultatMeta<{ id: string; post_id?: string }>> {
   return appelGraph<{ id: string; post_id?: string }>(
     `/${config.pageId}/photos`, config,
-    { methode: 'POST', requete, corps: { url: urlImage, message } },
+    { methode: 'POST', requete, corps: { url: urlImage, message: legendeFacebook(message) } },
   );
 }
 

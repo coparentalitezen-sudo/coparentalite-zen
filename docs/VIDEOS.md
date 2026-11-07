@@ -32,6 +32,7 @@ scripts/videos/rendre.ts                     /api/marketing/horloge
 | voix | Whisper « small » via `asr_check.py` : 0 écart (homophones français exacts tolérés : -ez/-er/-é, pluriels muets) |
 | lecture | `readcheck.mjs` : chaque texte affiché reste lisible assez longtemps |
 | fichier | vidéo > 100 Ko, affiche et sous-titres présents |
+| vignette | `affiche.jpg` en 1080×1920, < 2 Mo |
 | format | 1080×1920, H.264 + AAC, 24 i/s |
 | durée | 20 à 35 s (dans les limites de YouTube Shorts, des Reels et de TikTok) |
 | sonie | −14 LUFS ± 1, crête vraie ≤ −1 dBTP |
@@ -88,3 +89,19 @@ Démarche d'audit, si une publication assistée (un geste par vidéo) devient ac
 - Les tâches planifiées de GitHub ne tournent **que depuis la branche par défaut** du dépôt (`main` aujourd'hui).
 - Rendu manuel : Actions → « Vidéos animées — rendu » → *Run workflow* (champ « cle » facultatif).
 - Voix hors ligne : variable de dépôt `VOIX_MOTEUR=kokoro`.
+
+## Vignette et bandeau
+
+`affiche.jpg` n'est plus une image tirée du film : c'est une vignette dessinée exprès (`?vignette=1` dans
+`film.js`) — la question courte de `src/lib/marketing/vignettes.ts` en très gros sur fond marine, la scène
+des deux maisons et la pastille « 3 gestes simples ». Une vignette par accroche de la banque, 34 caractères
+au plus, aucun chiffre ajouté. Elle part comme couverture du Reel Instagram (`cover_url`), comme miniature du
+Reel Facebook (`/{video}/thumbnails`) et comme miniature YouTube (`thumbnails.set`). Les deux dernières ne
+bloquent jamais : un refus (chaîne YouTube non éligible, vidéo Facebook encore en traitement) laisse la
+publication en place et crée une alerte « information », une seule par motif.
+
+Le même texte reste en bandeau en haut de l'image pendant les trois étapes : quelle que soit l'image que
+YouTube choisit au milieu du Short, elle porte l'accroche.
+
+Les légendes Facebook passent par `legendeFacebook()` au moment de l'envoi : deux mots-dièse remontés en fin
+de premier paragraphe (visibles avant « Voir plus »), les autres en bas, et aucun renvoi à « la bio ».

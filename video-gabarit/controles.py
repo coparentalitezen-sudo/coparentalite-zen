@@ -11,6 +11,7 @@
 | duree       | 20 à 35 s (dans les limites de YouTube Shorts, Reels Instagram/Facebook et TikTok) |
 | sonie       | −14 LUFS ± 1, crête vraie ≤ −1 dBTP (ffmpeg ebur128) |
 | noir        | aucune image noire (ffmpeg blackdetect, 0,1 s, seuil 10 %) |
+| vignette    | affiche.jpg (image de couverture) en 1080×1920 et sous 2 Mo (limite des miniatures YouTube) |
 Aucun secret n'est lu ni écrit ici ; les messages ne contiennent que des mesures."""
 import json, os, re, subprocess, sys
 
@@ -41,6 +42,20 @@ c('lecture', os.path.exists(os.path.join(D, 'out', 'readcheck.ok')), None,
 taille = os.path.getsize(V) if os.path.exists(V) else 0
 annexes = all(os.path.exists(os.path.join(D, f)) and os.path.getsize(os.path.join(D, f)) > 0 for f in ('affiche.jpg', 'sous-titres.srt'))
 c('fichier', taille > 100_000 and annexes, taille, '' if taille > 100_000 and annexes else 'vidéo absente, vide, ou affiche / sous-titres manquants')
+
+# vignette : envoyée telle quelle comme couverture (Instagram, Facebook) et miniature (YouTube)
+A = os.path.join(D, 'affiche.jpg')
+if os.path.exists(A):
+    try:
+        o = subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'stream=width,height', '-of', 'json', A], capture_output=True, text=True, timeout=60)
+        s0 = (json.loads(o.stdout or '{}').get('streams') or [{}])[0]
+    except Exception:
+        s0 = {}
+    ta = os.path.getsize(A)
+    ok_v = s0.get('width') == 1080 and s0.get('height') == 1920 and 0 < ta < 2_000_000
+    c('vignette', ok_v, f"{s0.get('width')}x{s0.get('height')} {ta} o", '' if ok_v else 'vignette absente, mal dimensionnée ou trop lourde')
+else:
+    c('vignette', False, None, 'vignette absente')
 
 def ffprobe():
     try:
