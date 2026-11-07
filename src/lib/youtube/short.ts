@@ -97,18 +97,28 @@ function majuscule(texte: string): string {
   return texte.charAt(0).toUpperCase() + texte.slice(1);
 }
 
+/** Longueur maximale d'un titre YouTube. */
+export const TITRE_MAX = 100;
+
 /**
- * Titre : la recherche réelle des parents d'abord quand elle tient, puis
- * l'accroche. « Calendrier semaine sur deux : Vous recomptez les semaines sur
- * vos doigts ? » se trouve par la recherche ; l'accroche seule, non.
- * 100 caractères au plus, limite de YouTube.
+ * Titre : l'accroche d'abord, puis la première recherche réelle des parents
+ * qui tient dans la limite. « Qui a le carnet de santé ? | Carnet de santé
+ * garde alternée ».
+ *
+ * L'ordre compte : le fil des Shorts coupe le titre après une quarantaine de
+ * caractères, et c'est l'accroche qui doit être lue avant la coupure ; la
+ * recherche, elle, sert au moteur, qui lit le titre entier. L'ancienne forme
+ * (recherche d'abord, puis « #Shorts ») dépassait presque toujours 90
+ * caractères et retombait sur l'accroche seule : la recherche disparaissait.
+ * « #Shorts » reste dans la description, où il ne prend la place de rien.
  */
 export function titreDuShort(s: ShortDuJour): string {
-  const recherche = s.sujet.recherches[0];
-  const complet = recherche ? `${majuscule(recherche)} : ${s.accroche}` : s.accroche;
-  const base = complet.length <= 90 ? complet : s.accroche;
-  const avecTag = `${base} #Shorts`;
-  return nettoyer(avecTag.length <= 100 ? avecTag : base.slice(0, 100));
+  const accroche = nettoyer(s.accroche);
+  for (const r of s.sujet.recherches) {
+    const complet = `${accroche} | ${majuscule(nettoyer(r))}`;
+    if ([...complet].length <= TITRE_MAX) return complet;
+  }
+  return [...accroche].slice(0, TITRE_MAX).join('');
 }
 
 export function lienDuShort(s: ShortDuJour, base: string): string {
@@ -129,7 +139,7 @@ export function descriptionDuShort(s: ShortDuJour, base: string, offreGratuite: 
     `Avec Coparentalité Zen : ${sujet.apport}`,
     '',
     'Planning de garde alternée, vacances scolaires et dépenses des enfants, partagés '
-      + 'entre parents séparés — et utilisable même si l’autre parent ne s’inscrit pas.'
+      + 'entre parents séparés, et utilisable même si l’autre parent ne s’inscrit pas.'
       + (offreGratuite ? ' 3 mois gratuits, sans carte bancaire.' : ''),
     `👉 ${lienDuShort(s, base)}`,
     '',

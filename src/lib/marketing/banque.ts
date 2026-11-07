@@ -40,7 +40,7 @@ export interface Sujet {
    * Ce qu'un parent tape réellement dans une barre de recherche.
    *
    * Pinterest n'est pas un fil d'actualité mais un moteur : une épingle
-   * intitulée « Vous recomptez les semaines sur vos doigts ? » ne répond à
+   * intitulée « Vous comptez encore les semaines de tête ? » ne répond à
    * aucune requête, alors que « planning garde alternée à imprimer » en est
    * une. Ces formulations servent de titre aux épingles ; les accroches
    * restent réservées à Instagram et Facebook, où elles interpellent.
@@ -59,7 +59,7 @@ export const BANQUE: Sujet[] = [
     angle: 'Un calendrier partagé vaut mieux qu’une règle que chacun applique de tête.',
     fonctionnalite: 'Le planning de garde',
     accroches: [
-      'Vous recomptez les semaines sur vos doigts ?',
+      'Vous comptez encore les semaines de tête ?',
       'Chez qui sont les enfants jeudi prochain ?',
       'Un rythme de garde ne se retient pas, il se lit.',
     ],
@@ -113,7 +113,7 @@ export const BANQUE: Sujet[] = [
     fonctionnalite: 'Les rendez-vous et les affaires à préparer',
     accroches: [
       'Les échanges tendus le sont rarement à cause des enfants.',
-      'Cinq minutes de préparation évitent vingt minutes de discussion.',
+      'Un sac préparé la veille évite la discussion sur le trottoir.',
       'Un échange réussi est un échange sans surprise.',
     ],
     etapes: [
@@ -141,7 +141,7 @@ export const BANQUE: Sujet[] = [
     accroches: [
       'Qui a payé les chaussures de sport ?',
       'Les comptes se font mieux au fil de l’eau qu’en décembre.',
-      'Une dépense notée le jour même ne se rediscute pas six mois plus tard.',
+      'Une dépense notée le jour même ne se discute plus.',
     ],
     etapes: [
       'Notez la dépense le jour même, avec le justificatif photographié.',
@@ -222,7 +222,7 @@ export const BANQUE: Sujet[] = [
     accroches: [
       'Qui a le carnet de santé ?',
       'Le rendez-vous s’est bien passé. Encore faut-il le dire.',
-      'Trois lignes après le rendez-vous évitent trois messages le lendemain.',
+      'Après le rendez-vous, trois lignes suffisent.',
     ],
     etapes: [
       'Notez la date du prochain rendez-vous avant de quitter le cabinet.',
@@ -276,7 +276,7 @@ export const BANQUE: Sujet[] = [
     accroches: [
       'Un message d’organisation n’est pas une conversation.',
       'Écrire moins, écrire précis : la tension baisse d’elle-même.',
-      'Ce qui est écrit une fois n’a pas à être répété.',
+      'Un message clair évite les relances.',
     ],
     etapes: [
       'Tenez-vous aux faits : quoi, quand, où, qui.',
@@ -353,7 +353,7 @@ export const BANQUE: Sujet[] = [
     fonctionnalite: 'Les périodes et les rendez-vous planifiés',
     accroches: [
       'À trois cents kilomètres, un week-end se prépare un mois avant.',
-      'Les billets pris tard coûtent deux fois plus.',
+      'À distance, un week-end se prépare des semaines avant.',
       'La distance ne se réduit pas, mais elle s’organise.',
     ],
     etapes: [
@@ -406,7 +406,7 @@ export const BANQUE: Sujet[] = [
     accroches: [
       'Deux gâteaux, deux fois le même cadeau : ça s’évite.',
       'L’anniversaire tombe un mercredi. Chez qui ?',
-      'Une fête réussie se répartit avant, pas pendant.',
+      'L’anniversaire se prépare à deux, et à l’avance.',
     ],
     etapes: [
       'Fixez qui reçoit le jour même, et qui organise l’autre moment.',
