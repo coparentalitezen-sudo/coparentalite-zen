@@ -51,14 +51,28 @@ export interface Contenu {
 }
 
 /**
- * Mots-dièse posés sur chaque publication, choisis par l'éditeur.
+ * Mots-dièse posés sur chaque publication, validés par l'éditeur.
  *
- * Cinq, pas davantage : Instagram plafonne leur nombre, et un contenu qui en
- * porterait plus serait refusé ou tronqué sans avertissement.
+ * Cinq au plus : Instagram plafonne leur nombre, et un contenu qui en
+ * porterait plus serait refusé ou tronqué sans avertissement. Quatre étiquettes
+ * précises plutôt que cinq génériques : #maman et #papa ne décrivaient pas le
+ * sujet, et #parentsolo vise des parents seuls, pas des parents séparés qui
+ * partagent la garde.
  */
 export const HASHTAGS = [
-  '#coparentalité', '#gardealternée', '#parentsolo', '#maman', '#papa',
+  '#coparentalité', '#gardealternée', '#parentsséparés', '#résidencealternée',
 ] as const;
+
+/**
+ * Phrase posée dans chaque légende Instagram, avant l'appel à l'action.
+ *
+ * La recherche d'Instagram lit le texte de la légende, pas seulement les
+ * mots-dièse : sans elle, un Reel sur les vacances ne contenait ni « garde
+ * alternée » ni « parents séparés », les mots que tapent les parents.
+ */
+export const PHRASE_RECHERCHE =
+  'Coparentalité Zen aide les parents séparés à organiser la garde alternée, '
+  + 'les vacances et les dépenses des enfants.';
 
 /** L'appel à l'action historique. Conservé comme variante C du test. */
 export const APPEL_ACTION =
@@ -71,16 +85,17 @@ export const APPEL_ACTION =
  * comparaison n'était possible, et la question « quel appel fait cliquer »
  * restait sans réponse faute de variation à mesurer.
  *
- * A oriente vers le questionnaire, qui ne demande pas de compte. B demande un
- * commentaire, ce que les plateformes valorisent. C conserve la formulation
+ * A oriente vers le questionnaire, qui ne demande pas de compte. B demande
+ * d'enregistrer la publication, sans rien promettre en retour : la version
+ * précédente (« Commentez PLANNING et je vous envoie… ») promettait un envoi
+ * qu'aucun automatisme n'assure. C conserve la formulation
  * d'origine et sert de témoin : sans témoin, une hausse générale se confondrait
  * avec l'effet d'une variante.
  */
 export const APPELS_ACTION = [
   'Quel rythme de garde correspond à votre situation ? Le questionnaire '
     + 'est en bio : cinq questions, votre planning sur quinze jours, sans créer de compte.',
-  'Commentez PLANNING et je vous envoie le questionnaire qui construit '
-    + 'votre calendrier de garde en cinq questions.',
+  'Enregistrez cette publication pour la retrouver le jour où vous en aurez besoin.',
   APPEL_ACTION,
 ] as const;
 
@@ -231,7 +246,8 @@ function legendes(
   const rappel = corps.includes(sujet.apport) ? '' : `${sujet.apport}\n\n`;
   return {
     instagram:
-      `${accroche}\n\n${corps}\n\n${appelActionPour(reference)}\n\n${hashtags.join(' ')}`,
+      `${accroche}\n\n${corps}\n\n${PHRASE_RECHERCHE}\n\n${appelActionPour(reference)}`
+      + `\n\n${hashtags.join(' ')}`,
     facebook:
       `${accroche}\n\n${corps}\n\n${rappel}`
       + `Simplifiez votre organisation familiale avec Coparentalité Zen : ${lien}`
@@ -298,6 +314,7 @@ function contenuQuiz(
       + 'Faites défiler et répondez pour vous. À la fin, le questionnaire '
       + 'complet vous montre le planning correspondant, sur deux semaines, '
       + 'sans créer de compte.\n\n'
+      + `${PHRASE_RECHERCHE}\n\n`
       + `${appelActionPour(reference)}\n\n${hashtags.join(' ')}`,
     legendeFacebook:
       `${accroche}\n\n`
@@ -346,7 +363,7 @@ function contenuQuiz(
     accroche: m.accroche,
     pages,
     legendeInstagram:
-      `${m.accroche}\n\n${m.corps}\n\n${appelActionPour(reference)}`
+      `${m.accroche}\n\n${m.corps}\n\n${PHRASE_RECHERCHE}\n\n${appelActionPour(reference)}`
       + `\n\n${HASHTAGS.join(' ')}`,
     legendeFacebook:
       `${m.accroche}\n\n${m.corps}\n\nDécouvrir l’application : ${lien}`

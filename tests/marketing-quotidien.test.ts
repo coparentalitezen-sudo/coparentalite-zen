@@ -61,6 +61,14 @@ describe('mots-dièse du visuel quotidien', () => {
     }
   });
 
+  it('nomme les termes recherchés et n’emploie ni tiret long ni première personne', () => {
+    const legende = histoireDuJour('2026-11-10')!.legende;
+    expect(legende).toContain('garde alternée');
+    expect(legende).toContain('parents séparés');
+    expect(legende).not.toContain('—');
+    expect(legende).not.toContain('ma bio');
+  });
+
   it('termine la légende par les mots-dièse', () => {
     const legende = histoireDuJour('2026-10-02')!.legende;
     expect(legende.trimEnd().endsWith(HASHTAGS[HASHTAGS.length - 1])).toBe(true);

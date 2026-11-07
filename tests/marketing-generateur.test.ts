@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   genererSemaine, semaineIso, sujetsDeLaSemaine, CADENCE,
-  APPELS_ACTION, appelActionPour, HASHTAGS,
+  APPELS_ACTION, appelActionPour, HASHTAGS, PHRASE_RECHERCHE,
 } from '../src/lib/marketing/generateur';
 import { BANQUE } from '../src/lib/marketing/banque';
 import { planifierVisuel } from '../src/lib/marketing/visuel';
@@ -86,10 +86,26 @@ describe('exigences éditoriales de chaque contenu', () => {
     }
   });
 
-  it('pose les cinq mots-dièse choisis sur chaque légende Instagram', () => {
+  it('pose la série de mots-dièse choisie sur chaque légende Instagram', () => {
     for (const c of semaine) {
       for (const h of HASHTAGS) expect(c.legendeInstagram).toContain(h);
     }
+  });
+
+  // La recherche d'Instagram lit la légende : les mots que tapent les parents
+  // doivent y être en toutes lettres, pas seulement en mots-dièse.
+  it('contient les termes de recherche dans chaque légende Instagram', () => {
+    for (const c of semaine) {
+      expect(c.legendeInstagram).toContain(PHRASE_RECHERCHE);
+      expect(c.legendeInstagram).toContain('garde alternée');
+      expect(c.legendeInstagram).toContain('parents séparés');
+    }
+  });
+
+  // La publication est automatique : aucun appel ne doit promettre une réponse
+  // ou un envoi que personne n'assure.
+  it('ne promet aucun envoi en réponse à un commentaire', () => {
+    for (const a of APPELS_ACTION) expect(a).not.toMatch(/je vous envoie|commentez/i);
   });
 
   it('porte l’une des variantes mises en concurrence', () => {
