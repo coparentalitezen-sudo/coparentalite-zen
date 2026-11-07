@@ -39,7 +39,7 @@ export const ETAPES_COURTES: Record<string, [string, string, string]> = {
   pension: [
     'Photographiez le justificatif en payant.',
     'Rangez-le avec les autres, sans exception.',
-    'Chaque trimestre, vérifiez tous les mois.',
+    'Chaque trimestre, comptez les mois.',
   ],
   'ecole-activites': [
     'Notez la date dès réception.',
