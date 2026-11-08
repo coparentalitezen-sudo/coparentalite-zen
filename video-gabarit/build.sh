@@ -16,7 +16,7 @@ TRAV=${RENDU_TRAVAILLEURS:-3}
 ffmpeg -version | head -1 | grep -Eq 'version n?([7-9]|[1-9][0-9])\.' || { echo "ffmpeg ≥ 7 requis en tête du PATH"; exit 1; }
 
 # 0. le gabarit est copié dans le dossier de rendu : la page y trouve scenario.json et voices/
-cp "$GAB"/index.html "$GAB"/main.js "$GAB"/film.js "$GAB"/minutage.mjs "$GAB"/icones.js "$D"/
+cp "$GAB"/index.html "$GAB"/main.js "$GAB"/film.js "$GAB"/minutage.mjs "$GAB"/icones.js "$GAB"/decors.js "$D"/
 rm -rf "$D/engine" "$D/fonts" "$D/assets"
 cp -r "$GAB/engine" "$GAB/fonts" "$GAB/assets" "$D"/
 mkdir -p "$D/out"
