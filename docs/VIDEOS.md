@@ -105,3 +105,13 @@ YouTube choisit au milieu du Short, elle porte l'accroche.
 
 Les légendes Facebook passent par `legendeFacebook()` au moment de l'envoi : deux mots-dièse remontés en fin
 de premier paragraphe (visibles avant « Voir plus »), les autres en bas, et aucun renvoi à « la bio ».
+
+## Décors par sujet
+
+`video-gabarit/decors.js` habille chaque vidéo selon la micro-niche de son scénario : onze univers
+(`UNIVERS`), chacun avec ses accessoires d'accroche, les pictogrammes des bulles des parents (le même des
+deux côtés), une suite de trois fonds d'étapes avec motif et accessoires de coin, et, pour les familles
+recomposées, un beau-parent et un cadet. Les personnages (quatre allures de parents, quatre enfants) sont
+choisis par la graine du scénario. Structure, durées et sons ne changent pas ; le contrôle de lecture et
+les contrôles techniques s'appliquent à l'identique. Modifier ce fichier change l'empreinte du gabarit :
+les vidéos pas encore publiées sont re-rendues la nuit suivante.

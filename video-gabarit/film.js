@@ -7,15 +7,17 @@ import { setClock, shape, plane, ink, rays, ellipse, rect, rrect, spline, move, 
   paperFinish, clamp, lerp, seg, ss, eo, eio, back, twos, TAU, hash } from './engine/toon.js';
 import { C, drawPerson, drawPhone, drawHand, armMix, KARIM, JULIE, KID } from './engine/chars.js';
 import { picto } from './icones.js';
+import { univers, distribution, BULLES, accrocheFond, accrocheAvant, enPlus, fondEtape, solEtape, couleursEtapes } from './decors.js';
 import { minuter } from './minutage.mjs';
 
 export const W = 1080, H = 1920;
 const CAP_BOTTOM = 1560;             // la carte de sous-titre reste au-dessus de l'interface des plateformes
-let SC = null, M = null, LOGO = null, EVS = [];
+let SC = null, M = null, LOGO = null, EVS = [], UV = 'calendrier', CAST = distribution(0);
 const P = {};                        // plans par identifiant
 
 export function setup(scenario, durees, logo) {
   SC = scenario; LOGO = logo;
+  UV = univers(scenario.niche); CAST = distribution(scenario.graine || 0);
   M = minuter(scenario.lignes.map(l => ({ id: l.id, role: l.role, numero: l.numero, texte: l.texte })), durees);
   for (const p of M.plans) P[p.id] = p;
   construireEvenements();
@@ -141,24 +143,31 @@ function maisons(ctx, t, u, titre = true) {
     ctx.restore();
   });
   if (!fin) ink(ctx, [[540, -100], [540, SOL + 600]], 5, { seed: 230, breaks: 0.25, color: C.ink });
+  if (!fin) accrocheFond(ctx, t, u, UV);
   else plane(ctx, rect(-400, SOL, 1900, 1200), C.sageT, { alpha: ouvre });
   const tw = twos(t), heureux = fin;
   const cligne = b => [1.7, 3.9].some(x => tw > x + b && tw < x + b + 0.13) ? 1 : 0;
   const saut = fin ? -Math.abs(Math.sin(clamp(u / 0.5) * Math.PI * 2)) * 10 : 0;
   // les deux parents : mêmes gestes, mêmes expressions, aucun n'est désigné
-  drawPerson(ctx, { ...KARIM, x: lerp(290, 345, rapproche), y: SOL + saut, s: 1.2, face: heureux ? 'happy' : 'worried', look: heureux ? [4, 0] : [6, 8], blink: cligne(0),
+  const plus = !fin && enPlus(UV);
+  if (plus) drawPerson(ctx, { ...CAST.beau, x: 1005, y: SOL, s: 1.12, face: 'neutral', look: [-6, 6], blink: cligne(0.2), armF: REPOS_F, armB: REPOS_B, handF: 'open', handB: 'open' });
+  drawPerson(ctx, { ...CAST.papa, x: lerp(290, 345, rapproche), y: SOL + saut, s: 1.2, face: heureux ? 'happy' : 'worried', look: heureux ? [4, 0] : [6, 8], blink: cligne(0),
     armF: TEL_F, armB: REPOS_B, handF: 'grip', phone: 'F', screen: heureux ? 'week' : 'question' });
-  drawPerson(ctx, { ...JULIE, x: lerp(790, 735, rapproche), y: SOL + saut, s: 1.2, face: heureux ? 'happy' : 'worried', look: heureux ? [-4, 0] : [-6, 8], blink: cligne(0.4),
+  drawPerson(ctx, { ...CAST.maman, x: lerp(790, 735, rapproche), y: SOL + saut, s: 1.2, face: heureux ? 'happy' : 'worried', look: heureux ? [-4, 0] : [-6, 8], blink: cligne(0.4),
     armB: TEL_B, armF: REPOS_F, handB: 'grip', phone: 'B', screen: heureux ? 'week' : 'question' });
   const regard = fin ? [0, -4] : tw < 1 ? [0, 0] : tw < 2 ? [-9, 2] : tw < 3 ? [9, 2] : [0, -3];
   const leve = fin ? (twos(u) >= 0.62 ? 1 : twos(u) >= 0.54 ? 0.5 : 0) : 0;
   const bond = fin ? -back(seg(u, 0.62, 0.8), 2) * 26 * (1 - seg(u, 0.8, 1.0)) : 0;
-  drawPerson(ctx, { ...KID, x: 540, y: SOL + bond, s: 0.82, face: fin ? (leve ? 'happy' : 'neutral') : (tw > 3 ? 'wow' : 'neutral'), look: regard, blink: cligne(0.9),
+  if (plus) drawPerson(ctx, { ...CAST.cadet, x: 625, y: SOL, s: 0.7, face: tw > 3 ? 'wow' : 'neutral', look: [-4, -2], blink: cligne(1.2), armF: REPOS_F, armB: REPOS_B, handF: 'open', handB: 'open' });
+  drawPerson(ctx, { ...CAST.enfant, x: plus ? 470 : 540, y: SOL + bond, s: 0.82, face: fin ? (leve ? 'happy' : 'neutral') : (tw > 3 ? 'wow' : 'neutral'), look: regard, blink: cligne(0.9),
     armF: armMix(REPOS_F, HAUT_F, leve), armB: armMix(REPOS_B, HAUT_B, leve), handF: 'open', handB: 'open' });
   if (!fin) {
     [[0.9, 290, 930], [1.6, 790, 930]].forEach(([tb, x, y], i) => { const k = seg(t, tb, tb + 0.35); if (k > 0 && k < 1) for (let j = 0; j < 3; j++) { const a = -2.4 + j * 0.5 + (i ? Math.PI * 0.55 : 0); ink(ctx, [[x + Math.cos(a) * 70, y + Math.sin(a) * 70], [x + Math.cos(a) * 92, y + Math.sin(a) * 92]], 4, { seed: 250 + j, color: C.ink, taper: false }); } });
-    bulle(ctx, t, 0.6, 230, 545, 82, [280, 680], null);
-    bulle(ctx, t, 1.3, 850, 545, 82, [800, 680], null);
+    accrocheAvant(ctx, t, u, UV);
+    // les deux bulles des parents : le même objet de chaque côté (aucun n'est désigné)
+    const b1 = (BULLES[UV] || [null])[0];
+    bulle(ctx, t, 0.6, 230, 545, 82, [280, 680], b1);
+    bulle(ctx, t, 1.3, 850, 545, 82, [800, 680], b1);
     bulle(ctx, t, 2.0, 540, 720, 104, [540, 860], ligne('accroche').pictogramme);
   } else {
     const kc = pop(u, 0.66, 0.3);
@@ -180,9 +189,11 @@ const ETAPES = [
 const CERCLE = { x: 540, y: 760, r: 250 };
 const Y_CARTE = 1150;
 function sceneEtape(ctx, t, p) {
-  const e = ETAPES[p.numero - 1], l = ligne(p.id);
+  const e = couleursEtapes(UV)[p.numero - 1], l = ligne(p.id);
   bg(ctx, e.fond);
+  fondEtape(ctx, t, p, UV, e);
   plane(ctx, rect(-200, 1330, 1500, 900), e.sol);
+  solEtape(ctx, t, p, UV);
   ctx.save(); cam(ctx, 540, 900, lerp(1, 1.04, ss(seg(t, p.t0, p.t1))));
   rays(ctx, CERCLE.x, CERCLE.y, 28, 900, C.white, { alpha: 0.35, rot: 0.1 + t * 0.03 });
   const tTape = p.voix.t + 0.55;
