@@ -10,7 +10,10 @@ name: Vidéos animées — rendu
 
 on:
   schedule:
-    - cron: '17 2 * * *'        # chaque nuit (≈ 3 h 17 à Paris) : vidéos des trois prochains jours
+    # Le soir plutôt que la nuit : GitHub retarde ses tâches planifiées de plusieurs heures
+    # (le passage de 2 h 17 est parti à 9 h 53 et 10 h 07, en pleine heure de publication).
+    # À 20 h 23 UTC, même six heures de retard laissent les vidéos prêtes avant 10 h.
+    - cron: '23 20 * * *'       # chaque soir (≈ 21 h 23 à Paris) : vidéos des trois prochains jours
   workflow_dispatch:
     inputs:
       cle:
@@ -47,7 +50,10 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      # npm ci télécharge le binaire de ffmpeg-static (utilisé par Vercel, pas ici) : un échec
+      # passager du téléchargement a fait échouer le rendu du 8/11. Trois essais espacés.
+      - name: npm ci (trois essais)
+        run: for i in 1 2 3; do npm ci && exit 0; echo "npm ci a échoué (essai $i)"; sleep 30; done; exit 1
 
       - uses: actions/setup-python@v5
         with:

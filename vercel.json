@@ -35,7 +35,7 @@
     },
     {
       "path": "/api/youtube/publier",
-      "schedule": "0 8 * * *"
+      "schedule": "0 9 * * *"
     },
     {
       "path": "/api/youtube/publier?passage=rattrapage",

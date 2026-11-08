@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { lireOrigine, type Origine } from '@/lib/marketing/utm';
+import { lireOrigine, origineReferent, type Origine } from '@/lib/marketing/utm';
 
 const CLE_ORIGINE = 'czen_origine';
 const CLE_COMPTEE = 'czen_visite_comptee';
@@ -27,7 +27,8 @@ export function SuiviOrigine() {
   useEffect(() => {
     let origine: Origine | null = null;
     try {
-      origine = lireOrigine(window.location.search);
+      origine = lireOrigine(window.location.search)
+        ?? origineReferent(document.referrer, window.location.pathname, window.location.host);
     } catch {
       return;
     }

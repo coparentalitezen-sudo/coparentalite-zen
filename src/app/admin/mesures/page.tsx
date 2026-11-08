@@ -9,7 +9,7 @@ import {
 import { BoutonRelever } from './bouton-relever';
 import { BoutonPublier } from './bouton-publier';
 import { supabaseService } from '@/lib/supabase/server';
-import { syntheseYoutube, DEBUT_FILTRE_ROBOTS, type SyntheseYoutube } from '@/lib/youtube/resultats';
+import { syntheseYoutube, parCanal, DEBUT_FILTRE_ROBOTS, type SyntheseYoutube, type LigneCanal } from '@/lib/youtube/resultats';
 
 /**
  * Tableau de bord.
@@ -72,7 +72,15 @@ export default async function PageMesures() {
     : { data: null };
   // YouTube : Shorts des trente derniers jours, clics, inscriptions venues de YouTube, abonnés.
   let youtube: SyntheseYoutube | null = null;
+  let canaux: LigneCanal[] = [];
   if (service) {
+    const [toutes, inscrits] = await Promise.all([
+      service.from('marketing_visites').select('source, jour, clics').gte('jour', DEBUT_FILTRE_ROBOTS),
+      service.from('profiles').select('origine_source, created_at')
+        .gte('created_at', new Date(Date.now() - 30 * 86_400_000).toISOString()),
+    ]);
+    canaux = parCanal(toutes.data ?? [], inscrits.data ?? [],
+      new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Paris' }).format(new Date()));
     const depuis = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
     const [shorts, visites, origines, chaine] = await Promise.all([
       service.from('marketing_youtube_shorts').select('jour, titre, video_id, vues')
@@ -110,6 +118,32 @@ export default async function PageMesures() {
           precision={`${tunnel.tauxInscription} % des clics`} />
         <Bloc titre="Abonnements en cours" valeur={String(donnees.abonnements)} />
       </div>
+
+      <section className="card space-y-2 p-4">
+        <h2 className="font-display text-lg font-semibold">Visites et inscriptions par canal</h2>
+        {canaux.length === 0 ? (
+          <p className="text-sm text-soft">Aucune visite attribuée sur les 30 derniers jours.</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead><tr className="text-left text-xs text-soft">
+              <th className="py-1">Canal</th><th className="text-right">7 j</th><th className="text-right">30 j</th><th className="text-right">Inscr. 30 j</th>
+            </tr></thead>
+            <tbody>
+              {canaux.map((c) => (
+                <tr key={c.source} className="border-t border-line">
+                  <td className="py-1">{c.source}</td><td className="text-right">{c.visites7}</td>
+                  <td className="text-right">{c.visites30}</td><td className="text-right">{c.inscrits30}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <p className="text-xs text-soft">
+          Visites venues d’un lien suivi ou d’un site identifié (Google, YouTube, Instagram, e-mail…), robots exclus,
+          depuis le {DEBUT_FILTRE_ROBOTS.split('-').reverse().join('/')}. Une adresse tapée à la main n’a pas d’origine.
+          Objectif d’étape : 50 visites qualifiées par semaine.
+        </p>
+      </section>
 
       {youtube && (
         <section className="card space-y-3 p-4">
