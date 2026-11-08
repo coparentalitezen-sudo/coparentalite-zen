@@ -114,8 +114,10 @@ export function drawPerson(ctx, P) {
   ctx.save(); ctx.translate(0, -414); ctx.scale(hk, hk); ctx.translate(0, 414);
   drawHead(ctx, P);
   ctx.restore();
-  if (P.phone === 'B') drawArm(ctx, P, 'B', 70 + (P.seed || 0));
+  // Le bras qui tient le téléphone passe en dernier : sinon l'autre bras, au repos, traverse
+  // le téléphone (vu le 8/11 sur la mère, qui le tient du bras arrière).
   drawArm(ctx, P, 'F', 60 + (P.seed || 0));
+  if (P.phone === 'B') drawArm(ctx, P, 'B', 70 + (P.seed || 0));
   ctx.restore();
 }
 
