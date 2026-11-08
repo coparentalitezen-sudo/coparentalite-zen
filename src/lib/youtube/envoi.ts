@@ -234,3 +234,31 @@ export async function poserMiniature(
     return { ok: false, code: 'reseau', motif: `Requête impossible : ${(e as Error).message}` };
   }
 }
+
+/** Statistiques de la chaîne connectée (abonnés, vues totales, nombre de vidéos). */
+export interface StatistiquesChaine {
+  abonnes: number | null;
+  /** La chaîne a choisi de masquer son nombre d'abonnés. */
+  masques: boolean;
+  vues: number | null;
+  videos: number | null;
+}
+
+export async function lireChaine(acces: string, f: Fetch = fetch): Promise<StatistiquesChaine | null> {
+  const r = await f('https://www.googleapis.com/youtube/v3/channels?part=statistics&mine=true', {
+    headers: { Authorization: `Bearer ${acces}` },
+  });
+  if (!r.ok) throw await erreurDeReponse(r);
+  const d = await r.json() as {
+    items?: { statistics?: { subscriberCount?: string; hiddenSubscriberCount?: boolean; viewCount?: string; videoCount?: string } }[];
+  };
+  const s = d.items?.[0]?.statistics;
+  if (!s) return null;
+  const nombre = (v?: string) => (v !== undefined && /^\d+$/.test(v) ? Number(v) : null);
+  return {
+    abonnes: s.hiddenSubscriberCount ? null : nombre(s.subscriberCount),
+    masques: Boolean(s.hiddenSubscriberCount),
+    vues: nombre(s.viewCount),
+    videos: nombre(s.videoCount),
+  };
+}

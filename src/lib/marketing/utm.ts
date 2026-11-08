@@ -79,3 +79,18 @@ export function construireLien(
   url.searchParams.set('utm_content', nettoyerValeur(origine.contenu) || 'inconnu');
   return url.toString();
 }
+
+/**
+ * Visite à ne pas compter : robot déclaré, navigateur sans tête, outil en ligne
+ * de commande, ou requête sans les en-têtes qu'envoie tout vrai navigateur.
+ *
+ * Constaté avant le 9/11 : chaque Short YouTube recevait deux à quatre « clics »,
+ * tous le jour même de sa publication, jamais ensuite. C'est la signature des
+ * robots qui vérifient les liens d'une description, pas de spectateurs.
+ */
+const ROBOT = /bot\b|bot\/|crawl|spider|slurp|headless|lighthouse|preview|facebookexternalhit|embedly|python|curl|wget|java\/|go-http|node-fetch|undici|axios|okhttp|httpclient|scrapy|phantomjs|selenium|playwright|puppeteer/i;
+export function estRobot(agent: string | null, langue: string | null): boolean {
+  if (!agent || !/^Mozilla\//.test(agent)) return true;
+  if (ROBOT.test(agent)) return true;
+  return !langue;
+}

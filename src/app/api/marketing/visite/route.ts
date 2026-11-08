@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseService } from '@/lib/supabase/server';
-import { nettoyerValeur } from '@/lib/marketing/utm';
+import { nettoyerValeur, estRobot } from '@/lib/marketing/utm';
 
 /**
  * Comptage d'une arrivée depuis un contenu publié.
@@ -23,6 +23,10 @@ import { nettoyerValeur } from '@/lib/marketing/utm';
 export const dynamic = 'force-dynamic';
 
 export async function POST(requete: Request) {
+  // Les robots (vérification des liens YouTube, aperçus, outils) ne comptent pas.
+  if (estRobot(requete.headers.get('user-agent'), requete.headers.get('accept-language'))) {
+    return NextResponse.json({ compte: false });
+  }
   let corps: unknown;
   try {
     corps = await requete.json();
