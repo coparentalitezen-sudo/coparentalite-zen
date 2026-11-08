@@ -21,13 +21,13 @@ function faussaire(reponses: { statut?: number; corps: unknown }[]) {
 }
 
 describe('légende Facebook', () => {
-  const ig = 'Qui prend la première semaine ?\n\nLes dates sont posées.\n\nL’application est sur www.coparentalitezen.fr (lien aussi dans la bio).\n\n#coparentalité #gardealternée #parentsséparés #résidencealternée';
+  const ig = 'Qui prend la première semaine ?\n\nLes dates sont posées.\n\nL’application est sur www.coparentalitezen.fr (lien aussi dans la bio).\n\n#coparentalité #gardealternée #parentsolo #maman #papa';
 
   it('remonte deux mots-dièse à la fin du premier paragraphe et garde les autres en bas', () => {
     const fb = legendeFacebook(ig);
     const [premier, ...reste] = fb.split('\n\n');
     expect(premier).toBe('Qui prend la première semaine ? #coparentalité #gardealternée');
-    expect(reste[reste.length - 1]).toBe('#parentsséparés #résidencealternée');
+    expect(reste[reste.length - 1]).toBe('#parentsolo #maman #papa');
     // aucun mot-dièse perdu ni doublé
     for (const h of HASHTAGS) expect(fb.split(h).length - 1).toBe(1);
   });

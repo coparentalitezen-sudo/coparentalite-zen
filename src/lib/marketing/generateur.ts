@@ -54,13 +54,14 @@ export interface Contenu {
  * Mots-dièse posés sur chaque publication, validés par l'éditeur.
  *
  * Cinq au plus : Instagram plafonne leur nombre, et un contenu qui en
- * porterait plus serait refusé ou tronqué sans avertissement. Quatre étiquettes
- * précises plutôt que cinq génériques : #maman et #papa ne décrivaient pas le
- * sujet, et #parentsolo vise des parents seuls, pas des parents séparés qui
- * partagent la garde.
+ * porterait plus serait refusé ou tronqué sans avertissement.
+ *
+ * Remis le 8/11 à la demande de l'éditeur : le jeu plus « précis » du 7/11
+ * (#parentsséparés, #résidencealternée) a coïncidé avec moins de vues ; les
+ * étiquettes larges (#maman, #papa, #parentsolo) touchent plus de monde.
  */
 export const HASHTAGS = [
-  '#coparentalité', '#gardealternée', '#parentsséparés', '#résidencealternée',
+  '#coparentalité', '#gardealternée', '#parentsolo', '#maman', '#papa',
 ] as const;
 
 /**
