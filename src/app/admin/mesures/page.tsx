@@ -9,6 +9,7 @@ import {
 import { BoutonRelever } from './bouton-relever';
 import { BoutonPublier } from './bouton-publier';
 import { supabaseService } from '@/lib/supabase/server';
+import { syntheseYoutube, DEBUT_FILTRE_ROBOTS, type SyntheseYoutube } from '@/lib/youtube/resultats';
 
 /**
  * Tableau de bord.
@@ -69,6 +70,21 @@ export default async function PageMesures() {
       .order('created_at', { ascending: false })
       .limit(1)
     : { data: null };
+  // YouTube : Shorts des trente derniers jours, clics, inscriptions venues de YouTube, abonnés.
+  let youtube: SyntheseYoutube | null = null;
+  if (service) {
+    const depuis = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
+    const [shorts, visites, origines, chaine] = await Promise.all([
+      service.from('marketing_youtube_shorts').select('jour, titre, video_id, vues')
+        .eq('statut', 'publiee').eq('essai', false).gte('jour', depuis),
+      service.from('marketing_visites').select('contenu, jour, clics').eq('source', 'youtube'),
+      service.from('profiles').select('origine_contenu').eq('origine_source', 'youtube'),
+      service.from('marketing_youtube_chaine').select('jour, abonnes, abonnes_masques, vues')
+        .order('jour', { ascending: false }).limit(30),
+    ]);
+    youtube = syntheseYoutube(shorts.data ?? [], visites.data ?? [],
+      (origines.data ?? []).map((o) => o.origine_contenu as string | null), chaine.data ?? []);
+  }
   const dernier = passages?.[0] as
     | { jour: string; source: string; publie: boolean;
         rapport: { motif?: string; rapports?: { motif?: string }[] } }
@@ -94,6 +110,58 @@ export default async function PageMesures() {
           precision={`${tunnel.tauxInscription} % des clics`} />
         <Bloc titre="Abonnements en cours" valeur={String(donnees.abonnements)} />
       </div>
+
+      {youtube && (
+        <section className="card space-y-3 p-4">
+          <h2 className="font-display text-lg font-semibold">YouTube</h2>
+          <div className="grid grid-cols-2 gap-2 text-center">
+            <div className="rounded-xl bg-muted p-3">
+              <p className="font-display text-xl font-semibold">
+                {youtube.abonnesMasques ? 'masqués' : youtube.abonnes ?? '—'}
+              </p>
+              <p className="text-xs text-soft">
+                abonnés{youtube.progression !== null
+                  ? ` · ${youtube.progression >= 0 ? '+' : ''}${youtube.progression} en ${youtube.progressionJours} j`
+                  : ''}
+              </p>
+            </div>
+            <div className="rounded-xl bg-muted p-3">
+              <p className="font-display text-xl font-semibold">{youtube.vues ?? '—'}</p>
+              <p className="text-xs text-soft">vues (30 jours)</p>
+            </div>
+            <div className="rounded-xl bg-muted p-3">
+              <p className="font-display text-xl font-semibold">{youtube.clics}</p>
+              <p className="text-xs text-soft">clics vers le site</p>
+            </div>
+            <div className="rounded-xl bg-muted p-3">
+              <p className="font-display text-xl font-semibold">{youtube.inscrits}</p>
+              <p className="text-xs text-soft">inscriptions venues de YouTube</p>
+            </div>
+          </div>
+          {youtube.lignes.length > 0 && (
+            <ul className="divide-y divide-line text-sm">
+              {youtube.lignes.map((l) => (
+                <li key={l.jour} className="flex items-baseline justify-between gap-3 py-2">
+                  <span className="min-w-0 truncate">
+                    <span className="text-soft">{l.jour.slice(8, 10)}/{l.jour.slice(5, 7)} · </span>
+                    {l.videoId
+                      ? <a className="underline" href={`https://www.youtube.com/shorts/${l.videoId}`} target="_blank" rel="noreferrer">{l.titre.split(' | ')[0]}</a>
+                      : l.titre.split(' | ')[0]}
+                  </span>
+                  <span className="shrink-0 text-soft">
+                    {l.vues ?? '—'} vues · {l.clics} clic{l.clics > 1 ? 's' : ''} · {l.inscrits} inscr.
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="text-xs text-soft">
+            Abonnés relevés chaque jour{youtube.releveLe ? ` (dernier relevé le ${youtube.releveLe})` : ' — premier relevé au prochain passage'}.
+            Clics comptés depuis le {DEBUT_FILTRE_ROBOTS.split('-').reverse().join('/')}, robots exclus :
+            avant, les robots de YouTube qui vérifient les liens étaient comptés comme des visiteurs.
+          </p>
+        </section>
+      )}
 
       <section className="card space-y-2 p-4">
         <h2 className="font-display text-lg font-semibold">Parcours du questionnaire</h2>

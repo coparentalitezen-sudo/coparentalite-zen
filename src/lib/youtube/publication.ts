@@ -11,7 +11,7 @@ import {
   CHAINE_ATTENDUE, configOAuth, rafraichir, ErreurOAuth, type ConfigOAuth,
 } from './oauth';
 import {
-  ouvrirSession, etatSession, transferer, lireVideos, poserMiniature, ErreurEnvoi, type VideoCreee,
+  ouvrirSession, etatSession, transferer, lireVideos, lireChaine, poserMiniature, ErreurEnvoi, type VideoCreee,
 } from './envoi';
 import { decider, VERROU_MS, type LigneShort, type Visibilite } from './decision';
 import {
@@ -404,9 +404,20 @@ export async function releverYoutube(): Promise<{ releves: number } | { erreur: 
   const { data: lignes } = await service.from('marketing_youtube_shorts')
     .select('id, video_id').eq('statut', 'publiee').not('video_id', 'is', null)
     .gte('publie_le', depuis).limit(50);
-  if (!lignes?.length) return { releves: 0 };
   try {
     const acces = await jetonAcces(service, config, cle);
+    // Abonnés, vues et vidéos de la chaîne, une ligne par jour (onglet Résultats).
+    // Un échec ici ne doit pas empêcher le relevé des vues des Shorts.
+    try {
+      const chaine = await lireChaine(acces);
+      if (chaine) {
+        await service.from('marketing_youtube_chaine').upsert({
+          jour: jourAParis(new Date()), abonnes: chaine.abonnes, abonnes_masques: chaine.masques,
+          vues: chaine.vues, videos: chaine.videos, releve_le: new Date().toISOString(),
+        }, { onConflict: 'jour' });
+      }
+    } catch { /* relevé de chaîne perdu pour aujourd'hui, retenté au prochain passage */ }
+    if (!lignes?.length) return { releves: 0 };
     const videos = await lireVideos(acces, lignes.map((l) => l.video_id as string));
     const maintenant = new Date().toISOString();
     for (const l of lignes) {
