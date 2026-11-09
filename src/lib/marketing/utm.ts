@@ -63,6 +63,45 @@ export function lireOrigine(recherche: string | URLSearchParams): Origine | null
 }
 
 /**
+ * Origine déduite du site de provenance, quand l'adresse ne porte aucun UTM.
+ *
+ * Sans cela, une visite venue d'une recherche Google, d'un lien tapé après un
+ * Short YouTube (les liens des descriptions de Shorts ne sont pas cliquables)
+ * ou d'un partage n'était comptée nulle part, et l'inscription qui suivait
+ * n'avait pas d'origine. Seul le nom du site de provenance est retenu, jamais
+ * l'adresse complète ; la page d'arrivée sert de « contenu ».
+ *
+ * Une visite sans site de provenance (adresse tapée, favori, application) ou
+ * venant du site lui-même reste sans origine : elle ne se distingue pas du
+ * retour d'un parent déjà inscrit.
+ */
+const IGNORES = /(^|\.)(stripe\.com|supabase\.co|vercel\.app|vercel\.com)$/;
+const SITES: [RegExp, string][] = [
+  [/^(mail\.google\.com|outlook\.live\.com|outlook\.office\.com|webmail\.|mail\.)/, 'email'],
+  [/(^|\.)google\./, 'google'],
+  [/(^|\.)bing\.com$/, 'bing'],
+  [/(^|\.)(duckduckgo\.com|qwant\.com|ecosia\.org|search\.yahoo\.com)$/, 'autre-moteur'],
+  [/(^|\.)(youtube\.com|youtu\.be)$/, 'youtube'],
+  [/(^|\.)instagram\.com$/, 'instagram'],
+  [/(^|\.)(facebook\.com|fb\.com|fb\.me|messenger\.com)$/, 'facebook'],
+  [/(^|\.)(pinterest\.[a-z.]+|pin\.it)$/, 'pinterest'],
+  [/(^|\.)(t\.co|twitter\.com|x\.com)$/, 'x'],
+  [/(^|\.)(chatgpt\.com|perplexity\.ai|claude\.ai|gemini\.google\.com|copilot\.microsoft\.com)$/, 'assistant-ia'],
+];
+export function origineReferent(referent: string, chemin: string, hoteCourant: string): Origine | null {
+  let hote: string;
+  try { hote = new URL(referent).hostname.toLowerCase(); } catch { return null; }
+  if (!hote) return null;
+  const courant = hoteCourant.toLowerCase().replace(/^www\./, '');
+  if (hote.replace(/^www\./, '') === courant || IGNORES.test(hote)) return null;
+  const trouve = SITES.find(([motif]) => motif.test(hote));
+  // Un moteur ou un réseau gagne sur l'IA : gemini.google.com doit compter comme assistant.
+  const source = hote === 'gemini.google.com' ? 'assistant-ia' : trouve ? trouve[1] : 'autre-site';
+  const page = nettoyerValeur(chemin.replace(/^\/+|\/+$/g, '').replace(/\//g, '.')) || 'accueil';
+  return { source, campagne: 'referent', contenu: page };
+}
+
+/**
  * Construit le lien à placer dans une légende ou une biographie.
  *
  * Le medium est constant : ces publications ne sont jamais sponsorisées.

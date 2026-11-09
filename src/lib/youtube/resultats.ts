@@ -83,3 +83,27 @@ export function syntheseYoutube(
     releveLe: dernier?.jour ?? null,
   };
 }
+
+/** Visites et inscriptions par canal, sur une fenêtre glissante (robots exclus). */
+export interface LigneCanal { source: string; visites7: number; visites30: number; inscrits30: number }
+export function parCanal(
+  visites: { source: string; jour: string; clics: number }[],
+  inscrits: { origine_source: string | null; created_at: string }[],
+  aujourdhui: string,
+): LigneCanal[] {
+  const jourMoins = (n: number) => new Date(Date.parse(`${aujourdhui}T12:00:00Z`) - n * 86_400_000).toISOString().slice(0, 10);
+  const d7 = jourMoins(6), d30 = jourMoins(29);
+  const t = new Map<string, LigneCanal>();
+  const ligne = (s: string) => t.get(s) ?? t.set(s, { source: s, visites7: 0, visites30: 0, inscrits30: 0 }).get(s)!;
+  for (const v of visites) {
+    if (v.jour < DEBUT_FILTRE_ROBOTS || v.jour < d30) continue;
+    const l = ligne(v.source);
+    l.visites30 += v.clics ?? 0;
+    if (v.jour >= d7) l.visites7 += v.clics ?? 0;
+  }
+  for (const i of inscrits) {
+    if (i.created_at.slice(0, 10) < d30) continue;
+    ligne(i.origine_source || 'sans-origine').inscrits30 += 1;
+  }
+  return [...t.values()].sort((a, b) => b.visites30 + b.inscrits30 * 100 - (a.visites30 + a.inscrits30 * 100));
+}

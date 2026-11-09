@@ -64,3 +64,17 @@ describe('statistiques de la chaîne', () => {
     await expect(lireChaine('x', rep({ error: { errors: [{ reason: 'forbidden' }] } }, 403))).rejects.toBeTruthy();
   });
 });
+
+import { parCanal } from '@/lib/youtube/resultats';
+describe('visites et inscriptions par canal', () => {
+  it('fenêtres de 7 et 30 jours, robots d’avant le 9/11 exclus', () => {
+    const l = parCanal([
+      { source: 'google', jour: '2026-11-20', clics: 2 },
+      { source: 'google', jour: '2026-11-12', clics: 3 },
+      { source: 'youtube', jour: '2026-11-08', clics: 4 },
+    ], [{ origine_source: 'google', created_at: '2026-11-19T10:00:00Z' }, { origine_source: null, created_at: '2026-11-18T10:00:00Z' }], '2026-11-21');
+    expect(l.find((c) => c.source === 'google')).toEqual({ source: 'google', visites7: 2, visites30: 5, inscrits30: 1 });
+    expect(l.find((c) => c.source === 'youtube')).toBeUndefined();
+    expect(l.find((c) => c.source === 'sans-origine')?.inscrits30).toBe(1);
+  });
+});
