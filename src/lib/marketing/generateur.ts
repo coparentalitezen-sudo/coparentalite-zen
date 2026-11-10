@@ -12,6 +12,7 @@
  * ne dépend d'aucune clé d'API.
  */
 
+import { motsDiesePour } from './mots-diese';
 import { BANQUE, MARQUE, type Sujet } from './banque';
 import { QUESTIONS } from '../quiz';
 import { construireLien } from './utm';
@@ -300,7 +301,7 @@ function contenuQuiz(
   reference: string, jour: number, lienQuiz: string, indice: number,
 ): Contenu {
   const accroche = ACCROCHES_QUIZ[indice % ACCROCHES_QUIZ.length];
-  const hashtags = [...HASHTAGS];
+  const hashtags = motsDiesePour('garde-alternee');
 
   return {
     // La niche doit exister dans marketing_niches : l'opportunité la
@@ -365,12 +366,12 @@ function contenuQuiz(
     pages,
     legendeInstagram:
       `${m.accroche}\n\n${m.corps}\n\n${PHRASE_RECHERCHE}\n\n${appelActionPour(reference)}`
-      + `\n\n${HASHTAGS.join(' ')}`,
+      + `\n\n${motsDiesePour('marque').join(' ')}`,
     legendeFacebook:
       `${m.accroche}\n\n${m.corps}\n\nDécouvrir l’application : ${lien}`
-      + `\n\n${HASHTAGS.join(' ')}`,
+      + `\n\n${motsDiesePour('marque').join(' ')}`,
     texteAlternatif: m.texteAlternatif,
-    hashtags: [...HASHTAGS],
+    hashtags: motsDiesePour('marque'),
     appelAction: appelActionPour(reference),
     jour,
   };
@@ -425,7 +426,7 @@ export function genererSemaine(
     // supprimer décalerait tous les tirages suivants et changerait la légende
     // de contenus déjà programmés, voire déjà publiés.
     motsDiese(sujet, tirage);
-    const hashtags = [...HASHTAGS];
+    const hashtags = motsDiesePour(sujet.niche);
 
     // Le corps de la légende dépend de l'intention du créneau : donner un
     // conseil, faire reconnaître une situation, montrer l'application, ou

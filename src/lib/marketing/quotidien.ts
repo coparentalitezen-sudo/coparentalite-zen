@@ -1,5 +1,6 @@
 import { urlVisuelPublic } from './signature';
-import { HASHTAGS, PHRASE_RECHERCHE } from './generateur';
+import { PHRASE_RECHERCHE } from './generateur';
+import { motsDiesePour, NICHE_DU_THEME } from './mots-diese';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 /** Garder la rotation initiale pour que les URL datées déjà publiées ne changent pas. */
@@ -112,9 +113,10 @@ export function histoireDuJour(jour: string): HistoireQuotidienne | null {
   return {
     jour, theme, question, solution, fichier: scene.fichier,
     texteAlternatif: `${scene.description} Texte : « ${question} » « ${solution} » Installer l’application : www.coparentalitezen.fr. Lien dans ma bio.`,
-    // Une seule légende pour Instagram et Facebook : l'adresse reste en clair
-    // (cliquable sur Facebook), et la bio est rappelée pour Instagram.
-    legende: `${question}\n\n${solution} ${PHRASE_RECHERCHE}\n\nL’application est sur www.coparentalitezen.fr (lien aussi dans la bio).\n\n${HASHTAGS.join(' ')}`,
+    // Une seule légende pour Instagram et Facebook. Sur Instagram une adresse
+    // n'est pas cliquable (skill ig-caption) : on renvoie à la bio ; Facebook
+    // remplace ce renvoi par le lien cliquable (legende-facebook.ts).
+    legende: `${question}\n\n${solution} ${PHRASE_RECHERCHE}\n\nEssayez l’application : lien dans la bio.\n\n${motsDiesePour(NICHE_DU_THEME[theme] ?? 'garde-alternee').join(' ')}`,
   };
 }
 

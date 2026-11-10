@@ -109,3 +109,24 @@ describe('envoi de la vignette', () => {
     expect(refus).toEqual({ ok: false, code: 'forbidden', motif: expect.stringContaining('403') });
   });
 });
+
+import { avecMotsDiese, motsDiesePour } from '@/lib/marketing/mots-diese';
+import { histoireDuJour as histoire } from '@/lib/marketing/quotidien';
+describe('mots-dièse par sujet', () => {
+  it('cinq au plus, avec l’étiquette du sujet', () => {
+    expect(motsDiesePour('vacances-scolaires')).toEqual(['#coparentalité', '#gardealternée', '#vacancesscolaires', '#maman', '#papa']);
+    expect(motsDiesePour('inconnue')).toHaveLength(5);
+  });
+  it('remplace le paragraphe final des légendes déjà écrites, de façon idempotente', () => {
+    const ancienne = 'Accroche\n\nCorps\n\n#coparentalité #gardealternée #parentsséparés #résidencealternée';
+    const nouvelle = avecMotsDiese(ancienne, 'pension');
+    expect(nouvelle).toBe('Accroche\n\nCorps\n\n#coparentalité #gardealternée #pensionalimentaire #maman #papa');
+    expect(avecMotsDiese(nouvelle, 'pension')).toBe(nouvelle);
+    expect(avecMotsDiese('Sans mots-dièse', 'pension')).toMatch(/\n\n#coparentalité .*#papa$/);
+  });
+  it('visuel quotidien : Facebook reçoit le lien cliquable à la place du renvoi à la bio', () => {
+    const fb = legendeFacebook(histoire('2026-11-10')!.legende);
+    expect(fb).toContain('Essayez l’application : https://www.coparentalitezen.fr');
+    expect(fb).not.toMatch(/bio/i);
+  });
+});

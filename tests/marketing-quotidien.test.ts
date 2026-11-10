@@ -10,7 +10,8 @@ describe('visuels quotidiens', () => {
       histoireDuJour(new Date(depart + i * 86_400_000).toISOString().slice(0, 10)));
     expect(new Set(histoires.map((h) => h?.question)).size).toBe(28);
     expect(new Set(histoires.map((h) => h?.fichier)).size).toBe(7);
-    expect(histoires.every((h) => h?.legende.includes('www.coparentalitezen.fr'))).toBe(true);
+    // Instagram : pas d'adresse morte dans la légende, renvoi à la bio (Facebook remet le lien).
+    expect(histoires.every((h) => !h?.legende.includes('www.') && h?.legende.includes('lien dans la bio'))).toBe(true);
     expect(histoires.every((h) => h?.texteAlternatif.includes('Lien dans ma bio'))).toBe(true);
     expect(histoireDuJour(new Date(depart + 28 * 86_400_000).toISOString().slice(0, 10))?.question)
       .toBe(histoires[0]?.question);
@@ -55,7 +56,9 @@ describe('mots-dièse du visuel quotidien', () => {
     for (const jour of ['2026-10-02', '2026-10-03', '2026-11-15']) {
       const histoire = histoireDuJour(jour)!;
       expect(histoire).toBeTruthy();
-      for (const mot of HASHTAGS) expect(histoire.legende).toContain(mot);
+      const tags = histoire.legende.match(/#[\p{L}\p{N}_]+/gu) ?? [];
+      expect(tags.length).toBe(5);
+      for (const mot of ['#coparentalité', '#gardealternée', '#maman', '#papa']) expect(tags).toContain(mot);
       expect(histoire.legende).not.toContain('#OrganisationFamiliale');
       expect(histoire.legende).not.toContain('#ParentsSepares');
     }

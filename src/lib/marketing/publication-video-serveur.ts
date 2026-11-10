@@ -1,6 +1,7 @@
 import 'server-only';
 import { supabaseService } from '@/lib/supabase/server';
 import { publicationAutorisee, conclurePublication } from './depot';
+import { avecMotsDiese } from './mots-diese';
 import { configurationPrete, publierReelInstagram, publierReelFacebook, vignetteReelFacebook, expurger } from './meta';
 import { signaler } from './alertes';
 import { adresseSignee, telechargerVideo, COLONNES_VIDEO, type LigneVideo } from './videos';
@@ -93,14 +94,17 @@ function dependances(service: Service, maintenant: Date): Dependances {
       const { data: contenu } = await service.from('marketing_contenus')
         .select('legende_instagram, legende_facebook').eq('reference', ligne.reference).maybeSingle();
       if (!contenu) return { ok: false, erreur: 'Légendes introuvables.' };
+      // Mots-dièse du sujet de la vidéo (scénario rendu), à défaut ceux de la garde alternée.
+      const { data: video } = await service.from('marketing_videos').select('scenario').eq('cle', ligne.cle).maybeSingle();
+      const niche = String((video?.scenario as { niche?: string } | null)?.niche ?? 'garde-alternee');
       // Adresse signée créée à l'instant, valable quinze minutes : le temps que Meta récupère la vidéo.
       const url = await adresseSignee(service, ligne.chemin_video!);
       // La vignette n'est jamais bloquante : sans elle, la plateforme choisit une image du film.
       const couverture = ligne.chemin_affiche
         ? await adresseSignee(service, ligne.chemin_affiche).catch(() => undefined) : undefined;
       const res = p === 'instagram'
-        ? await publierReelInstagram(config, url, contenu.legende_instagram, undefined, undefined, couverture)
-        : await publierReelFacebook(config, url, contenu.legende_facebook);
+        ? await publierReelInstagram(config, url, avecMotsDiese(contenu.legende_instagram, niche), undefined, undefined, couverture)
+        : await publierReelFacebook(config, url, avecMotsDiese(contenu.legende_facebook, niche));
       if (!res.ok) return { ok: false, erreur: expurger(res.erreur ?? 'Échec sans message.', config.jeton) };
       if (p === 'facebook' && ligne.chemin_affiche && res.donnees?.id) {
         try {

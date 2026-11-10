@@ -20,6 +20,8 @@ export const DIESES_EN_TETE = 2;
 /** Retire les renvois à la biographie, qui n'ont de sens que sur Instagram. */
 function sansBio(texte: string): string {
   return texte
+    // « Essayez l’application : lien dans la bio. » → le lien, cliquable sur Facebook.
+    .replace(/\s*:\s*lien dans (?:la|ma) bio\.?/giu, ' : https://www.coparentalitezen.fr')
     .replace(/\s*\((?:le )?lien aussi dans (?:la|ma) bio\)/giu, '')
     .replace(/\s*[—–-]\s*lien dans (?:la|ma) bio\.?/giu, '.')
     .replace(/\s*Lien dans (?:la|ma) bio\.?/gu, '')
