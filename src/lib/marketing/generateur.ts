@@ -78,7 +78,7 @@ export const PHRASE_RECHERCHE =
 
 /** L'appel à l'action historique. Conservé comme variante C du test. */
 export const APPEL_ACTION =
-  'Simplifiez votre organisation familiale avec CoparentalitéZen. Lien dans la bio.';
+  'Simplifie ton organisation familiale avec CoparentalitéZen. Lien dans la bio.';
 
 /**
  * Trois appels à l'action mis en concurrence.
@@ -89,15 +89,15 @@ export const APPEL_ACTION =
  *
  * A oriente vers le questionnaire, qui ne demande pas de compte. B demande
  * d'enregistrer la publication, sans rien promettre en retour : la version
- * précédente (« Commentez PLANNING et je vous envoie… ») promettait un envoi
+ * précédente (« Commente PLANNING et je t’envoie… ») promettait un envoi
  * qu'aucun automatisme n'assure. C conserve la formulation
  * d'origine et sert de témoin : sans témoin, une hausse générale se confondrait
  * avec l'effet d'une variante.
  */
 export const APPELS_ACTION = [
-  'Quel rythme de garde correspond à votre situation ? Le questionnaire '
-    + 'est en bio : cinq questions, votre planning sur quinze jours, sans créer de compte.',
-  'Enregistrez cette publication pour la retrouver le jour où vous en aurez besoin.',
+  'Quel rythme de garde correspond à ta situation ? Le questionnaire '
+    + 'est en bio : cinq questions, ton planning sur quinze jours, sans créer de compte.',
+  'Enregistre cette publication pour la retrouver le jour où tu en auras besoin.',
   APPEL_ACTION,
 ] as const;
 
@@ -252,17 +252,17 @@ function legendes(
       + `\n\n${hashtags.join(' ')}`,
     facebook:
       `${accroche}\n\n${corps}\n\n${rappel}`
-      + `Simplifiez votre organisation familiale avec Coparentalité Zen : ${lien}`
+      + `Simplifie ton organisation familiale avec Coparentalité Zen : ${lien}`
       + `\n\n${hashtags.join(' ')}`,
   };
 }
 
 /** Accroches du questionnaire, pour ne pas republier la même couverture. */
 const ACCROCHES_QUIZ = [
-  'Quel rythme de garde correspond vraiment à votre famille ?',
-  'Cinq questions pour trouver votre rythme de garde.',
+  'Quel rythme de garde correspond vraiment à ta famille ?',
+  'Cinq questions pour trouver ton rythme de garde.',
   'Il existe sept rythmes de garde. Lequel est le vôtre ?',
-  'Répondez à cinq questions, repartez avec votre planning.',
+  'Réponds à cinq questions, repars avec ton planning.',
 ];
 
 /**
@@ -287,10 +287,10 @@ function planchesQuiz(accroche: string): Page[] {
       texte: `${q.intitule}\n\n${q.options.map((o) => `• ${o.libelle}`).join('\n')}`,
     })),
     {
-      titre: 'Votre résultat',
+      titre: 'Ton résultat',
       texte:
         'Semaine sur deux, 2-2-3, 2-2-5-5, 3-4-4-3, week-end alterné ou cycle '
-        + 'personnalisé : le questionnaire complet affiche votre planning sur '
+        + 'personnalisé : le questionnaire complet affiche ton planning sur '
         + 'deux semaines, sans inscription.',
       appel: 'Lien dans la bio',
     },
@@ -313,14 +313,14 @@ function contenuQuiz(
     pages: planchesQuiz(accroche),
     legendeInstagram:
       `${accroche}\n\n`
-      + 'Faites défiler et répondez pour vous. À la fin, le questionnaire '
-      + 'complet vous montre le planning correspondant, sur deux semaines, '
+      + 'Fais défiler et réponds pour toi. À la fin, le questionnaire '
+      + 'complet te montre le planning correspondant, sur deux semaines, '
       + 'sans créer de compte.\n\n'
       + `${PHRASE_RECHERCHE}\n\n`
       + `${appelActionPour(reference)}\n\n${hashtags.join(' ')}`,
     legendeFacebook:
       `${accroche}\n\n`
-      + 'Faites défiler et répondez pour vous. Le questionnaire complet '
+      + 'Fais défiler et réponds pour toi. Le questionnaire complet '
       + 'affiche ensuite le planning correspondant, sur deux semaines, sans '
       + `créer de compte : ${lienQuiz}`
       + `\n\n${hashtags.join(' ')}`,

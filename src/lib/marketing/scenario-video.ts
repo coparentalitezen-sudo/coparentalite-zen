@@ -54,15 +54,15 @@ const PICTO_NICHE: Record<string, Pictogramme> = {
  * à défaut, le pictogramme du sujet.
  */
 const PICTO_VERBE: [RegExp, Pictogramme][] = [
-  [/^photographiez/i, 'photo'],
-  [/^(rangez|ajoutez)/i, 'dossier'],
-  [/^(listez|résumez)/i, 'liste'],
-  [/^notez les consignes/i, 'liste'],
-  [/^(vérifiez|regardez|lisez|repérez)/i, 'oeil'],
-  [/^(fixez|gardez la même heure|réservez)/i, 'epingle'],
-  [/^(notez|écrivez|datez|indiquez|précisez|dites|tenez-vous)/i, 'stylo'],
-  [/(attendez|quelques heures|à l’avance|trimestre)/i, 'horloge'],
-  [/(demande par message|parlez)/i, 'bulle'],
+  [/^photographie\b/i, 'photo'],
+  [/^(range|ajoute)\b/i, 'dossier'],
+  [/^(liste|résume)\b/i, 'liste'],
+  [/^note les consignes/i, 'liste'],
+  [/^(vérifie|regarde|lis|repère)\b/i, 'oeil'],
+  [/^(fixe|garde la même heure|réserve)/i, 'epingle'],
+  [/^(note|écris|date|indique|précise|dis|tiens-toi)\b/i, 'stylo'],
+  [/(attends|quelques heures|à l’avance|trimestre)/i, 'horloge'],
+  [/(demande par message|parle)/i, 'bulle'],
 ];
 
 export interface LigneScenario {
