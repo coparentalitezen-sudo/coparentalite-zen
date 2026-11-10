@@ -86,9 +86,12 @@ describe('exigences éditoriales de chaque contenu', () => {
     }
   });
 
-  it('pose la série de mots-dièse choisie sur chaque légende Instagram', () => {
+  it('pose cinq mots-dièse au plus, dont la marque, #maman, #papa et celui du sujet', () => {
     for (const c of semaine) {
-      for (const h of HASHTAGS) expect(c.legendeInstagram).toContain(h);
+      const tags = c.legendeInstagram.match(/#[\p{L}\p{N}_]+/gu) ?? [];
+      expect(tags.length).toBeLessThanOrEqual(5);
+      for (const h of ['#coparentalité', '#gardealternée', '#maman', '#papa']) expect(tags).toContain(h);
+      expect(c.hashtags).toEqual(tags);
     }
   });
 
