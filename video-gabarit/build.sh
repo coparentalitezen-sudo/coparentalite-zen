@@ -48,7 +48,12 @@ if [ "$VOIX_OK" = 1 ]; then
   # 3. image, puis contrôle du temps de lecture de chaque texte affiché
   node core/render/readcheck.mjs "$D" --size 1080x1920 > "$D/out/readcheck.log" 2>&1 && echo ok > "$D/out/readcheck.ok" || rm -f "$D/out/readcheck.ok"
   node core/render/video.mjs "$D" --fps 24 --workers "$TRAV" --size 1080x1920 --out "$D/out/image.mp4"
-  sh core/render/mux.sh "$D/out/image.mp4" "$D/out/mix.wav" "$D/video.mp4" 24 1 > "$D/out/mux.log" 2>&1 || { cat "$D/out/mux.log"; rm -f "$D/video.mp4"; }
+  # mux.sh de la bibliothèque vise une crête de −1,2 dBTP ; l'encodage AAC la fait remonter
+  # (−0,9 dBTP mesuré sur la vidéo du 11/11, refusée par le contrôle « sonie » à −1).
+  # Copie locale visant −2 dBTP : la marge absorbe le dépassement, la sonie reste −14 LUFS.
+  sed 's/TP=-1\.2/TP=-2.0/g' core/render/mux.sh > "$D/out/mux.sh"
+  grep -q 'TP=-2.0' "$D/out/mux.sh" || { echo "mux.sh : cible de crête introuvable" >&2; exit 1; }
+  sh "$D/out/mux.sh" "$D/out/image.mp4" "$D/out/mix.wav" "$D/video.mp4" 24 1 > "$D/out/mux.log" 2>&1 || { cat "$D/out/mux.log"; rm -f "$D/video.mp4"; }
   # vignette : image de couverture dessinée exprès (question courte en très gros), pas une image tirée du film
   node core/render/still.mjs "$D" 1 --size 1080x1920 --q vignette=1 --prefix vignette_ --out "$D/out" > /dev/null && \
     ffmpeg -loglevel error -y -i "$D/out/vignette_1.jpg" -q:v 3 "$D/affiche.jpg"
