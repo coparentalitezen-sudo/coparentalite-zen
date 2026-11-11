@@ -126,7 +126,7 @@ describe('mots-dièse par sujet', () => {
   });
   it('visuel quotidien : Facebook reçoit le lien cliquable à la place du renvoi à la bio', () => {
     const fb = legendeFacebook(histoire('2026-11-10')!.legende);
-    expect(fb).toContain('Essayez l’application : https://www.coparentalitezen.fr');
+    expect(fb).toContain('Essaie l’application : https://www.coparentalitezen.fr');
     expect(fb).not.toMatch(/bio/i);
   });
 });

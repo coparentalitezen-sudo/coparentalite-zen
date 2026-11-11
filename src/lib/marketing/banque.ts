@@ -40,7 +40,7 @@ export interface Sujet {
    * Ce qu'un parent tape réellement dans une barre de recherche.
    *
    * Pinterest n'est pas un fil d'actualité mais un moteur : une épingle
-   * intitulée « Vous comptez encore les semaines de tête ? » ne répond à
+   * intitulée « Tu comptes encore les semaines de tête ? » ne répond à
    * aucune requête, alors que « planning garde alternée à imprimer » en est
    * une. Ces formulations servent de titre aux épingles ; les accroches
    * restent réservées à Instagram et Facebook, où elles interpellent.
@@ -59,14 +59,14 @@ export const BANQUE: Sujet[] = [
     angle: 'Un calendrier partagé vaut mieux qu’une règle que chacun applique de tête.',
     fonctionnalite: 'Le planning de garde',
     accroches: [
-      'Vous comptez encore les semaines de tête ?',
+      'Tu comptes encore les semaines de tête ?',
       'Chez qui sont les enfants jeudi prochain ?',
       'Un rythme de garde ne se retient pas, il se lit.',
     ],
     etapes: [
-      'Écrivez le rythme une seule fois : type, date de début, parent qui commence.',
-      'Notez les changements ponctuels à part, sans toucher au rythme habituel.',
-      'Vérifiez que les deux parents regardent bien le même calendrier.',
+      'Écris le rythme une seule fois : type, date de début, parent qui commence.',
+      'Note les changements ponctuels à part, sans toucher au rythme habituel.',
+      'Vérifie que les deux parents regardent bien le même calendrier.',
     ],
     modele: [
       'Type de rythme (une semaine sur deux, 2-2-3, 3-4-4-3…)',
@@ -90,9 +90,9 @@ export const BANQUE: Sujet[] = [
       'Réserver avant d’avoir tranché, c’est réserver deux fois.',
     ],
     etapes: [
-      'Partez des dates officielles de votre zone, pas de votre souvenir.',
-      'Découpez chaque période en segments et attribuez-les un par un.',
-      'Écrivez la décision quelque part où les deux parents la reliront.',
+      'Pars des dates officielles de ta zone, pas de ton souvenir.',
+      'Découpe chaque période en segments et attribue-les un par un.',
+      'Écris la décision quelque part où les deux parents la reliront.',
     ],
     modele: [
       'Dates officielles de la zone',
@@ -117,9 +117,9 @@ export const BANQUE: Sujet[] = [
       'Un échange réussi est un échange sans surprise.',
     ],
     etapes: [
-      'Fixez une heure et un lieu qui ne changent pas d’une semaine à l’autre.',
-      'Listez ce qui voyage avec l’enfant, et vérifiez la liste avant de partir.',
-      'Gardez la conversation entre adultes pour un autre moment que l’échange.',
+      'Fixe une heure et un lieu qui ne changent pas d’une semaine à l’autre.',
+      'Liste ce qui voyage avec l’enfant, et vérifie la liste avant de partir.',
+      'Garde la conversation entre adultes pour un autre moment que l’échange.',
     ],
     modele: [
       'Vêtements pour la durée du séjour',
@@ -144,9 +144,9 @@ export const BANQUE: Sujet[] = [
       'Une dépense notée le jour même ne se discute plus.',
     ],
     etapes: [
-      'Notez la dépense le jour même, avec le justificatif photographié.',
-      'Indiquez la part de chacun au moment où vous l’enregistrez.',
-      'Regardez le solde plutôt que de recompter ligne par ligne.',
+      'Note la dépense le jour même, avec le justificatif photographié.',
+      'Indique la part de chacun au moment où tu l’enregistres.',
+      'Regarde le solde plutôt que de recompter ligne par ligne.',
     ],
     modele: [
       'Date et montant',
@@ -171,9 +171,9 @@ export const BANQUE: Sujet[] = [
       'Un historique tenu vaut mieux qu’une mémoire sûre d’elle.',
     ],
     etapes: [
-      'Photographiez le justificatif au moment du paiement, pas plus tard.',
-      'Rangez-le au même endroit que les autres, sans exception.',
-      'Vérifiez une fois par trimestre qu’aucun mois ne manque.',
+      'Photographie le justificatif au moment du paiement, pas plus tard.',
+      'Range-le au même endroit que les autres, sans exception.',
+      'Vérifie une fois par trimestre qu’aucun mois ne manque.',
     ],
     modele: [
       'Mois concerné',
@@ -194,12 +194,12 @@ export const BANQUE: Sujet[] = [
     accroches: [
       'Une réunion d’école oubliée n’est presque jamais un oubli volontaire.',
       'Deux parents, une seule convocation : le problème est là.',
-      'L’école prévient un parent. À vous de prévenir l’autre.',
+      'L’école prévient un parent. À toi de prévenir l’autre.',
     ],
     etapes: [
-      'Notez la date dès réception, avant de refermer le cahier.',
-      'Précisez qui s’y rend, pour éviter d’y aller à deux ou à zéro.',
-      'Ajoutez les activités récurrentes une fois pour toutes.',
+      'Note la date dès réception, avant de refermer le cahier.',
+      'Précise qui s’y rend, pour éviter d’y aller à deux ou à zéro.',
+      'Ajoute les activités récurrentes une fois pour toutes.',
     ],
     modele: [
       'Réunions et conseils de classe',
@@ -225,9 +225,9 @@ export const BANQUE: Sujet[] = [
       'Après le rendez-vous, trois lignes suffisent.',
     ],
     etapes: [
-      'Notez la date du prochain rendez-vous avant de quitter le cabinet.',
-      'Écrivez trois lignes : ce qui a été dit, ce qui est prescrit, ce qui suit.',
-      'Rangez l’ordonnance au même endroit que les précédentes.',
+      'Note la date du prochain rendez-vous avant de quitter le cabinet.',
+      'Écris trois lignes : ce qui a été dit, ce qui est prescrit, ce qui suit.',
+      'Garde l’ordonnance au même endroit que les précédentes.',
     ],
     modele: [
       'Date et praticien',
@@ -252,9 +252,9 @@ export const BANQUE: Sujet[] = [
       'Le papier manquant se découvre toujours au mauvais moment.',
     ],
     etapes: [
-      'Photographiez les documents qui servent plusieurs fois par an.',
-      'Rangez-les par enfant, pas par date.',
-      'Vérifiez les dates d’expiration avant les vacances, pas pendant.',
+      'Prends en photo les documents qui servent plusieurs fois par an.',
+      'Range-les par enfant, pas par date.',
+      'Vérifie les dates d’expiration avant les vacances, pas pendant.',
     ],
     modele: [
       'Pièce d’identité et passeport',
@@ -279,15 +279,15 @@ export const BANQUE: Sujet[] = [
       'Un message clair évite les relances.',
     ],
     etapes: [
-      'Tenez-vous aux faits : quoi, quand, où, qui.',
+      'Tiens-toi aux faits : quoi, quand, où, qui.',
       'Une demande par message, pour qu’une réponse suffise.',
-      'Différez de quelques heures les messages écrits sous le coup de l’agacement.',
+      'Diffère de quelques heures les messages écrits sous le coup de l’agacement.',
     ],
     modele: [
       'De quoi il s’agit',
       'Date et heure concernées',
-      'Ce que vous demandez précisément',
-      'Jusqu’à quand vous attendez une réponse',
+      'Ce que tu demandes précisément',
+      'Jusqu’à quand tu attends une réponse',
     ],
     apport: 'L’information d’organisation vit dans l’application, pas dans une messagerie.',
     hashtags: ['#coparentalité', '#communication', '#parentsséparés', '#famille'],
@@ -305,9 +305,9 @@ export const BANQUE: Sujet[] = [
       'Les nouveaux repères se posent, ils ne s’improvisent pas.',
     ],
     etapes: [
-      'Dites qui peut aller chercher les enfants, et qui doit être prévenu.',
-      'Distinguez ce qui relève des parents de ce qui peut être délégué.',
-      'Annoncez les changements avant qu’ils ne surprennent l’autre parent.',
+      'Dis qui peut aller chercher les enfants, et qui doit être prévenu.',
+      'Distingue ce qui relève des parents de ce qui peut être délégué.',
+      'Annonce les changements avant qu’ils ne surprennent l’autre parent.',
     ],
     modele: [
       'Qui peut accompagner et récupérer',
@@ -331,9 +331,9 @@ export const BANQUE: Sujet[] = [
       'Superposer deux calendriers de tête, personne n’y arrive.',
     ],
     etapes: [
-      'Posez chaque rythme séparément, sans chercher à les fusionner.',
-      'Repérez les week-ends où tous les enfants sont présents.',
-      'Réservez les moments communs sur ces week-ends-là.',
+      'Pose chaque rythme séparément, sans chercher à les fusionner.',
+      'Repère les week-ends où tous les enfants sont présents.',
+      'Réserve les moments communs sur ces week-ends-là.',
     ],
     modele: [
       'Rythme du premier foyer',
@@ -357,9 +357,9 @@ export const BANQUE: Sujet[] = [
       'La distance ne se réduit pas, mais elle s’organise.',
     ],
     etapes: [
-      'Fixez les périodes plusieurs mois à l’avance, pas quelques semaines.',
-      'Notez qui accompagne, à l’aller comme au retour.',
-      'Prévoyez le rendez-vous de repli si le trajet est annulé.',
+      'Fixe les périodes plusieurs mois à l’avance, pas quelques semaines.',
+      'Note qui accompagne, à l’aller comme au retour.',
+      'Prévois le rendez-vous de repli si le trajet est annulé.',
     ],
     modele: [
       'Dates de départ et de retour',
@@ -383,9 +383,9 @@ export const BANQUE: Sujet[] = [
       'Ce qui est convenu par message se perd. Ce qui est noté, non.',
     ],
     etapes: [
-      'Ne modifiez jamais le rythme habituel pour un cas particulier.',
-      'Notez l’exception avec sa date et son motif.',
-      'Vérifiez que l’autre parent l’a bien vue avant de considérer que c’est acquis.',
+      'Ne modifie jamais le rythme habituel pour un cas particulier.',
+      'Note l’exception avec sa date et son motif.',
+      'Vérifie que l’autre parent l’a bien vue avant de considérer que c’est acquis.',
     ],
     modele: [
       'Date concernée',
@@ -409,9 +409,9 @@ export const BANQUE: Sujet[] = [
       'L’anniversaire se prépare à deux, et à l’avance.',
     ],
     etapes: [
-      'Fixez qui reçoit le jour même, et qui organise l’autre moment.',
-      'Dites ce que vous offrez avant d’acheter.',
-      'Convenez de la liste des invités une seule fois.',
+      'Fixe qui reçoit le jour même, et qui organise l’autre moment.',
+      'Dis ce que tu offres avant d’acheter.',
+      'Conviens de la liste des invités une seule fois.',
     ],
     modele: [
       'Date et lieu de la fête',
@@ -435,9 +435,9 @@ export const BANQUE: Sujet[] = [
       'Ce qui est daté n’a pas à être défendu.',
     ],
     etapes: [
-      'Écrivez l’accord au moment où il est pris, pas le lendemain.',
-      'Datez-le, et vérifiez que l’autre parent l’a bien lu.',
-      'En cas de désaccord, relisez l’écrit avant de répondre.',
+      'Écris l’accord au moment où il est pris, pas le lendemain.',
+      'Date-le, et vérifie que l’autre parent l’a bien lu.',
+      'En cas de désaccord, relis l’écrit avant de répondre.',
     ],
     modele: [
       'Ce qui a été convenu',
@@ -471,7 +471,7 @@ export const MARQUE = [
     accroche: 'Ce que l’application ne fait pas.',
     corps:
       'Elle ne juge pas, ne conseille pas juridiquement, et ne prend parti pour aucun '
-      + 'parent. Elle range l’information au même endroit pour les deux. Le reste vous '
+      + 'parent. Elle range l’information au même endroit pour les deux. Le reste te '
       + 'appartient.',
     planches: [
       'Elle ne juge aucun parent.',

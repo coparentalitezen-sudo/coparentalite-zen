@@ -144,7 +144,7 @@ export function descriptionDuShort(s: ShortDuJour, base: string, offreGratuite: 
     `👉 ${lienDuShort(s, base)}`,
     '',
     'Conseils d’organisation, pas un avis juridique : si une décision de justice fixe '
-      + 'votre organisation, c’est elle qui s’applique.',
+      + 'ton organisation, c’est elle qui s’applique.',
     '',
     '#Shorts #coparentalité #gardealternée #parentsséparés',
   ];
