@@ -29,6 +29,7 @@ export const ETIQUETTE_SUJET: Record<string, string> = {
   imprevus: '#organisationfamiliale',
   anniversaires: '#anniversaireenfant',
   'conflits-planning': '#organisationfamiliale',
+  noel: '#noël',
   marque: '#parentsolo',
 };
 

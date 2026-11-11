@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { vi, beforeAll, afterAll, describe, it, expect } from 'vitest';
 import { legendeFacebook } from '@/lib/marketing/legende-facebook';
 import { VIGNETTES, VIGNETTE_MAX, vignetteDe } from '@/lib/marketing/vignettes';
 import { BANQUE } from '@/lib/marketing/banque';
@@ -112,6 +112,11 @@ describe('envoi de la vignette', () => {
 
 import { avecMotsDiese, motsDiesePour } from '@/lib/marketing/mots-diese';
 import { histoireDuJour as histoire } from '@/lib/marketing/quotidien';
+
+// Ces tests vérifient la légende telle qu'elle part hors période de campagne :
+// la campagne de Noël (12/11 → 24/12) a ses propres tests (campagne-noel.test.ts).
+beforeAll(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-10-01T10:00:00Z')); });
+afterAll(() => { vi.useRealTimers(); });
 describe('mots-dièse par sujet', () => {
   it('cinq au plus, avec l’étiquette du sujet', () => {
     expect(motsDiesePour('vacances-scolaires')).toEqual(['#coparentalité', '#gardealternée', '#vacancesscolaires', '#maman', '#papa']);

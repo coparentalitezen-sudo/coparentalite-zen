@@ -11,7 +11,7 @@ export const UNIVERS = {
   'depenses-partagees': 'argent', pension: 'argent',
   'ecole-activites': 'ecole', 'rendez-vous-medicaux': 'sante', 'documents-familiaux': 'papiers',
   communication: 'messages', 'nouveaux-conjoints': 'recomposee', 'familles-recomposees': 'recomposee',
-  'longue-distance': 'distance', anniversaires: 'fete',
+  'longue-distance': 'distance', anniversaires: 'fete', noel: 'fete',
 };
 export const univers = niche => UNIVERS[niche] || 'calendrier';
 

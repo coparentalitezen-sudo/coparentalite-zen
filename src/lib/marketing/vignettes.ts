@@ -31,6 +31,7 @@ export const VIGNETTES: Record<string, readonly [string, string, string]> = {
   imprevus: ['Un week-end échangé, et après ?', 'L’exception, à part', 'Convenu par message… perdu ?'],
   anniversaires: ['Deux fois le même cadeau ?', 'Mercredi : chez qui ?', 'L’anniversaire, à deux'],
   'conflits-planning': ['Deux souvenirs sincères', '« On avait dit… »', 'Daté, donc plus discuté'],
+  noel: ['Noël chez qui ?', 'Le 24 ou le 25 ?', 'Jour de l’An : chez qui ?'],
 };
 
 /** Vignette de l'accroche : celle de même rang, sinon une des trois selon la graine. */

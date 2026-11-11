@@ -22,6 +22,7 @@
  */
 
 import { legendeFacebook } from './legende-facebook';
+import { avecAppelNoel } from './campagne-noel';
 
 export const VERSION_GRAPH = 'v21.0';
 const BASE = `https://graph.facebook.com/${VERSION_GRAPH}`;
@@ -266,7 +267,7 @@ export async function publierImageInstagram(
 ): Promise<ResultatMeta<{ id: string }>> {
   const conteneur = await conteneurAvecRepliSansLieu(
     config,
-    { image_url: urlImage, caption: legende, alt_text: texteAlternatif, ...avecLieu() },
+    { image_url: urlImage, caption: avecAppelNoel(legende, 'instagram'), alt_text: texteAlternatif, ...avecLieu() },
     requete,
   );
   if (!conteneur.ok) return { ok: false, erreur: `Conteneur : ${conteneur.erreur}` };
@@ -304,7 +305,7 @@ export async function publierReelInstagram(
     {
       media_type: 'REELS',
       video_url: urlVideo,
-      caption: legende,
+      caption: avecAppelNoel(legende, 'instagram'),
       // Sans ce drapeau, le réel n'apparaît que dans l'onglet Réels et pas
       // dans la grille du profil.
       share_to_feed: 'true',
@@ -374,7 +375,7 @@ export async function publierReelFacebook(
       methode: 'POST', requete,
       corps: {
         upload_phase: 'finish', video_id: idVideo,
-        video_state: 'PUBLISHED', description: legendeFacebook(description),
+        video_state: 'PUBLISHED', description: legendeFacebook(avecAppelNoel(description, 'facebook')),
       },
     },
   );
@@ -449,7 +450,7 @@ export async function publierAlbumFacebook(
     identifiants.push(photo.donnees!.id);
   }
 
-  const corps: Record<string, string> = { message: legendeFacebook(message) };
+  const corps: Record<string, string> = { message: legendeFacebook(avecAppelNoel(message, 'facebook')) };
   identifiants.forEach((id, i) => {
     corps[`attached_media[${i}]`] = JSON.stringify({ media_fbid: id });
   });
@@ -470,7 +471,7 @@ export async function publierFacebook(
 ): Promise<ResultatMeta<{ id: string; post_id?: string }>> {
   return appelGraph<{ id: string; post_id?: string }>(
     `/${config.pageId}/photos`, config,
-    { methode: 'POST', requete, corps: { url: urlImage, message: legendeFacebook(message) } },
+    { methode: 'POST', requete, corps: { url: urlImage, message: legendeFacebook(avecAppelNoel(message, 'facebook')) } },
   );
 }
 
@@ -748,7 +749,7 @@ export async function publierCarrouselInstagram(
     {
       media_type: 'CAROUSEL',
       children: identifiants.join(','),
-      caption: legende,
+      caption: avecAppelNoel(legende, 'instagram'),
       ...avecLieu(),
     },
     requete,
