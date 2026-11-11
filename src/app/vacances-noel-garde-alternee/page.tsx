@@ -168,6 +168,13 @@ export default async function VacancesNoelGardeAlternee() {
           )}
         </section>
 
+        <Link
+          href="/planning-noel"
+          className="block rounded-xl bg-navy-text px-5 py-4 text-center font-bold text-white"
+        >
+          Faire mon planning de Noël — gratuit, sans inscription
+        </Link>
+
         <section className="space-y-3">
           <h2 className="font-display text-2xl font-semibold">
             Le découpage le plus courant : moitié-moitié, années paires et impaires
