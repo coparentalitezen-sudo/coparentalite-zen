@@ -19,7 +19,7 @@ export const ETAPES_COURTES: Record<string, [string, string, string]> = {
   'garde-alternee': [
     'Écris le rythme une seule fois.',
     'Note les exceptions à part.',
-    'Lis tous les deux le même calendrier.',
+    'Un seul calendrier, lu par vous deux.',
   ],
   'vacances-scolaires': [
     'Pars des dates officielles de ta zone.',
@@ -49,10 +49,10 @@ export const ETAPES_COURTES: Record<string, [string, string, string]> = {
   'rendez-vous-medicaux': [
     'Note le prochain rendez-vous sur place.',
     'Note les consignes et la suite à donner.',
-    'Range l’ordonnance avec les précédentes.',
+    'Garde l’ordonnance avec les précédentes.',
   ],
   'documents-familiaux': [
-    'Photographie les documents souvent utiles.',
+    'Prends en photo les documents souvent utiles.',
     'Range-les par enfant, pas par date.',
     'Vérifie les expirations avant les vacances.',
   ],

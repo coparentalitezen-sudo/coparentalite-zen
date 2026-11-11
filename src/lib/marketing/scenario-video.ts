@@ -54,11 +54,11 @@ const PICTO_NICHE: Record<string, Pictogramme> = {
  * à défaut, le pictogramme du sujet.
  */
 const PICTO_VERBE: [RegExp, Pictogramme][] = [
-  [/^photographie\b/i, 'photo'],
-  [/^(range|ajoute)\b/i, 'dossier'],
+  [/^(photographie|prends en photo)\b/i, 'photo'],
+  [/^(range|ajoute|garde l’ordonnance)\b/i, 'dossier'],
   [/^(liste|résume)\b/i, 'liste'],
   [/^note les consignes/i, 'liste'],
-  [/^(vérifie|regarde|lis|repère)\b/i, 'oeil'],
+  [/^(vérifie|regarde|lis|repère)\b|lu par vous deux/i, 'oeil'],
   [/^(fixe|garde la même heure|réserve)/i, 'epingle'],
   [/^(note|écris|date|indique|précise|dis|tiens-toi)\b/i, 'stylo'],
   [/(attends|quelques heures|à l’avance|trimestre)/i, 'horloge'],

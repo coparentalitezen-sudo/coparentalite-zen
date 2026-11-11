@@ -227,7 +227,7 @@ export const BANQUE: Sujet[] = [
     etapes: [
       'Note la date du prochain rendez-vous avant de quitter le cabinet.',
       'Écris trois lignes : ce qui a été dit, ce qui est prescrit, ce qui suit.',
-      'Range l’ordonnance au même endroit que les précédentes.',
+      'Garde l’ordonnance au même endroit que les précédentes.',
     ],
     modele: [
       'Date et praticien',
@@ -252,7 +252,7 @@ export const BANQUE: Sujet[] = [
       'Le papier manquant se découvre toujours au mauvais moment.',
     ],
     etapes: [
-      'Photographie les documents qui servent plusieurs fois par an.',
+      'Prends en photo les documents qui servent plusieurs fois par an.',
       'Range-les par enfant, pas par date.',
       'Vérifie les dates d’expiration avant les vacances, pas pendant.',
     ],
