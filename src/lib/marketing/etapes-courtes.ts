@@ -72,7 +72,7 @@ export const ETAPES_COURTES: Record<string, [string, string, string]> = {
     'Réserves-y les moments communs.',
   ],
   'longue-distance': [
-    'Fixe les périodes des mois à l’avance.',
+    'Choisis les périodes des mois à l’avance.',
     'Note qui accompagne, aller et retour.',
     'Prévois un rendez-vous de repli.',
   ],
@@ -82,7 +82,7 @@ export const ETAPES_COURTES: Record<string, [string, string, string]> = {
     'Vérifie que l’autre parent l’a vue.',
   ],
   anniversaires: [
-    'Fixe qui reçoit le jour même.',
+    'Choisis qui reçoit le jour même.',
     'Dis ce que tu offres avant d’acheter.',
     'Arrête la liste des invités une fois.',
   ],
@@ -93,7 +93,7 @@ export const ETAPES_COURTES: Record<string, [string, string, string]> = {
   ],
   noel: [
     'Choisis comment partager les fêtes.',
-    'Fixe l’heure et le lieu du passage.',
+    'Note l’heure et le lieu du passage.',
     'Envoie le planning bien avant les fêtes.',
   ],
 };
