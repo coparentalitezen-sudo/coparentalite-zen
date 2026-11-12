@@ -20,7 +20,7 @@ on:
         description: 'Une seule vidéo (ex. yt-2026-11-07), vide = toutes'
         required: false
   pull_request:
-    paths: ['video-gabarit/**', 'scripts/videos/**', 'src/lib/marketing/scenario-video.ts', 'src/lib/marketing/etapes-courtes.ts', '.github/workflows/videos-rendu.yml']
+    paths: ['video-gabarit/**', 'scripts/videos/**', 'src/lib/marketing/scenario-video.ts', 'src/lib/marketing/etapes-courtes.ts', 'src/lib/marketing/banque.ts', 'src/lib/marketing/vignettes.ts', '.github/workflows/videos-rendu.yml']
   push:
     branches: [feat/videos-animees]
     paths: ['video-gabarit/**', 'scripts/videos/**', '.github/workflows/videos-rendu.yml']
