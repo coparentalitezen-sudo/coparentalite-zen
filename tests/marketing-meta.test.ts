@@ -1,11 +1,17 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { vi, beforeAll, afterAll, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
+
   configurationMeta, etatConfiguration, expurger, appelGraph,
   verifierConnexion, permissions, publierImageInstagram, publierFacebook,
   natureDuJeton, aptitudes, jetonDePage, expirationJeton, publierCarrouselInstagram,
   publierAlbumFacebook, publierReelInstagram, publierReelFacebook,
   VERSION_GRAPH, type ConfigurationMeta,
 } from '../src/lib/marketing/meta';
+
+// Ces tests vérifient la légende telle qu'elle part hors période de campagne :
+// la campagne de Noël (12/11 → 24/12) a ses propres tests (campagne-noel.test.ts).
+beforeAll(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-10-01T10:00:00Z')); });
+afterAll(() => { vi.useRealTimers(); });
 
 const CONFIG: ConfigurationMeta = {
   appId: '111', pageId: '222', igUserId: '333',

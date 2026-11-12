@@ -450,6 +450,45 @@ export const BANQUE: Sujet[] = [
   },
 ];
 
+/**
+ * Sujet de saison : Noël. Hors de la banque, pour ne pas déplacer la rotation
+ * des quinze sujets ; la campagne de Noël (campagne-noel.ts) le fait passer
+ * certains jours, jusqu'au 24 décembre. Mêmes règles que la banque : aucun
+ * chiffre, aucune promesse, aucun parent désigné ; une proposition à convenir,
+ * une décision de justice primant toujours.
+ */
+export const NOEL: Sujet = {
+  niche: 'noel',
+  recherches: ['vacances de noël garde alternée', 'qui a les enfants à noël parents séparés', 'planning noël garde alternée'],
+  probleme: 'Noël chez qui ? La question revient chaque année, et souvent trop tard.',
+  intention: 'Décider tôt qui accueille les enfants au réveillon, le 25 et au Nouvel An.',
+  angle: 'Un Noël décidé à l’avance se passe mieux qu’un Noël négocié la veille.',
+  fonctionnalite: 'Le planning de Noël gratuit, puis le planning partagé',
+  accroches: [
+    'Noël chez qui ? Mieux vaut le savoir tôt.',
+    'Le 24 ou le 25 ? Décide-le à l’avance.',
+    'Jour de l’An : chez qui sont les enfants ?',
+  ],
+  etapes: [
+    'Choisis une façon de partager : moitié, 24 et 25, ou une fête chacun.',
+    'Fixe l’heure et le lieu du passage, pas seulement le jour.',
+    'Envoie le planning écrit à l’autre parent, bien avant les fêtes.',
+  ],
+  modele: [
+    'Façon de partager retenue',
+    'Qui a le réveillon du 24',
+    'Qui a le jour de Noël',
+    'Qui a le Nouvel An',
+    'Heure et lieu du passage',
+  ],
+  apport: 'Ton planning de Noël est gratuit, sur le site.',
+  hashtags: ['#noël', '#gardealternée', '#coparentalité', '#parentsséparés'],
+  saison: [11, 12],
+};
+
+/** Tous les sujets, banque et saison : pour retrouver un sujet par sa niche. */
+export const TOUS_LES_SUJETS: Sujet[] = [...BANQUE, NOEL];
+
 /** Contenus de marque : ils ne parlent d'aucune difficulté particulière. */
 export const MARQUE = [
   {

@@ -1,7 +1,8 @@
 import { genererSemaine, type Contenu } from './generateur';
-import { BANQUE } from './banque';
+import { TOUS_LES_SUJETS } from './banque';
 import { construireLien } from './utm';
 import { pageDeLaNiche } from './pages-thematiques';
+import { CHEMIN_PLANNING_NOEL, NICHE_NOEL } from './campagne-noel';
 
 /**
  * La formulation de recherche qui servira de titre à l'épingle.
@@ -17,7 +18,7 @@ import { pageDeLaNiche } from './pages-thematiques';
  * glissantes, donc les mêmes contenus y reparaissent chaque jour.
  */
 export function rechercheDuContenu(contenu: Contenu): string | null {
-  const sujet = BANQUE.find((s) => s.niche === contenu.niche);
+  const sujet = TOUS_LES_SUJETS.find((s) => s.niche === contenu.niche);
   if (!sujet || sujet.recherches.length === 0) return null;
   let somme = 0;
   for (const caractere of contenu.reference) {
@@ -69,6 +70,12 @@ export function lienConseilPinterest(base: string, reference: string): string {
  * destination ne doit pas casser la série des comptages par contenu.
  */
 export function lienEpinglePinterest(base: string, contenu: Contenu): string {
+  // Les épingles de Noël mènent directement au planning de Noël gratuit.
+  if (contenu.niche === NICHE_NOEL) {
+    return construireLien(base, {
+      source: 'pinterest', campagne: 'conseils', contenu: contenu.reference,
+    }, CHEMIN_PLANNING_NOEL);
+  }
   const page = pageDeLaNiche(contenu.niche);
   if (!page) return lienConseilPinterest(base, contenu.reference);
   return construireLien(base, {

@@ -19,7 +19,7 @@ import { existsSync, readFileSync, readdirSync, statSync, mkdirSync, appendFileS
 import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import { scenarioVideo, sujetDeNiche, textePrononce, type ScenarioVideo } from '@/lib/marketing/scenario-video';
-import { BANQUE } from '@/lib/marketing/banque';
+import { BANQUE, TOUS_LES_SUJETS } from '@/lib/marketing/banque';
 import { ETAPES_COURTES } from '@/lib/marketing/etapes-courtes';
 import { writeFileSync } from 'node:fs';
 import { cleYoutube, SEAU_VIDEOS } from '@/lib/marketing/videos';
@@ -82,7 +82,7 @@ async function main() {
   // Sert à repérer à l'avance une phrase que Whisper comprend mal (elle bloquerait sa vidéo le jour venu).
   if (args[0] === '--banc') {
     const dossier = path.resolve(args[1]); mkdirSync(dossier, { recursive: true });
-    const textes = [...new Set(BANQUE.flatMap((s) => [...s.accroches, ...(ETAPES_COURTES[s.niche] ?? []), s.apport]))];
+    const textes = [...new Set(TOUS_LES_SUJETS.flatMap((s) => [...s.accroches, ...(ETAPES_COURTES[s.niche] ?? []), s.apport]))];
     const lignes = textes.map((t, i) => ({ id: `b${String(i).padStart(3, '0')}`, text: textePrononce(t), say: textePrononce(t), voice: 'fr-FR-DeniseNeural', rate: '-2%' }));
     writeFileSync(path.join(dossier, 'lines.json'), JSON.stringify(lignes, null, 1));
     const py = path.join(process.env.LIB, '.venv', 'bin', 'python');

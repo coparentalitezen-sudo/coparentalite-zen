@@ -13,7 +13,7 @@
  */
 
 import { motsDiesePour } from './mots-diese';
-import { BANQUE, MARQUE, type Sujet } from './banque';
+import { BANQUE, MARQUE, NOEL, type Sujet } from './banque';
 import { QUESTIONS } from '../quiz';
 import { construireLien } from './utm';
 
@@ -172,10 +172,14 @@ export function semaineIso(date: Date): number {
  * les quinze niches dans l'ordre de la liste.
  */
 export function sujetsDeLaSemaine(
-  mois: number, graine: number, poids: Record<string, number> = {},
+  mois: number, graine: number, poids: Record<string, number> = {}, lundi?: string,
 ): Sujet[] {
   const tirage = alea(graine);
-  return [...BANQUE]
+  // Campagne de Noël : les semaines dont le lundi tombe entre le 23/11 et le 21/12
+  // ouvrent sur le sujet de Noël. Les semaines déjà enregistrées (jusqu'à la 47e
+  // de 2026) ne changent pas : le flux Pinterest les régénère à l'identique.
+  const noel = lundi && lundi.slice(5) >= '11-23' && lundi.slice(5) <= '12-21' ? [NOEL] : [];
+  return [...noel, ...[...BANQUE]
     .map((s) => ({
       sujet: s,
       // Le poids divise le rang : un sujet qui obtient des inscriptions
@@ -185,7 +189,7 @@ export function sujetsDeLaSemaine(
       rang: ((s.saison?.includes(mois) ? 0 : 1) + tirage()) / (poids[s.niche] ?? 1),
     }))
     .sort((a, b) => a.rang - b.rang)
-    .map((x) => x.sujet);
+    .map((x) => x.sujet)];
 }
 
 /** Trois à cinq mots-dièse, jamais plus : au-delà, ils cessent d'être pertinents. */
@@ -390,7 +394,10 @@ export function genererSemaine(
   const semaine = semaineIso(date);
   const annee = date.getFullYear();
   const tirage = alea(annee * 100 + semaine);
-  const sujets = sujetsDeLaSemaine(date.getMonth() + 1, annee * 100 + semaine, poids);
+  const lundiDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  lundiDate.setUTCDate(lundiDate.getUTCDate() - ((lundiDate.getUTCDay() + 6) % 7));
+  const sujets = sujetsDeLaSemaine(
+    date.getMonth() + 1, annee * 100 + semaine, poids, lundiDate.toISOString().slice(0, 10));
 
   // Le cycle de vingt-huit créneaux avance de sept par semaine : la
   // répartition éditoriale tient sur quatre semaines, pas sur une seule.

@@ -91,4 +91,9 @@ export const ETAPES_COURTES: Record<string, [string, string, string]> = {
     'Date-le et vérifie qu’il a été lu.',
     'En désaccord ? Relis l’écrit d’abord.',
   ],
+  noel: [
+    'Choisis comment partager les fêtes.',
+    'Fixe l’heure et le lieu du passage.',
+    'Envoie le planning bien avant les fêtes.',
+  ],
 };

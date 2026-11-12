@@ -17,7 +17,7 @@
  * dessin géométrique), couleurs de la marque.
  */
 
-import { BANQUE, type Sujet } from '@/lib/marketing/banque';
+import { BANQUE, TOUS_LES_SUJETS, type Sujet } from '@/lib/marketing/banque';
 import { ETAPES_COURTES } from '@/lib/marketing/etapes-courtes';
 import { vignetteDe } from '@/lib/marketing/vignettes';
 import type { Contenu } from '@/lib/marketing/generateur';
@@ -47,6 +47,7 @@ const PICTO_NICHE: Record<string, Pictogramme> = {
   imprevus: 'horloge',
   anniversaires: 'gateau',
   'conflits-planning': 'stylo',
+  noel: 'epingle',
 };
 
 /**
@@ -128,7 +129,7 @@ function pictoEtape(etape: string, defaut: Pictogramme): Pictogramme {
 }
 
 export function sujetDeNiche(niche: string): Sujet | undefined {
-  return BANQUE.find((s) => s.niche === niche);
+  return TOUS_LES_SUJETS.find((s) => s.niche === niche);
 }
 
 /** Scénario à partir d'un sujet et d'une accroche (Short du jour, Reel de la semaine). */

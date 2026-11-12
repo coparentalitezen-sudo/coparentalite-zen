@@ -11,7 +11,8 @@
  * Aucune affirmation juridique n'y figure, et ce module n'en ajoute pas.
  */
 
-import { BANQUE, type Sujet } from '@/lib/marketing/banque';
+import { BANQUE, NOEL, type Sujet } from '@/lib/marketing/banque';
+import { CHEMIN_PLANNING_NOEL, DEBUT_VIDEOS, dansCampagneNoel, lienPlanningNoel } from '@/lib/marketing/campagne-noel';
 import { pageDeLaNiche } from '@/lib/marketing/pages-thematiques';
 import { construireLien } from '@/lib/marketing/utm';
 import { dureeVideo } from '@/lib/marketing/video';
@@ -48,6 +49,10 @@ export function shortDuJour(jour: string): ShortDuJour {
   const rang = Math.floor((Date.parse(`${jour}T00:00:00Z`) - ORIGINE) / JOUR_MS);
   const n = ((rang % BANQUE.length) + BANQUE.length) % BANQUE.length;
   const tour = Math.floor(rang / BANQUE.length);
+  // Campagne de Noël : un jour sur deux, le Short parle de Noël (accroches en rotation).
+  if (dansCampagneNoel(jour, DEBUT_VIDEOS) && rang % 2 === 1) {
+    return { jour, sujet: NOEL, accroche: NOEL.accroches[Math.floor(rang / 2) % NOEL.accroches.length], rang };
+  }
   const sujet = BANQUE[n];
   const accroche = sujet.accroches[((tour % sujet.accroches.length) + sujet.accroches.length)
     % sujet.accroches.length];
@@ -122,7 +127,7 @@ export function titreDuShort(s: ShortDuJour): string {
 }
 
 export function lienDuShort(s: ShortDuJour, base: string): string {
-  const chemin = pageDeLaNiche(s.sujet.niche)?.chemin ?? '/';
+  const chemin = s.sujet.niche === NOEL.niche ? CHEMIN_PLANNING_NOEL : pageDeLaNiche(s.sujet.niche)?.chemin ?? '/';
   return construireLien(base, {
     source: 'youtube', campagne: 'shorts', contenu: `yt-${s.jour}`,
   }, chemin);
@@ -130,8 +135,13 @@ export function lienDuShort(s: ShortDuJour, base: string): string {
 
 export function descriptionDuShort(s: ShortDuJour, base: string, offreGratuite: boolean): string {
   const { sujet } = s;
+  // Pendant la campagne, le planning de Noël en deuxième ligne : visible sans déplier la description.
+  const appelNoel = dansCampagneNoel(s.jour) && sujet.niche !== NOEL.niche
+    ? [`🎄 Noël chez qui ? Ton planning gratuit en 1 minute : ${lienPlanningNoel('youtube', `yt-${s.jour}`, base)}`]
+    : [];
   const lignes = [
     sujet.probleme,
+    ...appelNoel,
     '',
     'Ce qui aide :',
     ...sujet.etapes.map((e) => `• ${e}`),
