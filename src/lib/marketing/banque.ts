@@ -481,7 +481,7 @@ export const NOEL: Sujet = {
     'Qui a le Nouvel An',
     'Heure et lieu du passage',
   ],
-  apport: 'Ton planning de Noël est gratuit, sur le site.',
+  apport: 'Ton calendrier de Noël est gratuit, sur le site.',
   hashtags: ['#noël', '#gardealternée', '#coparentalité', '#parentsséparés'],
   saison: [11, 12],
 };
