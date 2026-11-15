@@ -94,7 +94,7 @@ function main(ctx, depuis, pos, a, forme, manche, k = 2) {
   const Q = spline(pts, false, 8);
   ink(ctx, Q, 26 * k * 0.9, { seed: 740, taper: false, wob: 0.06, color: C.ink });
   ink(ctx, move(Q, 3, 2), 17 * k * 0.9, { seed: 741, taper: false, wob: 0.05, color: manche });
-  drawHand(ctx, pos[0], pos[1], a, forme, 1, k, '#F0C7A4');
+  drawHand(ctx, pos[0], pos[1], a, forme, 1, k, CAST.maman.skin);
 }
 // carte de texte : bloc papier, liseré d'encre décalé, étoile en puce
 const CARTE = { x: 90, w: 900, px: 60 };
