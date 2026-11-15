@@ -22,7 +22,7 @@ scripts/videos/rendre.ts                     /api/marketing/horloge
 |---|---|---|
 | YouTube | une vidéo animée par jour (rotation de la banque, `shortDuJour`) | à l'heure réglée, chaque jour |
 | Instagram, Facebook | vidéo animée les jours de Reel du générateur (lundi, jeudi, samedi) ; visuel illustré les autres jours | à l'heure réglée |
-| TikTok | **bloqué** (voir plus bas) | — |
+| TikTok | **à la main**, préparé depuis `/admin/videos` (voir plus bas) | quand Sekou le décide |
 | Pinterest | flux RSS inchangé, soumis à l'arrêt d'urgence | — |
 
 ## Contrôles bloquants (`video-gabarit/controles.py`)
@@ -71,17 +71,19 @@ de 10 minutes pour le lecteur. L'ancien espace `reels` devient privé (migration
 
 ## TikTok
 
-Aucune solution officielle ne permet une publication sans geste humain : les règles de partage de TikTok
-exigent, à chaque publication, l'aperçu, le nom du compte, un choix de confidentialité **sans valeur par défaut**,
-les interactions décochées, la déclaration de contenu commercial et un consentement avant le bouton. Une
-application non auditée ne publie qu'en privé, et seulement sur un compte privé. Le mode « brouillon » exige
-lui aussi de terminer la publication dans l'appli. TikTok est donc **bloqué avec un motif visible** dans l'admin,
-sans effet sur les autres plateformes.
+**Publication à la main, préparée par l'administration.** Sous chaque vidéo prête, `/admin/videos`
+propose « Préparer pour TikTok » : la légende (tirée de celle d'Instagram par `legendeTiktok`, sans
+renvoi à la bio, avec l'adresse du site ou celle du planning de Noël pendant la campagne) part dans le
+presse-papiers, puis « Partager la vidéo » ouvre la feuille de partage d'iOS (TikTok ou « Enregistrer
+la vidéo »). Deux appuis : Safari refuse d'ouvrir le partage après l'attente du téléchargement.
 
-Démarche d'audit, si une publication assistée (un geste par vidéo) devient acceptable :
-1. créer l'application sur developers.tiktok.com (Login Kit + Content Posting API, droits `video.publish`) et la faire valider ;
-2. construire la page de publication conforme aux Content Sharing Guidelines (aperçu, confidentialité choisie, consentement) ;
-3. déposer la demande d'audit Direct Post avec une vidéo de démonstration du parcours.
+Pourquoi pas l'API (vérifié le 15/11/2026) : les Content Sharing Guidelines de TikTok, section
+« Intended Use », excluent explicitement « un outil qui aide à mettre en ligne du contenu sur le(s)
+compte(s) que vous ou votre équipe gérez ». L'audit de la publication directe serait refusé ; sans
+audit, tout part en « Moi uniquement », sur un compte privé, et chaque publication exige de toute façon
+un geste humain (visibilité choisie sans valeur par défaut, consentement). L'application développeur
+« Coparentalité Zen » (Login Kit + Content Posting API, domaine vérifié par
+`public/tiktokp8BOBOGFrWiPqcnILYcrtHSXLROkgA55.txt`) existe chez TikTok mais **n'est pas soumise**.
 
 ## Réglages et exploitation
 

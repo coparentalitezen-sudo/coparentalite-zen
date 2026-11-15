@@ -108,3 +108,77 @@ export function ConfirmerAbsente({ cle, plateforme }: { cle: string; plateforme:
     </div>
   );
 }
+
+/**
+ * Publication TikTok à la main, en deux appuis.
+ *
+ * Premier appui : la légende part dans le presse-papiers (tout de suite, tant
+ * que le geste est « frais »), puis la vidéo est téléchargée dans la page.
+ * Second appui : la feuille de partage d'iOS s'ouvre avec la vidéo — « TikTok »
+ * pour publier directement, ou « Enregistrer la vidéo » pour la pellicule. Deux
+ * appuis parce que Safari refuse d'ouvrir le partage après une attente : le
+ * téléchargement de quelques mégaoctets suffit à perdre le geste.
+ */
+export function PreparerTiktok({ url, nom, legende }: { url: string; nom: string; legende: string }) {
+  const [texte, setTexte] = useState(legende);
+  const [fichier, setFichier] = useState<File | null>(null);
+  const [etat, setEtat] = useState<'repos' | 'chargement' | 'pret' | 'erreur'>('repos');
+  const [message, setMessage] = useState<string | null>(null);
+
+  const copier = async () => {
+    try { await navigator.clipboard.writeText(texte); return true; } catch { return false; }
+  };
+
+  const preparer = async () => {
+    setEtat('chargement');
+    const copie = await copier();
+    try {
+      const reponse = await fetch(url);
+      if (!reponse.ok) throw new Error(String(reponse.status));
+      const blob = await reponse.blob();
+      setFichier(new File([blob], nom, { type: 'video/mp4' }));
+      setEtat('pret');
+      setMessage(copie ? 'Légende copiée. Vidéo prête : appuie sur « Partager la vidéo ».'
+        : 'Vidéo prête. La légende n’a pas pu être copiée : utilise « Copier la légende ».');
+    } catch {
+      setEtat('erreur');
+      setMessage('Téléchargement impossible (adresse expirée ?). Recharge la page puis réessaie, ou utilise le lien de téléchargement.');
+    }
+  };
+
+  const partager = async () => {
+    if (!fichier) return;
+    const donnees = { files: [fichier] };
+    if (typeof navigator.canShare === 'function' && navigator.canShare(donnees)) {
+      try { await navigator.share(donnees); } catch { /* partage annulé : rien à signaler */ }
+      return;
+    }
+    setMessage('Le partage de fichiers n’est pas disponible ici : utilise le lien « Télécharger la vidéo ».');
+  };
+
+  return (
+    <div className="space-y-2 rounded-xl border border-line p-3">
+      <p className="text-sm font-bold">TikTok (publication à la main)</p>
+      <label className="block space-y-1 text-xs text-soft">
+        <span>Légende (modifiable avant de copier)</span>
+        <textarea value={texte} onChange={(e) => setTexte(e.target.value)} rows={6} maxLength={2200} className="w-full text-sm text-ink" />
+      </label>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {etat !== 'pret' ? (
+          <button type="button" className="btn btn-primary w-full" disabled={etat === 'chargement'} onClick={preparer}>
+            {etat === 'chargement' ? 'Préparation…' : '1. Préparer pour TikTok'}
+          </button>
+        ) : (
+          <button type="button" className="btn btn-primary w-full" onClick={partager}>2. Partager la vidéo</button>
+        )}
+        <button type="button" className="btn btn-ghost w-full"
+          onClick={async () => setMessage(await copier() ? 'Légende copiée.' : 'Copie refusée par le navigateur : sélectionne le texte à la main.')}>
+          Copier la légende
+        </button>
+      </div>
+      <a href={url} download={nom} className="block text-xs text-navy-text underline">Télécharger la vidéo (lien valable 10 minutes)</a>
+      {message && <p role="status" className={`text-sm ${etat === 'erreur' ? 'text-err' : 'text-ok'}`}>{message}</p>}
+      <p className="text-xs text-soft">Dans TikTok : colle la légende, choisis la visibilité, puis publie.</p>
+    </div>
+  );
+}
