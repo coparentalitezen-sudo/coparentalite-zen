@@ -510,8 +510,8 @@ export const MARQUE = [
     accroche: 'Ce que l’application ne fait pas.',
     corps:
       'Elle ne juge pas, ne conseille pas juridiquement, et ne prend parti pour aucun '
-      + 'parent. Elle range l’information au même endroit pour les deux. Le reste te '
-      + 'appartient.',
+      + 'parent. Elle range l’information au même endroit pour les deux. Le reste '
+      + 't’appartient.',
     planches: [
       'Elle ne juge aucun parent.',
       'Elle ne donne aucun conseil juridique.',

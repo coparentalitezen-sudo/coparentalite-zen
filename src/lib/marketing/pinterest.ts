@@ -201,7 +201,7 @@ export function elementsDuContenu(contenu: Contenu, base: string): ElementFlux[]
           + 'Le questionnaire complet affiche le planning correspondant sur '
           + 'deux semaines, sans inscription.'
         : `${premiere} Cinq questions pour trouver le rythme de garde adapté `
-          + 'à votre situation, avec le planning affiché sur deux semaines.',
+          + 'à ta situation, avec le planning affiché sur deux semaines.',
       image: lienImagePinterest(base, contenu.reference, rang),
     };
   });
