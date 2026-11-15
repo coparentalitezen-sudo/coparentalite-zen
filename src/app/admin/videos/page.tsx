@@ -4,7 +4,8 @@ import { supabaseService } from '@/lib/supabase/server';
 import { estAdministrateurConnecte } from '@/lib/youtube/acces';
 import { decalerJour, jourParis } from '@/lib/marketing/horaire';
 import { SEAU_VIDEOS, type Controle } from '@/lib/marketing/videos';
-import { Suspendre, Reactiver, ChoixHeure, Rerendre, Republier, ConfirmerAbsente } from './commandes';
+import { legendeTiktok, nomFichierTiktok } from '@/lib/marketing/tiktok';
+import { Suspendre, Reactiver, ChoixHeure, Rerendre, Republier, ConfirmerAbsente, PreparerTiktok } from './commandes';
 
 /**
  * Publication automatique des vidéos : à regarder APRÈS coup.
@@ -32,7 +33,7 @@ export default async function PageVideos() {
 
   const [{ data: reglages }, { data: videos }, { data: alertes }] = await Promise.all([
     service.from('marketing_parametres').select('plateforme, actif, mode, suspendu_motif, heure, echecs_consecutifs').order('plateforme'),
-    service.from('marketing_videos').select('cle, source, jour, reference, statut, controles, chemin_video, chemin_affiche, duree, erreur, tentatives, rendue_le')
+    service.from('marketing_videos').select('cle, source, jour, reference, statut, controles, chemin_video, chemin_affiche, duree, erreur, tentatives, rendue_le, scenario')
       .gte('jour', decalerJour(aujourdhui, -14)).order('jour', { ascending: false }).limit(40),
     service.from('marketing_alertes').select('niveau, sujet, message, envoyee_le, erreur_envoi, created_at')
       .order('created_at', { ascending: false }).limit(15),
@@ -40,12 +41,27 @@ export default async function PageVideos() {
 
   const cles = (videos ?? []).map((v) => v.cle);
   const jours = (videos ?? []).filter((v) => v.source === 'youtube').map((v) => `short-${v.jour}`);
-  const [{ data: pubsMeta }, { data: shorts }] = await Promise.all([
+  const references = (videos ?? []).filter((v) => v.source !== 'youtube' && v.statut === 'prete').map((v) => v.reference);
+  const [{ data: pubsMeta }, { data: shorts }, { data: contenus }] = await Promise.all([
     cles.length ? service.from('marketing_publications').select('cle_idempotence, plateforme, statut, meta_media_id, derniere_erreur')
       .in('cle_idempotence', cles.flatMap((c) => [`${c}:instagram`, `${c}:facebook`])) : Promise.resolve({ data: [] }),
-    jours.length ? service.from('marketing_youtube_shorts').select('cle_idempotence, statut, video_id, erreur_message, visibilite_obtenue')
+    jours.length ? service.from('marketing_youtube_shorts').select('cle_idempotence, statut, video_id, erreur_message, visibilite_obtenue, titre')
       .in('cle_idempotence', jours) : Promise.resolve({ data: [] }),
+    references.length ? service.from('marketing_contenus').select('reference, legende_instagram')
+      .in('reference', references) : Promise.resolve({ data: [] }),
   ]);
+
+  // TikTok se publie à la main : légende tirée de celle d'Instagram (ou du titre du Short).
+  const legendeTiktokDe = (v: { source: string; jour: string; reference: string; scenario: unknown }): string => {
+    const scenario = v.scenario as { niche?: string; lignes?: { texte?: string }[] } | null;
+    const niche = String(scenario?.niche ?? 'garde-alternee');
+    // Short : l'accroche du scénario rendu (le titre YouTube porte un suffixe de référencement après « | »).
+    const base = v.source === 'youtube'
+      ? scenario?.lignes?.[0]?.texte
+        ?? (shorts ?? []).find((x) => x.cle_idempotence === `short-${v.jour}`)?.titre?.split(' | ')[0] ?? ''
+      : (contenus ?? []).find((c) => c.reference === v.reference)?.legende_instagram ?? '';
+    return legendeTiktok(base, niche, v.jour);
+  };
 
   const publications = (cle: string, source: string, jour: string): Pub[] => {
     if (source === 'youtube') {
@@ -68,6 +84,10 @@ export default async function PageVideos() {
   };
   const lecteurs = await Promise.all((videos ?? []).map(async (v) => ({
     cle: v.cle, video: await signer(v.chemin_video), affiche: await signer(v.chemin_affiche),
+    // Même fichier, servi « en téléchargement » : un appui long ou le lien l'enregistre au lieu de l'ouvrir.
+    telechargement: v.statut === 'prete' && v.chemin_video
+      ? (await service.storage.from(SEAU_VIDEOS).createSignedUrl(v.chemin_video, 600, { download: nomFichierTiktok(v.cle) })).data?.signedUrl ?? null
+      : null,
   })));
 
   const global = (reglages ?? []).find((r) => r.plateforme === 'global');
@@ -104,7 +124,7 @@ export default async function PageVideos() {
               </p>
               {!r.actif && r.suspendu_motif && <p className="text-sm text-soft">{r.suspendu_motif}</p>}
               {r.plateforme === 'tiktok' ? (
-                <p className="text-xs text-soft">Bloqué volontairement : aucune solution officielle de TikTok ne permet une publication sans geste humain à chaque vidéo. Les autres plateformes ne sont pas concernées.</p>
+                <p className="text-xs text-soft">Publication à la main : les règles de TikTok refusent les outils qui publient sur le compte de leur propre équipe. Sous chaque vidéo prête, « Préparer pour TikTok » copie la légende et ouvre le partage vers l’app.</p>
               ) : (
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {r.plateforme !== 'pinterest' && <ChoixHeure plateforme={r.plateforme} heure={r.heure ?? 10} />}
@@ -166,6 +186,9 @@ export default async function PageVideos() {
                     </li>
                   ))}
                 </ul>
+                {l?.telechargement && (
+                  <PreparerTiktok url={l.telechargement} nom={nomFichierTiktok(v.cle)} legende={legendeTiktokDe(v)} />
+                )}
                 {v.statut !== 'en_cours' && !pubs.some((p) => ['publiee', 'envoyee', 'a_verifier', 'en_cours'].includes(p.statut))
                   && <Rerendre cle={v.cle} />}
               </li>
