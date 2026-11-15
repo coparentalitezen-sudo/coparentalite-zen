@@ -17,34 +17,61 @@ export const univers = niche => UNIVERS[niche] || 'calendrier';
 
 // ------------------------------------------------------------------ distribution
 // Les deux parents changent d'allure d'une vidéo à l'autre, toujours ensemble (mêmes gestes, mêmes
-// expressions : aucun n'est désigné) ; l'enfant aussi (fille ou garçon, coiffure, teint).
-const PEAUX = ['#B97B55', '#F0C7A4', '#D9A07A', '#8A5A3C', '#E8B48F'];
+// expressions : aucun n'est désigné) ; l'enfant aussi (fille ou garçon, coiffure).
+//
+// Teint des enfants cohérent avec celui des parents (Sekou, 15/11) : deux parents noirs → enfant
+// noir ; un parent noir et un parent blanc → enfant marron clair ; deux parents blancs → enfant
+// blanc. Même règle pour le cadet, fille ou garçon. Le beau-parent n'entre pas dans la règle.
+export const TEINTS = {
+  noir: ['#8A5A3C', '#704832'],
+  blanc: ['#F0C7A4', '#E8B48F'],
+};
+export const TEINT_ENFANT = { noir: ['#7E5237', '#8C5D3F'], metis: ['#C9946A', '#D19D72'], blanc: ['#F2CDAE', '#EDC3A0'] };
 const CHEVEUX = ['#2B2120', '#7A4A30', '#3B2A22', '#B07A45', '#1E1A1A'];
+const CHEVEUX_TEINT = { noir: [CHEVEUX[0], CHEVEUX[4]], metis: [CHEVEUX[2], CHEVEUX[0]], blanc: [CHEVEUX[1], CHEVEUX[3]] };
 const PAPAS = [
-  KARIM,
-  { ...KARIM, skin: PEAUX[1], hair: CHEVEUX[3], beard: false, top: C.sage, topD: C.sageD, bottom: '#4F5866', bottomD: '#3E4652' },
-  { ...KARIM, skin: PEAUX[3], hair: CHEVEUX[4], beard: true, top: C.goldD, topD: '#9C7530', bottom: '#4A4A55', bottomD: '#393944', collar: false },
-  { ...KARIM, skin: PEAUX[2], hair: CHEVEUX[2], beard: false, top: C.navyD, topD: '#2F3E54' },
+  { ...KARIM, teint: 'noir', skin: TEINTS.noir[0] },
+  { ...KARIM, teint: 'blanc', skin: TEINTS.blanc[0], hair: CHEVEUX[3], beard: false, top: C.sage, topD: C.sageD, bottom: '#4F5866', bottomD: '#3E4652' },
+  { ...KARIM, teint: 'noir', skin: TEINTS.noir[1], hair: CHEVEUX[4], beard: true, top: C.goldD, topD: '#9C7530', bottom: '#4A4A55', bottomD: '#393944', collar: false },
+  { ...KARIM, teint: 'blanc', skin: TEINTS.blanc[1], hair: CHEVEUX[2], beard: false, top: C.navyD, topD: '#2F3E54' },
 ];
 const MAMANS = [
-  JULIE,
-  { ...JULIE, skin: PEAUX[3], hair: CHEVEUX[4], hairStyle: 'side', top: C.gold, topD: C.goldD, bottom: '#5B4E6B', bottomD: '#4A3F58' },
-  { ...JULIE, skin: PEAUX[2], hair: CHEVEUX[0], hairStyle: 'bun', top: C.sage, topD: C.sageD },
-  { ...JULIE, skin: PEAUX[4], hair: CHEVEUX[3], hairStyle: 'side', top: C.coralD, topD: '#A5655B', bottom: '#4F5866', bottomD: '#3E4652' },
+  { ...JULIE, teint: 'blanc', skin: TEINTS.blanc[0] },
+  { ...JULIE, teint: 'noir', skin: TEINTS.noir[0], hair: CHEVEUX[4], hairStyle: 'side', top: C.gold, topD: C.goldD, bottom: '#5B4E6B', bottomD: '#4A3F58' },
+  { ...JULIE, teint: 'noir', skin: TEINTS.noir[1], hair: CHEVEUX[0], hairStyle: 'bun', top: C.sage, topD: C.sageD },
+  { ...JULIE, teint: 'blanc', skin: TEINTS.blanc[1], hair: CHEVEUX[3], hairStyle: 'side', top: C.coralD, topD: '#A5655B', bottom: '#4F5866', bottomD: '#3E4652' },
 ];
+// Silhouettes d'enfants (fille ou garçon) : le teint et la couleur des cheveux viennent des parents.
 const ENFANTS = [
   KID,
-  { ...KID, hairStyle: 'short', skin: PEAUX[1], hair: CHEVEUX[3], top: C.gold, topD: C.goldD },
-  { ...KID, hairStyle: 'side', skin: PEAUX[3], hair: CHEVEUX[0], top: C.coral, topD: C.coralD, bottom: C.navy, bottomD: C.navyD },
-  { ...KID, hairStyle: 'short', skin: PEAUX[0], hair: CHEVEUX[4], top: C.navyL, topD: C.navy, bottom: '#5A5148', bottomD: '#463E36' },
+  { ...KID, hairStyle: 'short', top: C.gold, topD: C.goldD },
+  { ...KID, hairStyle: 'side', top: C.coral, topD: C.coralD, bottom: C.navy, bottomD: C.navyD },
+  { ...KID, hairStyle: 'short', top: C.navyL, topD: C.navy, bottom: '#5A5148', bottomD: '#463E36' },
 ];
+
+/** Teint des enfants d'après celui des deux parents. */
+export function teintEnfant(papa, maman) {
+  if (papa === maman) return papa;
+  return 'metis';
+}
+
 export function distribution(graine) {
   const g = graine >>> 0;
+  const papa = PAPAS[g % PAPAS.length];
+  const maman = MAMANS[(g >>> 3) % MAMANS.length];
+  const teint = teintEnfant(papa.teint, maman.teint);
+  const nuance = (g >>> 12) & 1;
+  const enfantDe = (gabarit, decalage) => ({
+    ...gabarit,
+    skin: TEINT_ENFANT[teint][(nuance + decalage) % 2],
+    hair: CHEVEUX_TEINT[teint][(nuance + decalage) % 2],
+  });
   return {
-    papa: PAPAS[g % PAPAS.length],
-    maman: MAMANS[(g >>> 3) % MAMANS.length],
-    enfant: ENFANTS[(g >>> 6) % ENFANTS.length],
-    cadet: ENFANTS[((g >>> 6) + 2) % ENFANTS.length],
+    papa,
+    maman,
+    teintEnfants: teint,
+    enfant: enfantDe(ENFANTS[(g >>> 6) % ENFANTS.length], 0),
+    cadet: enfantDe(ENFANTS[((g >>> 6) + 2) % ENFANTS.length], 1),
     beau: { ...PAPAS[((g >>> 9) + 1) % PAPAS.length], beard: false, collar: false, top: C.sageL, topD: C.sage },
   };
 }
