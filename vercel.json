@@ -26,6 +26,10 @@
       "schedule": "30 5 * * 1"
     },
     {
+      "path": "/api/copilote/hebdo",
+      "schedule": "0 6 * * 1"
+    },
+    {
       "path": "/api/marketing/publier-planifie",
       "schedule": "0 9 * * *"
     },

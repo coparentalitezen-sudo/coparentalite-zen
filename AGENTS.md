@@ -395,6 +395,13 @@ Une fois par semaine suffit : il ne change qu'à la publication d'une nouvelle
 année scolaire ou d'une correction. Le fichier ne contient que `path` et
 `schedule` — le schéma de Vercel rejette tout champ supplémentaire.
 
+Le copilote business (`/api/copilote/hebdo`, lundi 6 h UTC, après le bilan
+marketing de 5 h 30) analyse les ventes Etsy/Payhip/Gumroad importées par CSV
+dans `/admin/boutique`, enregistre 3 idées de produits et 3 améliorations de
+fiches dans `/admin/propositions`, et envoie le rapport `/admin/rapport` par
+courriel une seule fois par semaine. Logique pure et testée dans
+`src/lib/copilote/` (aucun modèle de langage) ; guide : `docs/COPILOTE.md`.
+
 La route exige `CRON_SECRET` : Vercel l'envoie automatiquement en en-tête
 `Authorization: Bearer …`. Un membre connecté peut aussi déclencher une mise à
 jour depuis les paramètres du foyer, limitée à une fois par heure.
