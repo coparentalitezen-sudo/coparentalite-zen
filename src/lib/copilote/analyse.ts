@@ -23,13 +23,20 @@ import type { PlateformeBoutique, Vente, ProduitCatalogue, ReleveVues } from './
 
 export const MINIMUM_VENTES = 3;
 export const SEUIL_VUES = 100;
+/**
+ * Sous ce nombre de vues sur 30 jours, la fiche n'est quasiment pas montrée.
+ * Sans vente, c'est la distinction qui compte : une fiche peu vue a un
+ * problème de recherche (titre, tags) ; une fiche vue mais pas achetée a un
+ * problème de vitrine (photo, prix, description). Les remèdes diffèrent.
+ */
+export const VUES_FAIBLES = 40;
 export const CONVERSION_FAIBLE = 0.01;
 export const JOURS_SANS_VENTE = 45;
 /** Deux titres sont le même produit au-delà de cette ressemblance. */
 export const SIMILARITE_MEME_PRODUIT = 0.6;
 
 export type StatutProduit =
-  'moteur' | 'en_hausse' | 'stagne' | 'faible_conversion' | 'stable' | 'trop_tot';
+  'moteur' | 'en_hausse' | 'stagne' | 'faible_conversion' | 'peu_visible' | 'stable' | 'trop_tot';
 
 export interface FicheProduit {
   /** Identifiant stable du produit, toutes plateformes confondues. */
@@ -385,11 +392,17 @@ function classer(fiches: FicheProduit[], fin: string): void {
     const vuesSuffisantes = f.vues !== null && f.vues >= SEUIL_VUES;
     const joursSansVente = f.derniereVente ? ecartJours(f.derniereVente, fin) : null;
 
-    if (f.unitesTotal < MINIMUM_VENTES && !vuesSuffisantes) {
+    if (f.unitesTotal < MINIMUM_VENTES && f.vues !== null && f.vues < VUES_FAIBLES) {
+      f.statut = 'peu_visible';
+      f.motif = `${f.vues} vue${f.vues > 1 ? 's' : ''} sur 30 jours : la fiche n’est presque pas montrée par la recherche.`;
+    } else if (f.unitesTotal < MINIMUM_VENTES && !vuesSuffisantes) {
       f.statut = 'trop_tot';
-      f.motif = f.unitesTotal === 0
-        ? 'Aucune vente enregistrée pour l’instant.'
-        : `${f.unitesTotal} vente${f.unitesTotal > 1 ? 's' : ''} au total : trop tôt pour conclure.`;
+      const ventes = f.unitesTotal === 0
+        ? 'Aucune vente enregistrée pour l’instant'
+        : `${f.unitesTotal} vente${f.unitesTotal > 1 ? 's' : ''} au total`;
+      f.motif = f.vues === null
+        ? `${ventes} ; vues inconnues : importe-les pour savoir si la fiche est vue.`
+        : `${ventes} pour ${f.vues} vues : pas encore assez pour juger.`;
     } else if (f.unitesPrec28 >= MINIMUM_VENTES && f.unites28 <= f.unitesPrec28 / 2) {
       f.statut = 'stagne';
       f.motif = `${f.unitesPrec28} → ${f.unites28} ventes d’une période de 28 jours à l’autre.`;

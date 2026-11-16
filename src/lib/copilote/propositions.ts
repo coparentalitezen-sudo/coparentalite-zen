@@ -14,7 +14,9 @@
 
 import { normaliser } from './csv';
 import { referenceDepuisTitre } from './import';
-import { motsSignificatifs, similarite, MINIMUM_VENTES, type Analyse, type FicheProduit } from './analyse';
+import {
+  motsSignificatifs, similarite, MINIMUM_VENTES, VUES_FAIBLES, type Analyse, type FicheProduit,
+} from './analyse';
 import { verifierObjet, type Probleme } from './garde-fous';
 import { NOMS_PLATEFORMES, type PlateformeBoutique } from './types';
 
@@ -497,7 +499,16 @@ function ameliorations(a: Analyse): Amelioration[] {
 
     let score = 0;
     if (f.statut === 'stagne') { score = 100 + f.unitesPrec28; constats.push(f.motif); }
-    else if (f.statut === 'faible_conversion') { score = 80 + (f.vues ?? 0) / 100; constats.push(f.motif); }
+    else if (f.statut === 'faible_conversion') {
+      // Avant la fiche peu vue : ici le trafic existe déjà, il reste à convaincre.
+      score = 90 + Math.min((f.vues ?? 0) / 50, 30);
+      constats.push(f.motif,
+        'La fiche est vue mais pas achetée : regarde d’abord la première photo, le prix et les trois premières lignes de la description.');
+    } else if (f.statut === 'peu_visible') {
+      score = 60 + Math.max(0, VUES_FAIBLES - (f.vues ?? 0)) / 2;
+      constats.push(f.motif,
+        'Priorité au titre et aux 13 tags : ce sont eux qui font apparaître la fiche dans la recherche Etsy.');
+    }
     else if (f.statut === 'moteur') {
       score = 50 + f.unites28;
       constats.push(`Ta meilleure vente (${f.motif.replace(/\.$/, '')}) : chaque point de conversion gagné compte double.`);

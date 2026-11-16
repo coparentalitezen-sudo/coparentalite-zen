@@ -71,12 +71,15 @@ export function construireRapport(entree: {
     reussites.push(`Contenu le plus cliqué : « ${top.accroche} » (${top.clics} clics, ${top.inscriptions} inscription${top.inscriptions > 1 ? 's' : ''}).`);
   }
   if (reussites.length === 0) {
-    reussites.push(`Pas encore assez de données pour désigner un gagnant (il faut au moins ${MINIMUM_VENTES} ventes par produit).`);
+    reussites.push(a.totalVentes === 0
+      ? 'Aucune vente enregistrée pour l’instant : le diagnostic porte sur tes fiches et leurs vues.'
+      : `Pas encore assez de données pour désigner un gagnant (il faut au moins ${MINIMUM_VENTES} ventes par produit).`);
   }
 
   // ---------- Points de vigilance ----------
   const vigilance: string[] = [];
-  for (const f of a.produits.filter((x) => x.statut === 'stagne' || x.statut === 'faible_conversion')) {
+  for (const f of a.produits.filter((x) =>
+    x.statut === 'stagne' || x.statut === 'faible_conversion' || x.statut === 'peu_visible')) {
     vigilance.push(`« ${f.titre} » : ${f.motif}`);
   }
   if (a.evolution !== null && a.evolution < 0) {
@@ -95,8 +98,15 @@ export function construireRapport(entree: {
 
   // ---------- Trois actions ----------
   const actions: string[] = [];
-  if (a.totalVentes === 0) {
-    actions.push('Déposer tes premiers exports CSV de ventes (Etsy, Payhip, Gumroad) dans /admin/boutique.');
+  // Sans vente, le diagnostic repose sur les fiches puis sur leurs vues :
+  // réclamer d'abord ce qui manque, dans cet ordre.
+  const fichesConnues = a.produits.some((f) => f.catalogue.length > 0);
+  const vuesConnues = a.produits.some((f) => f.vues !== null);
+  if (a.totalVentes === 0 && !fichesConnues) {
+    actions.push('Importer l’export « Fiches actives » d’Etsy dans /admin/boutique : sans vente, c’est la base du diagnostic.');
+  }
+  if (a.totalVentes === 0 && !vuesConnues) {
+    actions.push('Recopier les vues des 30 derniers jours de chaque fiche (Statistiques Etsy) : elles disent si le problème est d’être vu ou d’être acheté.');
   } else if (retards.length) {
     actions.push(`Déposer les exports de ventes à jour : ${retards.join(', ')}.`);
   }
@@ -112,8 +122,11 @@ export function construireRapport(entree: {
   if (actions.length < 3 && top) {
     actions.push(`Décliner le contenu « ${top.accroche} », le plus cliqué, en épingle et en post.`);
   }
-  if (actions.length < 3) {
+  if (actions.length < 3 && (!fichesConnues || !vuesConnues)) {
     actions.push('Importer l’export des fiches Etsy et un relevé de vues pour affiner le diagnostic.');
+  }
+  if (actions.length < 3) {
+    actions.push('Valider ou rejeter les propositions de la semaine dans /admin/propositions.');
   }
 
   return {

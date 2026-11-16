@@ -159,6 +159,14 @@ describe('import des ventes', () => {
   });
 });
 
+describe('export de ventes vide', () => {
+  it('un export Etsy sans vente ne lit rien et ne plante pas', () => {
+    const r = importerCsv('Sale Date,Item Name,Item Total,Order ID,Listing ID\n', { aujourdhui: AUJOURDHUI });
+    expect(r.ventes).toEqual([]);
+    expect(r.lignesLues).toBe(0);
+  });
+});
+
 describe('import du catalogue et des vues', () => {
   it('catalogue Etsy : tags découpés, prix lu', () => {
     const csv = 'TITLE,DESCRIPTION,PRICE,CURRENCY_CODE,TAGS\n'

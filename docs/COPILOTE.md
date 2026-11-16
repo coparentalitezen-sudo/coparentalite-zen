@@ -40,6 +40,32 @@ bouton « Recalculer et m'envoyer le courriel » te renvoie une version à jour.
 
 ---
 
+## Si tu n'as encore aucune vente
+
+C'est le cas le plus courant au démarrage, et le copilote s'y adapte : sans
+vente, il ne peut pas dire « ce qui marche », mais il peut dire **pourquoi ça
+ne vend pas encore**, à condition d'avoir deux choses :
+
+1. **Tes fiches** : export Etsy « Fiches actives » (titres, tags, descriptions, prix).
+2. **Leurs vues** sur les 30 derniers jours, recopiées depuis les statistiques
+   Etsy (format plus bas, cinq minutes par mois).
+
+Il range alors chaque fiche dans l'un de ces cas :
+
+| Cas | Ce que ça veut dire | Ce qu'il propose |
+|---|---|---|
+| **Peu visible** (moins de 40 vues en 30 jours) | La recherche Etsy ne montre presque pas la fiche | Titre et 13 tags |
+| **Vue mais pas achetée** (100 vues ou plus, moins de 1 % d'achat) | Les gens viennent, mais ne sont pas convaincus | Première photo, prix, début de la description |
+| **Trop tôt** (entre les deux) | Pas encore assez de vues pour trancher | Rien d'urgent |
+
+Les fiches « vues mais pas achetées » passent en premier : le trafic existe
+déjà, il ne reste qu'à convaincre.
+
+Un export de ventes vide n'est pas une erreur : l'écran te le dit et t'oriente
+vers les fiches et les vues.
+
+---
+
 ## Où trouver chaque export
 
 | Boutique | Chemin | Contenu |

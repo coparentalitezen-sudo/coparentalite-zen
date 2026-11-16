@@ -56,6 +56,10 @@ export async function actionImporter(formulaire: FormData): Promise<ResultatActi
   });
   const lues = resultat.ventes.length + resultat.catalogue.length + resultat.vues.length;
   if (lues === 0) {
+    // Un export de ventes vide n'est pas une erreur : il n'y a simplement pas eu de vente.
+    if (resultat.type === 'ventes' && resultat.lignesLues === 0 && resultat.erreurs.length <= 1) {
+      return { ok: true, message: 'Aucune vente dans ce fichier : rien à ajouter. Importe plutôt tes fiches et leurs vues.' };
+    }
     return { ok: false, message: 'Aucune ligne exploitable dans ce fichier.', details: resultat.erreurs };
   }
 

@@ -236,9 +236,10 @@ describe('rapport hebdomadaire', () => {
       propositions: proposer(analyser({ ventes: [], fin: FIN }), AUJOURDHUI),
       contenus: [], derniersImports: {}, aujourdhui: AUJOURDHUI,
     });
-    expect(vide.actions[0]).toMatch(/premiers exports/);
+    expect(vide.actions[0]).toMatch(/Fiches actives/);
+    expect(vide.actions[1]).toMatch(/vues des 30 derniers jours/);
     expect(vide.actions).toHaveLength(3);
-    expect(vide.reussites[0]).toMatch(/Pas encore assez de données/);
+    expect(vide.reussites[0]).toMatch(/Aucune vente enregistrée/);
   });
 
   it('se rend en texte et en HTML échappé', () => {
@@ -252,5 +253,64 @@ describe('rapport hebdomadaire', () => {
 
   it('ne promet rien : le rapport passe les garde-fous', () => {
     expect(verifierObjet(r)).toEqual([]);
+  });
+});
+
+describe('boutique sans aucune vente', () => {
+  const fiche = (titre: string, o: Partial<ProduitCatalogue> = {}): ProduitCatalogue => ({
+    plateforme: 'etsy', reference: titre, titre, prixCentimes: 590, devise: 'EUR',
+    tags: ['budget'], description: 'Court.', ...o,
+  });
+  const catalogue = [
+    fiche('Budget familial mensuel Google Sheets'),
+    fiche('Calendrier de garde alternée 2027', { tags: Array(13).fill(0).map((_, i) => `tag ${i}`),
+      description: 'x'.repeat(400) }),
+    fiche('Planning repas semaine'),
+  ];
+  const vues = [
+    { plateforme: 'etsy' as const, produitRef: 'b', titre: 'Budget familial mensuel Google Sheets', vues: 12, releveLe: FIN },
+    { plateforme: 'etsy' as const, produitRef: 'c', titre: 'Calendrier de garde alternée 2027', vues: 350, releveLe: FIN },
+    { plateforme: 'etsy' as const, produitRef: 'p', titre: 'Planning repas semaine', vues: 70, releveLe: FIN },
+  ];
+  const a0 = analyser({ ventes: [], catalogue, vues, fin: FIN });
+  const p0 = proposer(a0, AUJOURDHUI);
+  const statut = (debut: string) => a0.produits.find((f) => f.titre.startsWith(debut))!;
+
+  it('distingue la fiche peu vue de la fiche vue mais pas achetée', () => {
+    expect(statut('Budget familial').statut).toBe('peu_visible');
+    expect(statut('Calendrier').statut).toBe('faible_conversion');
+    // Entre les deux seuils : pas assez de vues pour trancher.
+    expect(statut('Planning repas').statut).toBe('trop_tot');
+    expect(statut('Planning repas').motif).toMatch(/70 vues : pas encore assez/);
+  });
+
+  it('propose un remède adapté à chaque cas', () => {
+    const vu = p0.ameliorations.find((x) => x.produit.startsWith('Calendrier'))!;
+    const cache = p0.ameliorations.find((x) => x.produit.startsWith('Budget'))!;
+    expect(vu.constats.join(' ')).toMatch(/première photo, le prix/);
+    expect(cache.constats.join(' ')).toMatch(/titre et aux 13 tags/);
+    // Vue mais pas achetée passe en premier : le trafic existe déjà.
+    expect(p0.ameliorations[0]).toBe(vu);
+  });
+
+  it('le rapport ne réclame pas d’export de ventes et part des fiches', () => {
+    const r = construireRapport({
+      semaine: '2026-S47', analyse: a0, propositions: p0, contenus: [],
+      derniersImports: {}, aujourdhui: AUJOURDHUI,
+    });
+    expect(r.actions.join(' ')).not.toMatch(/exports? (CSV )?de ventes/);
+    expect(r.actions[0]).toMatch(/Calendrier de garde alternée 2027/);
+    expect(r.vigilance.join(' ')).toMatch(/presque pas montrée/);
+    expect(verifierObjet(r)).toEqual([]);
+  });
+
+  it('sans relevé de vues, demande les vues avant tout', () => {
+    const r = construireRapport({
+      semaine: '2026-S47', analyse: analyser({ ventes: [], catalogue, fin: FIN }),
+      propositions: proposer(analyser({ ventes: [], catalogue, fin: FIN }), AUJOURDHUI),
+      contenus: [], derniersImports: {}, aujourdhui: AUJOURDHUI,
+    });
+    expect(r.actions[0]).toMatch(/vues des 30 derniers jours/);
+    expect(r.actions).toHaveLength(3);
   });
 });
