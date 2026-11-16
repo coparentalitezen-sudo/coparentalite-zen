@@ -54,6 +54,8 @@ const ALIAS = {
   vues: ['vues', 'views', 'visites', 'visits'],
   tags: ['tags', 'mots cles'],
   description: ['description'],
+  url: ['url', 'lien', 'listing url', 'lien etsy', 'adresse'],
+  image: ['image1', 'image', 'image url', 'photo'],
 } as const;
 
 type Champ = keyof typeof ALIAS;
@@ -168,6 +170,8 @@ export function importerCsv(
         devise: lire(ligne, 'devise').toUpperCase() || devise,
         tags,
         description: decoderEntites(lire(ligne, 'description')),
+        url: /^https:\/\//.test(lire(ligne, 'url')) ? lire(ligne, 'url') : null,
+        imageUrl: /^https:\/\//.test(lire(ligne, 'image')) ? lire(ligne, 'image') : null,
       });
     });
     return res;

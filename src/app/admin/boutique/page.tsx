@@ -2,6 +2,8 @@ import { notFound } from 'next/navigation';
 import { supabaseServer } from '@/lib/supabase/server';
 import { estAdministrateur } from '@/lib/marketing/administration';
 import { lireImports } from '@/lib/copilote/depot';
+import { lireProduits } from '@/lib/copilote/depot-contenus';
+import { FichesLiens } from './fiches';
 import { CopiloteNav } from '@/components/copilote-nav';
 import { FormulaireImport } from './formulaire';
 
@@ -23,7 +25,7 @@ export default async function PageBoutique() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!estAdministrateur(user?.email)) notFound();
 
-  const imports = await lireImports(15);
+  const [imports, produits] = await Promise.all([lireImports(15), lireProduits()]);
 
   return (
     <main className="mx-auto min-h-dvh max-w-2xl space-y-4 px-4 py-6">
@@ -31,6 +33,8 @@ export default async function PageBoutique() {
       <h1 className="font-display text-2xl font-semibold">Importer les exports</h1>
 
       <FormulaireImport />
+
+      <FichesLiens produits={produits.map((p) => ({ id: p.id, titre: p.titre, plateforme: p.plateforme, url: p.url }))} />
 
       <section className="card space-y-3 p-4 text-sm">
         <h2 className="font-display text-lg font-semibold">Où trouver chaque export</h2>

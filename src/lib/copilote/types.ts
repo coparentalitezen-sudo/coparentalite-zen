@@ -30,6 +30,10 @@ export interface ProduitCatalogue {
   devise: string;
   tags: string[];
   description: string;
+  /** Adresse publique de la fiche, quand l'export la fournit. */
+  url?: string | null;
+  /** Première photo de la fiche, quand l'export la fournit. */
+  imageUrl?: string | null;
 }
 
 /** Vues d'un produit sur les trente jours qui précèdent le relevé. */

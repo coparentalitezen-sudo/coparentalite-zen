@@ -11,6 +11,8 @@ import {
   lireDonneesBoutique, enregistrerPropositions, enregistrerRapport, marquerEnvoi,
   derniersImportsVentes, journaliser, lireRapport,
 } from './depot';
+import { clicsBoutique } from './depot-contenus';
+import { genererPostsSemaine } from './posts';
 
 /**
  * La boucle hebdomadaire : collecter → analyser → proposer → rapporter.
@@ -35,6 +37,7 @@ export interface ResultatHebdo {
   ameliorations: number;
   ecartees: number;
   courriel: 'envoye' | 'deja_envoye' | 'non_demande' | 'non_configure' | 'echec';
+  posts?: string;
 }
 
 /** Le destinataire : COPILOTE_EMAIL, sinon le premier administrateur. */
@@ -64,6 +67,8 @@ export async function executerHebdo(options: {
   /** 'si_pas_encore' : le passage du lundi. 'forcer' : bouton « Renvoyer ». */
   courriel: 'non' | 'si_pas_encore' | 'forcer';
   lienAdmin: string;
+  /** Adresse publique du site, pour les liens et visuels des publications produits. */
+  base?: string;
 }): Promise<ResultatHebdo> {
   const maintenant = options.maintenant ?? new Date();
   const aujourdhui = jourIso(maintenant);
@@ -82,9 +87,20 @@ export async function executerHebdo(options: {
 
   const analyse = analyser({ ...donnees, fin });
   const propositions = proposer(analyse, aujourdhui);
-  const [contenus, imports] = await Promise.all([contenusPerformants(), derniersImportsVentes()]);
+  // Les publications produits de la semaine qui commence, puis les clics de
+  // la semaine écoulée vers les fiches.
+  const base = options.base ?? new URL(options.lienAdmin).origin;
+  const posts = await genererPostsSemaine(maintenant, base).catch((e) => {
+    console.error('[copilote] publications produits', e);
+    return null;
+  });
+  resultat.posts = posts?.message;
+  const [contenus, imports, clics] = await Promise.all([
+    contenusPerformants(), derniersImportsVentes(), clicsBoutique(ajouterJours(fin, -6)),
+  ]);
   const rapport = construireRapport({
     semaine, analyse, propositions, contenus, derniersImports: imports, aujourdhui,
+    boutique: posts ? { produitsAvecLien: posts.produitsAvecLien, clics } : undefined,
   });
   const texte = rapportTexte(rapport);
 

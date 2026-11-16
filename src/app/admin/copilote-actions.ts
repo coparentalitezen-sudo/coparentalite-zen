@@ -7,6 +7,11 @@ import { importerCsv, type SourceImport, type TypeImport } from '@/lib/copilote/
 import { enregistrerImport, majStatutProposition, type StatutProposition } from '@/lib/copilote/depot';
 import { executerHebdo, type ResultatHebdo } from '@/lib/copilote/hebdo';
 import { jourIso } from '@/lib/copilote/dates';
+import {
+  lienValide, majLienProduit, ajouterProduit, programmerContenu, rejeterContenu, ecrireAutoValider,
+} from '@/lib/copilote/depot-contenus';
+import { genererPostsSemaine } from '@/lib/copilote/posts';
+import type { PlateformeBoutique } from '@/lib/copilote/types';
 
 /**
  * Actions du copilote business.
@@ -95,6 +100,7 @@ export async function actionRecalculer(envoyer: boolean): Promise<ResultatAction
   const r: ResultatHebdo = await executerHebdo({
     courriel: envoyer ? 'forcer' : 'non',
     lienAdmin: new URL('/admin/propositions', base).toString(),
+    base,
   });
   revalidatePath('/admin/rapport');
   revalidatePath('/admin/propositions');
@@ -105,5 +111,66 @@ export async function actionRecalculer(envoyer: boolean): Promise<ResultatAction
     non_configure: ' Courriel non envoyé : RESEND_API_KEY ou destinataire manquant.',
     echec: ' Le courriel n’est pas parti (voir le rapport).',
   }[r.courriel];
-  return { ok: r.ok, message: r.message + courriel };
+  return { ok: r.ok, message: r.message + courriel + (r.posts ? ` ${r.posts}` : '') };
+}
+
+// ---------- Publications produits ----------
+
+const baseSite = () => process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://www.coparentalitezen.fr';
+
+export async function actionLienProduit(id: string, url: string): Promise<ResultatAction> {
+  if (!await exigerAdministrateur()) return { ok: false, message: 'Accès refusé.' };
+  const propre = url.trim();
+  if (propre && !lienValide(propre)) {
+    return { ok: false, message: 'Le lien doit commencer par https:// (copie-le depuis la barre d’adresse).' };
+  }
+  const ok = await majLienProduit(id, propre || null);
+  revalidatePath('/admin/boutique');
+  return { ok, message: ok ? (propre ? 'Lien enregistré.' : 'Lien retiré.') : 'L’enregistrement a échoué.' };
+}
+
+export async function actionAjouterProduit(formulaire: FormData): Promise<ResultatAction> {
+  if (!await exigerAdministrateur()) return { ok: false, message: 'Accès refusé.' };
+  const titre = String(formulaire.get('titre') ?? '').trim().slice(0, 200);
+  const url = String(formulaire.get('url') ?? '').trim();
+  const plateforme = String(formulaire.get('plateforme') ?? 'etsy') as PlateformeBoutique;
+  if (!titre) return { ok: false, message: 'Indique le nom du produit.' };
+  if (!lienValide(url)) return { ok: false, message: 'Le lien doit commencer par https://.' };
+  if (!['etsy', 'payhip', 'gumroad'].includes(plateforme)) return { ok: false, message: 'Plateforme invalide.' };
+  const ok = await ajouterProduit({ plateforme, titre, url });
+  revalidatePath('/admin/boutique');
+  return { ok, message: ok ? `« ${titre} » ajouté.` : 'L’enregistrement a échoué.' };
+}
+
+export async function actionProgrammer(id: string): Promise<ResultatAction> {
+  if (!await exigerAdministrateur()) return { ok: false, message: 'Accès refusé.' };
+  const r = await programmerContenu(id, baseSite());
+  revalidatePath('/admin/contenus');
+  return r;
+}
+
+export async function actionRetirerContenu(id: string, motif?: string): Promise<ResultatAction> {
+  if (!await exigerAdministrateur()) return { ok: false, message: 'Accès refusé.' };
+  const r = await rejeterContenu(id, motif);
+  revalidatePath('/admin/contenus');
+  return r;
+}
+
+export async function actionAutoValider(actif: boolean): Promise<ResultatAction> {
+  if (!await exigerAdministrateur()) return { ok: false, message: 'Accès refusé.' };
+  const ok = await ecrireAutoValider(actif);
+  revalidatePath('/admin/contenus');
+  return {
+    ok,
+    message: !ok ? 'L’enregistrement a échoué.'
+      : actif ? 'Auto-validation activée : les prochaines publications partiront sans passer par toi.'
+        : 'Auto-validation désactivée : chaque publication attend ta validation.',
+  };
+}
+
+export async function actionPreparerPosts(): Promise<ResultatAction> {
+  if (!await exigerAdministrateur()) return { ok: false, message: 'Accès refusé.' };
+  const r = await genererPostsSemaine(new Date(), baseSite());
+  revalidatePath('/admin/contenus');
+  return { ok: r.produitsAvecLien > 0, message: r.message };
 }

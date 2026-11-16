@@ -89,13 +89,22 @@ export async function enregistrerImport(
     }
   } else if (resultat.type === 'catalogue') {
     // Une fiche reflète l'état en ligne : la plus récente remplace l'ancienne.
-    const lot = dedoublonner(resultat.catalogue, (c) => `${c.plateforme}|${c.reference}`).map((c) => ({
+    const fiches = dedoublonner(resultat.catalogue, (c) => `${c.plateforme}|${c.reference}`);
+    // Le lien et l'image ne sont jamais dans le même lot que le reste : une
+    // colonne absente d'un upsert groupé y vaut null, et réimporter un export
+    // sans lien effacerait celui saisi à la main dans /admin/boutique.
+    const lot = fiches.map((c) => ({
       plateforme: c.plateforme, reference: c.reference, titre: c.titre, prix_centimes: c.prixCentimes,
       devise: c.devise, tags: c.tags, description: c.description, updated_at: new Date().toISOString(),
     }));
     const { data, error } = await service.from('boutique_produits')
       .upsert(lot, { onConflict: 'plateforme,reference' }).select('id');
     if (error) echec = error.message; else ajoutees = data?.length ?? 0;
+    for (const c of fiches.filter((x) => x.url || x.imageUrl)) {
+      await service.from('boutique_produits').update({
+        ...(c.url ? { url: c.url } : {}), ...(c.imageUrl ? { image_url: c.imageUrl } : {}),
+      }).eq('plateforme', c.plateforme).eq('reference', c.reference);
+    }
   } else {
     const lot = dedoublonner(resultat.vues, (v) => `${v.plateforme}|${v.produitRef}|${v.releveLe}`).map((v) => ({
       plateforme: v.plateforme, produit_ref: v.produitRef, titre: v.titre, vues: v.vues, releve_le: v.releveLe,

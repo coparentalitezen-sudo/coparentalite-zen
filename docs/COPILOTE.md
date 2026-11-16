@@ -66,6 +66,43 @@ vers les fiches et les vues.
 
 ---
 
+## Publications produits (Instagram, Facebook, Pinterest)
+
+Chaque lundi, le copilote prépare **deux publications** (mardi et vendredi),
+chacune sur une de tes fiches qui a un lien. Les fiches tournent d'une semaine
+à l'autre, l'angle aussi (le problème, pour qui, ce que c'est).
+
+1. **Donne un lien à tes fiches** : `/admin/boutique` → « Tes fiches et leurs
+   liens ». Copie l'adresse de la fiche depuis la barre d'adresse d'Etsy. Pas
+   d'export ? « Ajouter une fiche à la main » (nom + lien) suffit.
+2. **Valide** dans `/admin/contenus` (onglet « Posts produits ») : visuel,
+   légende Instagram, légende Facebook et épingle Pinterest sont affichés.
+   « Préparer les publications de cette semaine » les crée tout de suite,
+   sans attendre lundi.
+3. Une publication validée entre dans la **réserve** : la tâche quotidienne la
+   publie sur Instagram et Facebook à sa date, et elle entre dans le flux
+   Pinterest. Tant qu'elle n'est partie nulle part, « Annuler » la retire.
+
+Ce qu'il faut savoir :
+
+- Instagram n'a pas de lien cliquable dans les légendes : la légende invite à
+  chercher ta boutique sur Etsy. Facebook et Pinterest ont un lien suivi
+  (`/e/…`) qui compte les clics puis renvoie vers la fiche — sans aucune
+  donnée personnelle. Les clics apparaissent sur chaque carte et dans le rapport.
+- Les publications passent **par les mêmes interrupteurs** que le reste : si
+  Instagram ou Facebook est en mode validation ou hors service dans `/admin`,
+  la réserve ne publie pas sur ce canal.
+- Une publication de la réserve **remplace** ce jour-là le visuel quotidien de
+  l'application. Deux par semaine, c'est donc deux jours sur sept.
+- Pendant la campagne de Noël, ton appel « planning de Noël » est ajouté
+  automatiquement à toutes les publications, celles-ci comprises.
+- **Auto-validation** : à n'activer qu'après avoir relu les premières. Une fois
+  activée, les publications de chaque lundi partent sans passer par toi.
+- Nom de boutique cité dans les légendes : `ParentZenFrance` par défaut,
+  modifiable par la variable Vercel `COPILOTE_BOUTIQUE`.
+
+---
+
 ## Où trouver chaque export
 
 | Boutique | Chemin | Contenu |
@@ -142,6 +179,7 @@ juridique, ou un propos hostile envers l'autre parent.
 | `CRON_SECRET` | déjà en place | Protège la tâche du lundi |
 | `RESEND_API_KEY` | déjà en place | Envoi du courriel |
 | `COPILOTE_EMAIL` | non | Envoyer le rapport à une autre adresse que le premier administrateur |
+| `COPILOTE_BOUTIQUE` | non | Nom de la boutique Etsy cité dans les légendes (défaut : ParentZenFrance) |
 
 Aucune clé d'API payante n'est nécessaire pour cette version.
 

@@ -25,6 +25,7 @@ export async function GET(requete: Request) {
   const resultat = await executerHebdo({
     courriel: 'si_pas_encore',
     lienAdmin: new URL('/admin/propositions', base).toString(),
+    base,
   });
   return NextResponse.json(resultat, { status: resultat.ok ? 200 : 503 });
 }

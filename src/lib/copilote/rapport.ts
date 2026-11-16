@@ -41,6 +41,8 @@ export interface Rapport {
   contenus: ContenuPerformant[];
   actions: string[];
   propositions: { idees: number; ameliorations: number };
+  /** Publications produits : fiches diffusables et clics de la semaine vers elles. */
+  boutique?: { produitsAvecLien: number; totalClics: number; clics: { produit: string; clics: number }[] };
 }
 
 export function construireRapport(entree: {
@@ -51,6 +53,7 @@ export function construireRapport(entree: {
   /** Date du dernier import par plateforme (AAAA-MM-JJ). */
   derniersImports: Partial<Record<string, string>>;
   aujourdhui: string;
+  boutique?: { produitsAvecLien: number; clics: { produit: string; clics: number }[] };
 }): Rapport {
   const { analyse: a, propositions: p, aujourdhui } = entree;
   const devise = a.devise;
@@ -65,6 +68,12 @@ export function construireRapport(entree: {
   }
   for (const f of a.produits.filter((x) => x.statut === 'en_hausse')) {
     reussites.push(`« ${f.titre} » en hausse : ${f.motif}`);
+  }
+  const totalClics = entree.boutique?.clics.reduce((s, c) => s + c.clics, 0) ?? 0;
+  if (totalClics > 0) {
+    const meilleur = entree.boutique!.clics[0];
+    reussites.push(`${totalClics} clic${totalClics > 1 ? 's' : ''} vers tes fiches depuis tes publications `
+      + `(le plus cliqué : « ${meilleur.produit} », ${meilleur.clics}).`);
   }
   const top = entree.contenus[0];
   if (top) {
@@ -104,6 +113,9 @@ export function construireRapport(entree: {
   const vuesConnues = a.produits.some((f) => f.vues !== null);
   if (a.totalVentes === 0 && !fichesConnues) {
     actions.push('Importer l’export « Fiches actives » d’Etsy dans /admin/boutique : sans vente, c’est la base du diagnostic.');
+  }
+  if (entree.boutique && entree.boutique.produitsAvecLien === 0) {
+    actions.push('Ajouter le lien Etsy de tes fiches dans /admin/boutique : c’est ce qui lance les publications produits sur Instagram, Facebook et Pinterest.');
   }
   if (a.totalVentes === 0 && !vuesConnues) {
     actions.push('Recopier les vues des 30 derniers jours de chaque fiche (Statistiques Etsy) : elles disent si le problème est d’être vu ou d’être acheté.');
@@ -150,6 +162,13 @@ export function construireRapport(entree: {
     contenus: entree.contenus.slice(0, 3),
     actions: actions.slice(0, 3),
     propositions: { idees: p.idees.length, ameliorations: p.ameliorations.length },
+    ...(entree.boutique ? {
+      boutique: {
+        produitsAvecLien: entree.boutique.produitsAvecLien,
+        totalClics,
+        clics: entree.boutique.clics.slice(0, 5).map((c) => ({ produit: c.produit, clics: c.clics })),
+      },
+    } : {}),
   };
 }
 
@@ -170,6 +189,7 @@ export function rapportTexte(r: Rapport): string {
     `• Commandes : ${c.commandes} · panier moyen : ${c.panierMoyen}`,
     ...c.parPlateforme.map((x) => `• ${x.plateforme} : ${ventes(x.unites)}, ${x.ca}`),
     ...(c.autresDevises.length ? [`• Ventes aussi en ${c.autresDevises.join(', ')}, non additionnées.`] : []),
+    ...(r.boutique ? [`• Clics vers tes fiches depuis tes publications : ${r.boutique.totalClics}`] : []),
     '',
     'CE QUI A MARCHÉ',
     ...r.reussites.map((x) => `• ${x}`),

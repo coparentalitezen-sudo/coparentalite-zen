@@ -31,6 +31,8 @@ export interface ContenuReserve {
   theme: string;
   image_url: string;
   legende: string;
+  /** Propre à Facebook, où un lien est cliquable (migration 00066). Absente : la légende commune. */
+  legende_facebook?: string | null;
   texte_alternatif: string;
   statut_instagram: EtatPlateforme;
   statut_facebook: EtatPlateforme;
@@ -180,7 +182,8 @@ export async function publierReserve(
           config, contenu.image_url, contenu.legende, contenu.texte_alternatif, requete)
       // Facebook n'accepte pas de texte alternatif sur cette route : il reste
       // porté par Instagram, où il sert réellement aux lecteurs d'écran.
-      : await publierFacebook(config, contenu.image_url, contenu.legende, requete);
+      : await publierFacebook(
+          config, contenu.image_url, contenu.legende_facebook || contenu.legende, requete);
 
     if (!resultat.ok) {
       const motif = expurger(resultat.erreur ?? 'Échec sans message.', config.jeton);
