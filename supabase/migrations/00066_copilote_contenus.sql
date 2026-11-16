@@ -7,6 +7,7 @@
 -- dans le flux Pinterest. Rien n'entre dans la réserve sans validation (ou
 -- sans l'auto-validation activée à la main) : la réserve, elle, publie tout
 -- ce qu'on y dépose.
+-- APPLIQUÉE EN PRODUCTION le 16/11/2026.
 
 -- ---------- Fiches : adresse publique et image ----------
 alter table public.boutique_produits
