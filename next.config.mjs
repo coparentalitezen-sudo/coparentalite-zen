@@ -19,6 +19,12 @@ const csp = [
 /** @type {import('next').NextConfig} */
 export default {
   reactStrictMode: true,
+  // Les exports CSV des boutiques passent par une action serveur, plafonnée
+  // à 1 Mo par défaut : un an de ventes Etsy le dépasse. 5 Mo laisse la marge
+  // du contrôle à 4 Mo fait dans l'action elle-même (copilote-actions.ts).
+  experimental: {
+    serverActions: { bodySizeLimit: '5mb' },
+  },
   // ffmpeg est un exécutable, pas du code : le traceur de Next ne le voit
   // pas et ne l'embarquerait pas. On le déclare explicitement, et seulement
   // pour les fonctions qui publient — l'ajouter partout alourdirait chaque

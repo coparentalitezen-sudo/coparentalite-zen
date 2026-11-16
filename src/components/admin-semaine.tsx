@@ -424,6 +424,9 @@ export function AdminSemaine({
             <Link href="/admin/mesures" className="text-sm font-bold text-navy-text underline">
               Résultats →
             </Link>
+            <Link href="/admin/rapport" className="text-sm font-bold text-navy-text underline">
+              Copilote →
+            </Link>
           </span>
         </div>
         <h1 className="font-display text-2xl font-semibold">Publications · {semaine}</h1>

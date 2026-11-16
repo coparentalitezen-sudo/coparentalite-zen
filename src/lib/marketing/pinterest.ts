@@ -207,22 +207,35 @@ export function elementsDuContenu(contenu: Contenu, base: string): ElementFlux[]
   });
 }
 
-/** Flux RSS 2.0 accepté par l'import automatique de Pinterest. */
-export function creerFluxPinterest(contenus: Contenu[], base: string): string {
-  const items = contenus.flatMap((contenu) => {
-    const semaine = dateDepuisReference(contenu.reference) ?? new Date();
-    const date = datePublication(contenu, semaine).toUTCString();
-    return elementsDuContenu(contenu, base).map((element) =>
-      `    <item>\n`
-      + `      <title>${echapperXml(element.titre)}</title>\n`
-      + `      <link>${echapperXml(element.lien)}</link>\n`
-      + `      <guid isPermaLink="false">${echapperXml(element.guid)}</guid>\n`
-      + `      <description>${echapperXml(element.description)}</description>\n`
-      + `      <pubDate>${date}</pubDate>\n`
-      + `      <media:content url="${echapperXml(element.image)}" medium="image" type="image/jpeg" />\n`
-      + `      <enclosure url="${echapperXml(element.image)}" type="image/jpeg" />\n`
-      + `    </item>`);
-  }).join('\n');
+function itemFlux(element: ElementFlux, date: string): string {
+  return `    <item>\n`
+    + `      <title>${echapperXml(element.titre)}</title>\n`
+    + `      <link>${echapperXml(element.lien)}</link>\n`
+    + `      <guid isPermaLink="false">${echapperXml(element.guid)}</guid>\n`
+    + `      <description>${echapperXml(element.description)}</description>\n`
+    + `      <pubDate>${date}</pubDate>\n`
+    + `      <media:content url="${echapperXml(element.image)}" medium="image" type="image/jpeg" />\n`
+    + `      <enclosure url="${echapperXml(element.image)}" type="image/jpeg" />\n`
+    + `    </item>`;
+}
+
+/**
+ * Flux RSS 2.0 accepté par l'import automatique de Pinterest.
+ *
+ * `supplementaires` porte des épingles qui ne viennent pas du générateur —
+ * les publications produits du copilote, déjà validées — avec leur date.
+ */
+export function creerFluxPinterest(
+  contenus: Contenu[], base: string, supplementaires: (ElementFlux & { date: Date })[] = [],
+): string {
+  const items = [
+    ...contenus.flatMap((contenu) => {
+      const semaine = dateDepuisReference(contenu.reference) ?? new Date();
+      const date = datePublication(contenu, semaine).toUTCString();
+      return elementsDuContenu(contenu, base).map((element) => itemFlux(element, date));
+    }),
+    ...supplementaires.map((e) => itemFlux(e, e.date.toUTCString())),
+  ].join('\n');
 
   return `<?xml version="1.0" encoding="UTF-8"?>\n`
     + `<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/">\n`

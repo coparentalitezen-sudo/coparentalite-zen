@@ -36,6 +36,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.9,
     },
     {
+      url: new URL('/boutique', BASE).toString(),
+      lastModified: maintenant,
+      changeFrequency: 'weekly',
+      priority: 0.6,
+    },
+    {
       url: new URL('/quiz', BASE).toString(),
       lastModified: maintenant,
       changeFrequency: 'monthly',
