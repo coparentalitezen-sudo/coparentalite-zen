@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
-  genererContenusProduits, lienSuivi, nomCourt, referenceContenu, type ProduitDiffusable,
+  genererContenusProduits, lienSuivi, nomCourt, referenceContenu, adressePageBoutique,
+  type ProduitDiffusable,
 } from '../src/lib/copilote/contenus-produits';
 import { verifierObjet } from '../src/lib/copilote/garde-fous';
 import { creerFluxPinterest } from '../src/lib/marketing/pinterest';
@@ -9,7 +10,7 @@ import { importerCsv } from '../src/lib/copilote/import';
 
 const BASE = 'https://www.exemple.fr';
 const produit = (id: string, titre: string, o: Partial<ProduitDiffusable> = {}): ProduitDiffusable => ({
-  id, titre, url: `https://www.etsy.com/fr/listing/${id}/x`, tags: [], description: '', ...o,
+  id, plateforme: 'payhip', titre, url: `https://payhip.com/b/${id}`, tags: [], description: '', ...o,
 });
 const PRODUITS = [
   produit('1', 'Budget familial mensuel | Google Sheets & Excel'),
@@ -17,7 +18,7 @@ const PRODUITS = [
   produit('3', 'Planning repas semaine'),
 ];
 const entree = (semaine: string, lundi: string, produits = PRODUITS) => ({
-  produits, semaine, lundi, base: BASE, boutique: 'ParentZenFrance',
+  produits, semaine, lundi, base: BASE,
 });
 
 describe('publications produits', () => {
@@ -48,12 +49,25 @@ describe('publications produits', () => {
     expect(referenceContenu('2026-S47', 2)).toBe('p-2026s47-2');
   });
 
-  it('Facebook porte le lien suivi ; Instagram, où il ne serait pas cliquable, le nom de la boutique', () => {
+  it('Facebook porte le lien suivi ; Instagram, où il ne serait pas cliquable, l’adresse à taper', () => {
     for (const c of contenus) {
       expect(c.legendeFacebook).toContain(lienSuivi(BASE, c.reference, 'facebook'));
+      expect(c.legendeFacebook).toMatch(/sur Payhip :/);
       expect(c.legendeInstagram).not.toMatch(/https?:\/\//);
-      expect(c.legendeInstagram).toMatch(/cherche « ParentZenFrance »/);
+      expect(c.legendeInstagram).toContain('exemple.fr/boutique');
     }
+  });
+
+  it('ne parle d’Etsy que pour une fiche Etsy', () => {
+    expect(JSON.stringify(contenus)).not.toMatch(/etsy/i);
+    const etsy = genererContenusProduits(entree('2026-S47', '2026-11-16',
+      [produit('e', 'Budget familial', { plateforme: 'etsy', url: 'https://www.etsy.com/listing/1' })]));
+    expect(etsy.contenus[0].legendeFacebook).toMatch(/sur Etsy :/);
+    expect(etsy.contenus[0].legendeInstagram).toContain('#etsyfrance');
+  });
+
+  it('adresse de la page boutique sans protocole ni www', () => {
+    expect(adressePageBoutique('https://www.coparentalitezen.fr')).toBe('coparentalitezen.fr/boutique');
   });
 
   it('ne recopie jamais un prix et ne cite que les formats annoncés par la fiche', () => {

@@ -73,8 +73,9 @@ chacune sur une de tes fiches qui a un lien. Les fiches tournent d'une semaine
 à l'autre, l'angle aussi (le problème, pour qui, ce que c'est).
 
 1. **Donne un lien à tes fiches** : `/admin/boutique` → « Tes fiches et leurs
-   liens ». Copie l'adresse de la fiche depuis la barre d'adresse d'Etsy. Pas
-   d'export ? « Ajouter une fiche à la main » (nom + lien) suffit.
+   liens ». Copie l'adresse de la fiche (Payhip, Etsy ou Gumroad) depuis la
+   barre d'adresse. Pas d'export ? « Ajouter une fiche à la main » (nom + lien)
+   suffit.
 2. **Valide** dans `/admin/contenus` (onglet « Posts produits ») : visuel,
    légende Instagram, légende Facebook et épingle Pinterest sont affichés.
    « Préparer les publications de cette semaine » les crée tout de suite,
@@ -85,8 +86,10 @@ chacune sur une de tes fiches qui a un lien. Les fiches tournent d'une semaine
 
 Ce qu'il faut savoir :
 
-- Instagram n'a pas de lien cliquable dans les légendes : la légende invite à
-  chercher ta boutique sur Etsy. Facebook et Pinterest ont un lien suivi
+- Instagram n'a pas de lien cliquable dans les légendes, et Payhip n'a pas de
+  recherche où te trouver : la légende donne l'adresse courte de ta page
+  **`coparentalitezen.fr/boutique`**, qui liste toutes les fiches ayant un lien
+  (tu peux aussi la mettre dans ta bio). Facebook et Pinterest ont un lien suivi
   (`/e/…`) qui compte les clics puis renvoie vers la fiche — sans aucune
   donnée personnelle. Les clics apparaissent sur chaque carte et dans le rapport.
 - Les publications passent **par les mêmes interrupteurs** que le reste : si
@@ -98,8 +101,9 @@ Ce qu'il faut savoir :
   automatiquement à toutes les publications, celles-ci comprises.
 - **Auto-validation** : à n'activer qu'après avoir relu les premières. Une fois
   activée, les publications de chaque lundi partent sans passer par toi.
-- Nom de boutique cité dans les légendes : `ParentZenFrance` par défaut,
-  modifiable par la variable Vercel `COPILOTE_BOUTIQUE`.
+- Les légendes nomment la plateforme de chaque fiche (« sur Payhip »,
+  « sur Etsy »). Le nom affiché en haut des visuels (« Boutique
+  ParentZenFrance ») se change par la variable Vercel `COPILOTE_BOUTIQUE`.
 
 ---
 
@@ -179,7 +183,7 @@ juridique, ou un propos hostile envers l'autre parent.
 | `CRON_SECRET` | déjà en place | Protège la tâche du lundi |
 | `RESEND_API_KEY` | déjà en place | Envoi du courriel |
 | `COPILOTE_EMAIL` | non | Envoyer le rapport à une autre adresse que le premier administrateur |
-| `COPILOTE_BOUTIQUE` | non | Nom de la boutique Etsy cité dans les légendes (défaut : ParentZenFrance) |
+| `COPILOTE_BOUTIQUE` | non | Nom affiché en haut des visuels produits (défaut : ParentZenFrance) |
 
 Aucune clé d'API payante n'est nécessaire pour cette version.
 

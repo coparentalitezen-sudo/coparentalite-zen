@@ -25,7 +25,7 @@ function LigneFiche({ fiche }: { fiche: Fiche }) {
         {fiche.url ? <span className="text-ok"> · lien ✓</span> : <span className="text-wait"> · sans lien</span>}
       </p>
       <div className="flex gap-2">
-        <input type="url" inputMode="url" placeholder="https://www.etsy.com/fr/listing/…" value={url}
+        <input type="url" inputMode="url" placeholder="https://payhip.com/b/…" value={url}
           aria-label={`Lien de ${fiche.titre}`}
           onChange={(e) => { setUrl(e.target.value); setResultat(null); }} />
         <button type="button" className="btn btn-ghost shrink-0" disabled={enCours || !modifie}
@@ -57,7 +57,8 @@ export function FichesLiens({ produits }: { produits: Fiche[] }) {
         <p className="text-sm text-soft">
           {avecLien} fiche{avecLien > 1 ? 's' : ''} sur {produits.length} avec un lien. Seules les fiches qui ont
           un lien sont mises en avant sur Instagram, Facebook et Pinterest. Le lien se copie depuis la barre
-          d’adresse, sur la page publique de la fiche.
+          d’adresse, sur la page publique de la fiche (Payhip, Etsy…). Les fiches avec un lien apparaissent
+          aussi sur ta page publique <a href="/boutique" className="font-bold underline">/boutique</a>.
         </p>
       </div>
 
@@ -72,12 +73,12 @@ export function FichesLiens({ produits }: { produits: Fiche[] }) {
           if (r.ok) formulaire.current?.reset();
         })}>
         <p className="text-sm font-bold">Ajouter une fiche à la main</p>
-        <input name="titre" placeholder="Nom du produit (comme sur Etsy)" required maxLength={200} />
-        <input name="url" type="url" inputMode="url" placeholder="https://www.etsy.com/fr/listing/…" required />
+        <input name="titre" placeholder="Nom du produit (comme sur ta boutique)" required maxLength={200} />
+        <input name="url" type="url" inputMode="url" placeholder="https://payhip.com/b/…" required />
         <div className="flex gap-2">
-          <select name="plateforme" defaultValue="etsy" aria-label="Plateforme">
-            <option value="etsy">Etsy</option>
+          <select name="plateforme" defaultValue="payhip" aria-label="Plateforme">
             <option value="payhip">Payhip</option>
+            <option value="etsy">Etsy</option>
             <option value="gumroad">Gumroad</option>
           </select>
           <button type="submit" className="btn btn-primary shrink-0" disabled={enCours}>Ajouter</button>

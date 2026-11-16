@@ -2,7 +2,7 @@ import 'server-only';
 import { genererContenusProduits } from './contenus-produits';
 import {
   lireProduitsDiffusables, enregistrerContenusProduits, lireAutoValider,
-  lireContenuParReference, programmerContenu, NOM_BOUTIQUE,
+  lireContenuParReference, programmerContenu,
 } from './depot-contenus';
 import { ajouterJours, cleSemaine, jourIso } from './dates';
 
@@ -37,12 +37,12 @@ export async function genererPostsSemaine(maintenant: Date, base: string): Promi
     semaine, produitsAvecLien: produits.length, ajoutes: 0, programmes: 0, ecartes: 0, message: '',
   };
   if (produits.length === 0) {
-    resultat.message = 'Aucune fiche n’a de lien : ajoute le lien Etsy de tes fiches dans /admin/boutique.';
+    resultat.message = 'Aucune fiche n’a de lien : ajoute le lien de tes fiches (Payhip, Etsy…) dans /admin/boutique.';
     return resultat;
   }
 
   const { contenus, ecartes } = genererContenusProduits({
-    produits, semaine, lundi, base, boutique: NOM_BOUTIQUE(),
+    produits, semaine, lundi, base,
   });
   resultat.ecartes = ecartes.length;
   if (ecartes.length) console.warn('[copilote] publications écartées par les garde-fous', ecartes);

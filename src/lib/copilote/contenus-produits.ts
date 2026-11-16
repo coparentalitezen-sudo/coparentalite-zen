@@ -18,9 +18,11 @@ import { normaliser } from './csv';
 import { themeDe, formatsDe, type Theme } from './propositions';
 import { verifierObjet, type Probleme } from './garde-fous';
 import { ajouterJours } from './dates';
+import { NOMS_PLATEFORMES, type PlateformeBoutique } from './types';
 
 export interface ProduitDiffusable {
   id: string;
+  plateforme: PlateformeBoutique;
   titre: string;
   url: string;
   tags: string[];
@@ -97,6 +99,16 @@ export function lienSuivi(base: string, reference: string, source: SourceLien): 
   return url.toString();
 }
 
+/**
+ * Adresse de la page boutique, telle qu'on peut la taper : sans « https:// »
+ * ni « www. ». Sur Instagram, aucun lien n'est cliquable dans une légende, et
+ * Payhip n'a pas de moteur de recherche où l'on trouverait la boutique : une
+ * adresse courte à taper est le seul chemin honnête vers les produits.
+ */
+export function adressePageBoutique(base: string): string {
+  return `${new URL(base).host.replace(/^www\./, '')}/boutique`;
+}
+
 /** Référence d'une publication : « p-2026s47-1 ». */
 export function referenceContenu(semaine: string, rang: number): string {
   return `p-${semaine.toLowerCase().replace('-', '')}-${rang}`;
@@ -139,8 +151,6 @@ export interface EntreeGeneration {
   /** Lundi de la semaine (AAAA-MM-JJ). */
   lundi: string;
   base: string;
-  /** Nom de la boutique, cité dans la légende Instagram où le lien n'est pas cliquable. */
-  boutique: string;
 }
 
 export interface Generation {
@@ -169,29 +179,32 @@ export function genererContenusProduits(e: EntreeGeneration): Generation {
     const formats = formatsDe(texte);
     const nom = nomCourt(produit.titre);
     const reference = referenceContenu(e.semaine, i + 1);
+    const plateforme = NOMS_PLATEFORMES[produit.plateforme];
+    const page = adressePageBoutique(e.base);
 
     const accroches = ACCROCHES[cleTheme];
     const accroche = angle === 'apercu' ? nom : accroches[(n + i) % accroches.length];
     const texteCorps = corps(angle, theme, formats);
-    const motsDiese = [...MOTS_DIESE[cleTheme], '#etsyfrance'].slice(0, 5).join(' ');
+    const motsDiese = [...MOTS_DIESE[cleTheme], ...(produit.plateforme === 'etsy' ? ['#etsyfrance'] : [])]
+      .slice(0, 5).join(' ');
 
     const contenu: ContenuProduit = {
       reference,
       produitId: produit.id,
       angle,
       accroche,
-      appelVisuel: angle === 'apercu' ? `Sur Etsy : ${e.boutique}` : nom,
+      appelVisuel: angle === 'apercu' ? page : nom,
       legendeInstagram:
         `${accroche}\n\n${texteCorps}\n\n`
-        + `« ${nom} » est sur Etsy : cherche « ${e.boutique} » dans l’application Etsy.`
+        + `« ${nom} » et tous mes modèles : ${page}`
         + `\n\n${motsDiese}`,
       legendeFacebook:
         `${accroche}\n\n${texteCorps}\n\n`
-        + `👉 « ${nom} » sur Etsy : ${lienSuivi(e.base, reference, 'facebook')}`
+        + `👉 « ${nom} » sur ${plateforme} : ${lienSuivi(e.base, reference, 'facebook')}`
         + `\n\n${motsDiese}`,
       texteAlternatif:
         `Visuel sobre, texte blanc sur fond bleu marine : « ${accroche} ». `
-        + `En dessous, en corail : « ${angle === 'apercu' ? `Sur Etsy : ${e.boutique}` : nom} ».`,
+        + `En dessous, en corail : « ${angle === 'apercu' ? page : nom} ».`,
       titrePinterest: couper(nom, 100),
       descriptionPinterest: couper(`${accroche} ${texteCorps.replace(/\n+/g, ' ')}`, 480),
       datePublication: ajouterJours(e.lundi, DECALAGES_PUBLICATION[i]),

@@ -99,10 +99,28 @@ export async function lireProduitsDiffusables(): Promise<ProduitDiffusable[]> {
   const service = supabaseService();
   if (!service) return [];
   const { data } = await service.from('boutique_produits')
-    .select('id, titre, url, tags, description').not('url', 'is', null).limit(500);
+    .select('id, plateforme, titre, url, tags, description').not('url', 'is', null).limit(500);
   return (data ?? []).map((d) => ({
-    id: d.id, titre: d.titre, url: d.url, tags: d.tags ?? [], description: d.description ?? '',
+    id: d.id, plateforme: d.plateforme, titre: d.titre, url: d.url,
+    tags: d.tags ?? [], description: d.description ?? '',
   }));
+}
+
+/** Fiches montrées sur la page publique /boutique : seulement celles qui ont un lien. */
+export async function lireVitrine(): Promise<{ id: string; titre: string; plateforme: PlateformeBoutique; imageUrl: string | null }[]> {
+  const service = supabaseService();
+  if (!service) return [];
+  const { data } = await service.from('boutique_produits')
+    .select('id, titre, plateforme, image_url').not('url', 'is', null).order('titre').limit(100);
+  return (data ?? []).map((d) => ({ id: d.id, titre: d.titre, plateforme: d.plateforme, imageUrl: d.image_url }));
+}
+
+/** Lien d'une fiche, pour la redirection depuis la page boutique. */
+export async function lireLienFiche(id: string): Promise<string | null> {
+  const service = supabaseService();
+  if (!service || !/^[0-9a-f-]{36}$/.test(id)) return null;
+  const { data } = await service.from('boutique_produits').select('url').eq('id', id).maybeSingle();
+  return data?.url ?? null;
 }
 
 export function lienValide(url: string): boolean {
@@ -312,6 +330,12 @@ export async function clicsBoutique(depuis: string): Promise<ClicsProduit[]> {
     const p = c.boutique_produits as unknown as { titre?: string } | { titre?: string }[] | null;
     return [c.reference, (Array.isArray(p) ? p[0]?.titre : p?.titre) ?? c.reference];
   }));
+  // Clics venus de la page /boutique : le contenu est « fiche-<identifiant> ».
+  const fiches = [...parRef.keys()].filter((r) => r.startsWith('fiche-')).map((r) => r.slice(6));
+  if (fiches.length) {
+    const { data: produits } = await service.from('boutique_produits').select('id, titre').in('id', fiches);
+    for (const p of produits ?? []) titres.set(`fiche-${p.id}`, `${p.titre} (page boutique)`);
+  }
   return [...parRef.entries()].map(([reference, parSource]) => ({
     reference,
     produit: titres.get(reference) ?? reference,

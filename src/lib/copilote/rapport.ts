@@ -115,7 +115,7 @@ export function construireRapport(entree: {
     actions.push('Importer l’export « Fiches actives » d’Etsy dans /admin/boutique : sans vente, c’est la base du diagnostic.');
   }
   if (entree.boutique && entree.boutique.produitsAvecLien === 0) {
-    actions.push('Ajouter le lien Etsy de tes fiches dans /admin/boutique : c’est ce qui lance les publications produits sur Instagram, Facebook et Pinterest.');
+    actions.push('Ajouter le lien de tes fiches (Payhip, Etsy…) dans /admin/boutique : c’est ce qui lance les publications produits sur Instagram, Facebook et Pinterest.');
   }
   if (a.totalVentes === 0 && !vuesConnues) {
     actions.push('Recopier les vues des 30 derniers jours de chaque fiche (Statistiques Etsy) : elles disent si le problème est d’être vu ou d’être acheté.');
