@@ -12,6 +12,7 @@
 -- service. RLS activée sans politique, droits retirés à anon/authenticated,
 -- puis accordés EXPLICITEMENT à service_role — le « revoke all » seul a déjà
 -- emporté ses droits une fois (voir 00057).
+-- APPLIQUÉE EN PRODUCTION le 16/11/2026.
 
 -- ---------- Imports : la trace de chaque fichier déposé ----------
 create table if not exists public.boutique_imports (
