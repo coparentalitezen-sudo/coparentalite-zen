@@ -4,8 +4,8 @@ Procédure suivie chaque lundi par une tâche planifiée Claude Code (après le
 bilan marketing de 5 h 30). Elle utilise les skills Instagram du dépôt
 (`.claude/skills/ig-*`, adaptés au français) et la voix de marque
 (`.claude/instagram/voice.md`). Décision du fondateur : les changements partent
-**directement** sur `develop`, sans relecture, à condition que tous les
-contrôles passent.
+sans relecture, à condition que tous les contrôles passent (pull request en
+fusion automatique, voir l'étape 9).
 
 ## Principe
 
@@ -85,7 +85,10 @@ Les mesures réelles décident ; le skill propose et filtre.
    classement (5 meilleures, 5 moins bonnes), les accroches remplacées
    (avant → après, note, raison) et les accroches ajoutées aux prouvées.
 
-9. **Publier** : un commit (« Suivi accroches : semaine du JJ/MM/AAAA »),
-   puis `git push origin suivi-accroches:develop` (avance rapide uniquement ;
-   si `develop` a bougé, refaire depuis l'étape 1). Si rien n'est à changer,
-   seulement le journal.
+9. **Publier** : un commit (« Suivi accroches : semaine du JJ/MM/AAAA ») sur
+   une branche `suivi-accroches/AAAA-MM-JJ`, poussée, puis une pull request
+   vers `develop` avec le résumé du journal. Activer la **fusion automatique**
+   de la pull request : elle se fusionne seule quand la CI (« Contrôles ») est
+   verte, et reste ouverte sinon. Si la fusion automatique n'est pas
+   disponible, laisser la pull request ouverte et le signaler. Si rien n'est
+   à changer, seulement le journal.
