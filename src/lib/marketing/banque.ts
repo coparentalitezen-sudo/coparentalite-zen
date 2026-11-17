@@ -60,8 +60,8 @@ export const BANQUE: Sujet[] = [
     fonctionnalite: 'Le planning de garde',
     accroches: [
       'Tu comptes encore les semaines de tête ?',
-      'Chez qui sont les enfants jeudi prochain ?',
-      'Un rythme de garde ne se retient pas, il se lit.',
+      'Jeudi prochain, tu sais chez qui dorment les enfants ?',
+      'Arrête de retenir ton rythme de garde : écris-le une fois.',
     ],
     etapes: [
       'Écris le rythme une seule fois : type, date de début, parent qui commence.',
@@ -85,8 +85,8 @@ export const BANQUE: Sujet[] = [
     angle: 'Décider en novembre coûte moins cher que décider en février.',
     fonctionnalite: 'Les vacances scolaires officielles, importées automatiquement',
     accroches: [
-      'Les vacances de février se préparent en novembre.',
-      'Qui prend la première semaine ? La question revient chaque année.',
+      'Tes vacances de février se jouent dès novembre.',
+      'Tu sais déjà qui prend la première semaine de février ?',
       'Réserver avant d’avoir tranché, c’est réserver deux fois.',
     ],
     etapes: [
@@ -112,9 +112,9 @@ export const BANQUE: Sujet[] = [
     angle: 'Ce qui est écrit avant n’a pas à être discuté sur le trottoir.',
     fonctionnalite: 'Les rendez-vous et les affaires à préparer',
     accroches: [
-      'Les échanges tendus le sont rarement à cause des enfants.',
-      'Un sac préparé la veille évite la discussion sur le trottoir.',
-      'Un échange réussi est un échange sans surprise.',
+      'Ton échange du vendredi coince ? Rarement à cause des enfants.',
+      'Prépare le sac jeudi soir, pas sur le trottoir vendredi.',
+      'Même heure chaque vendredi : plus personne n’est surpris.',
     ],
     etapes: [
       'Fixe une heure et un lieu qui ne changent pas d’une semaine à l’autre.',
@@ -139,8 +139,8 @@ export const BANQUE: Sujet[] = [
     angle: 'Un compte tenu au fil de l’eau évite la discussion de fin d’année.',
     fonctionnalite: 'Le suivi des dépenses partagées',
     accroches: [
-      'Qui a payé les chaussures de sport ?',
-      'Les comptes se font mieux au fil de l’eau qu’en décembre.',
+      'Tu ne sais plus qui a payé les chaussures de sport ?',
+      'Ne refais plus tes comptes en décembre : note au fil de l’eau.',
       'Une dépense notée le jour même ne se discute plus.',
     ],
     etapes: [
@@ -166,9 +166,9 @@ export const BANQUE: Sujet[] = [
     angle: 'Ranger au moment où l’on paie coûte trente secondes ; ranger après, une soirée.',
     fonctionnalite: 'L’historique et les justificatifs',
     accroches: [
-      'Où est le justificatif du mois de mars ?',
+      'Le justificatif de mars : tu le retrouves en dix secondes ?',
       'Trente secondes au moment de payer, ou une soirée six mois plus tard.',
-      'Un historique tenu vaut mieux qu’une mémoire sûre d’elle.',
+      'Ne compte plus sur ta mémoire pour les versements de l’année.',
     ],
     etapes: [
       'Photographie le justificatif au moment du paiement, pas plus tard.',
@@ -192,7 +192,7 @@ export const BANQUE: Sujet[] = [
     angle: 'L’information scolaire ne devrait pas dépendre de qui relève la boîte aux lettres.',
     fonctionnalite: 'Les rendez-vous partagés',
     accroches: [
-      'Une réunion d’école oubliée n’est presque jamais un oubli volontaire.',
+      'Réunion d’école mardi : tu as prévenu l’autre parent ?',
       'Deux parents, une seule convocation : le problème est là.',
       'L’école prévient un parent. À toi de prévenir l’autre.',
     ],
@@ -220,7 +220,7 @@ export const BANQUE: Sujet[] = [
     angle: 'Trois lignes écrites valent mieux qu’un récit qu’on croit avoir fait.',
     fonctionnalite: 'Les rendez-vous et leurs notes',
     accroches: [
-      'Qui a le carnet de santé ?',
+      'Rendez-vous chez le médecin mardi : qui a le carnet de santé ?',
       'Le rendez-vous s’est bien passé. Encore faut-il le dire.',
       'Après le rendez-vous, trois lignes suffisent.',
     ],
@@ -247,8 +247,8 @@ export const BANQUE: Sujet[] = [
     angle: 'Un original chez l’un, une copie accessible aux deux.',
     fonctionnalite: 'Le rangement des documents',
     accroches: [
-      'La carte d’identité est chez qui, déjà ?',
-      'Un original suffit. Une copie accessible aussi.',
+      'Départ samedi, et tu ne sais pas où est la carte d’identité ?',
+      'Tu cherches encore le livret de famille ? Partage une copie.',
       'Le papier manquant se découvre toujours au mauvais moment.',
     ],
     etapes: [
@@ -274,8 +274,8 @@ export const BANQUE: Sujet[] = [
     angle: 'Ce qui est factuel se lit mieux quand ce n’est pas mélangé au reste.',
     fonctionnalite: 'Un espace commun dédié à l’organisation',
     accroches: [
-      'Un message d’organisation n’est pas une conversation.',
-      'Écrire moins, écrire précis : la tension baisse d’elle-même.',
+      'Arrête de tout mélanger : l’organisation n’est pas une conversation.',
+      'Écris moins, écris précis : la tension baisse toute seule.',
       'Un message clair évite les relances.',
     ],
     etapes: [
@@ -300,9 +300,9 @@ export const BANQUE: Sujet[] = [
     angle: 'Clarifier les rôles apaise davantage que d’en discuter longuement.',
     fonctionnalite: 'Les rôles au sein du foyer',
     accroches: [
-      'Qui va chercher les enfants mercredi ?',
-      'Un rôle clair vaut mieux qu’un rôle supposé.',
-      'Les nouveaux repères se posent, ils ne s’improvisent pas.',
+      'Mercredi à la sortie de l’école, tu sais qui récupère les enfants ?',
+      'Ne laisse pas deviner le rôle de chacun dans ta nouvelle famille.',
+      'Nouveau conjoint ? Préviens l’autre parent avant, pas après.',
     ],
     etapes: [
       'Dis qui peut aller chercher les enfants, et qui doit être prévenu.',
@@ -326,8 +326,8 @@ export const BANQUE: Sujet[] = [
     angle: 'Deux rythmes ne se retiennent pas ; ils se superposent sur un calendrier.',
     fonctionnalite: 'La vue d’ensemble du foyer',
     accroches: [
-      'Deux rythmes de garde dans la même maison, ça se planifie.',
-      'Le week-end où tout le monde est là se repère à l’avance.',
+      'Deux rythmes de garde sous ton toit ? Arrête de les calculer de tête.',
+      'Samedi, tous les enfants sont là ? Tu le sais un mois avant ?',
       'Superposer deux calendriers de tête, personne n’y arrive.',
     ],
     etapes: [
@@ -353,8 +353,8 @@ export const BANQUE: Sujet[] = [
     fonctionnalite: 'Les périodes et les rendez-vous planifiés',
     accroches: [
       'À trois cents kilomètres, un week-end se prépare un mois avant.',
-      'À distance, un week-end se prépare des semaines avant.',
-      'La distance ne se réduit pas, mais elle s’organise.',
+      'Loin de tes enfants ? Fixe tes week-ends trois mois avant.',
+      'Tu ne peux pas réduire la distance. Tu peux l’organiser.',
     ],
     etapes: [
       'Fixe les périodes plusieurs mois à l’avance, pas quelques semaines.',
@@ -378,9 +378,9 @@ export const BANQUE: Sujet[] = [
     angle: 'Une exception s’écrit comme une exception, pas en changeant la règle.',
     fonctionnalite: 'Les changements ponctuels',
     accroches: [
-      'Un week-end échangé ne doit pas décaler toute l’année.',
-      'L’exception s’écrit à part. La règle reste la règle.',
-      'Ce qui est convenu par message se perd. Ce qui est noté, non.',
+      'Un week-end échangé ne doit jamais décaler toute ton année.',
+      'Ne touche pas au rythme pour un seul samedi échangé.',
+      'Le samedi échangé par SMS ? Perdu dans le fil dès lundi.',
     ],
     etapes: [
       'Ne modifie jamais le rythme habituel pour un cas particulier.',
@@ -405,7 +405,7 @@ export const BANQUE: Sujet[] = [
     fonctionnalite: 'Les rendez-vous et la préparation partagée',
     accroches: [
       'Deux gâteaux, deux fois le même cadeau : ça s’évite.',
-      'L’anniversaire tombe un mercredi. Chez qui ?',
+      'Son anniversaire tombe mercredi. Tu sais déjà chez qui ?',
       'L’anniversaire se prépare à deux, et à l’avance.',
     ],
     etapes: [
@@ -430,9 +430,9 @@ export const BANQUE: Sujet[] = [
     angle: 'Deux souvenirs sincères peuvent se contredire. Un écrit, non.',
     fonctionnalite: 'L’historique des modifications',
     accroches: [
-      'Deux souvenirs sincères peuvent se contredire.',
-      '« On avait dit… » : la phrase qui n’a jamais rien réglé.',
-      'Ce qui est daté n’a pas à être défendu.',
+      'Ton souvenir contre le sien ? Sans écrit, personne n’a tort.',
+      'Arrête les « on avait dit » : écris l’accord le jour même.',
+      'Un accord daté, tu n’as plus jamais à le défendre.',
     ],
     etapes: [
       'Écris l’accord au moment où il est pris, pas le lendemain.',
@@ -467,7 +467,7 @@ export const NOEL: Sujet = {
   accroches: [
     'Noël chez qui ? Mieux vaut le savoir tôt.',
     'Le 24 ou le 25 ? Décide-le à l’avance.',
-    'Jour de l’An : chez qui sont les enfants ?',
+    'Le 31 décembre, tu sais déjà chez qui sont les enfants ?',
   ],
   etapes: [
     'Choisis une façon de partager : moitié, 24 et 25, ou une fête chacun.',

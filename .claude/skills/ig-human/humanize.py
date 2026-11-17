@@ -116,6 +116,17 @@ def pass_typographic(text, lex):
     return text, hits
 
 
+FR_STOP = {"le", "la", "les", "des", "du", "un", "une", "est", "et", "pour", "que",
+           "qui", "pas", "dans", "avec", "sur", "tu", "je", "ce", "ton", "ta", "au"}
+EN_STOP = {"the", "an", "is", "and", "for", "that", "who", "not", "in", "with",
+           "you", "i", "it", "this", "your", "to", "of", "my"}
+
+
+def is_french(text):
+    w = re.findall(r"[^\W\d_]+", text.lower())
+    return sum(x in FR_STOP for x in w) > sum(x in EN_STOP for x in w)
+
+
 def _match_case(src, repl):
     if not repl:
         return repl
@@ -131,6 +142,14 @@ def pass_lexical(text, lex):
     hits = []
     entries = sorted(lex["phrases"] + lex["words"],
                      key=lambda e: len(e["find"]), reverse=True)
+    # FR : sur un texte français, une entrée anglaise n'insère jamais de mot
+    # anglais. Elle utilise "replace_fr" si elle en a un, sinon elle est ignorée.
+    fr = is_french(text)
+    if fr:
+        entries = [dict(e, replace=e["replace_fr"]) if "replace_fr" in e else e
+                   for e in entries if e.get("lang") == "fr" or "replace_fr" in e]
+    else:
+        entries = [e for e in entries if e.get("lang") != "fr"]
     for entry in entries:
         find = entry["find"]
         pattern = re.compile(r"\b" + re.escape(find).replace(r"\ ", r"\s+") + r"\b",
@@ -148,7 +167,13 @@ def pass_lexical(text, lex):
     text = re.sub(r"(?m)^[ \t]*(?:[,.;:]+[ \t]*)+", "", text)
     text = re.sub(r"(?m)^[ \t](?=\S)", "", text)       # one space left by a deletion.
                                                       # Deeper indents are deliberate.
-    text = re.sub(r"\s+([,.;:!?])", r"\1", text)
+    # FR : on garde l'espace devant ; : ! ? (typographie française),
+    # on ne recolle que les virgules et les points.
+    if fr:
+        text = re.sub(r"\s+([,.])", r"\1", text)
+        text = re.sub(r"[ \t]{2,}([;:!?])", r" \1", text)
+    else:
+        text = re.sub(r"\s+([,.;:!?])", r"\1", text)
     text = re.sub(r",\s*([,.;:!?])", r"\1", text)      # an em dash became a comma,
                                                       # then the clause after it went
     text = text.replace("...", "\x00ELL\x00")          # protect real ellipses
@@ -196,10 +221,10 @@ def restore_capitals(original, text):
     a deliberately lower-case voice is a style, not an artefact, and shouting
     over it would be exactly the kind of thing this script exists to stop.
     """
-    starts = re.findall(r"(?:^|[.!?]\s+|\n)\s*([A-Za-z])", original)
+    starts = re.findall(r"(?:^|[.!?]\s+|\n)\s*([^\W\d_])", original)   # FR : É, À...
     if not starts or sum(1 for c in starts if c.isupper()) * 2 < len(starts):
         return text
-    return re.sub(r"(?:^|(?<=[.!?] )|(?<=[.!?]\n)|(?<=\n))\s*([a-z])",
+    return re.sub(r"(?:^|(?<=[.!?] )|(?<=[.!?]\n)|(?<=\n))\s*([a-zà-ÿ])",
                   lambda m: m.group(0)[:-1] + m.group(1).upper(), text)
 
 

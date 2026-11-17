@@ -35,12 +35,12 @@ HASHTAG_LIMIT = 5        # Instagram's cap per post or reel since 18 Dec 2025,
                          # rather than many generic ones, can improve both your
                          # content's performance and people's experience".
 
-HASHTAG_RE = re.compile(r"(?:^|\s)(#[A-Za-z0-9_]+)")
+HASHTAG_RE = re.compile(r"(?:^|\s)(#\w+)")              # FR : accents compris
 MENTION_RE = re.compile(r"(?:^|\s)(@[A-Za-z0-9_.]+)")
 LINK_RE = re.compile(r"https?://\S+|\bwww\.\S+|\b[a-z0-9-]+\.(?:com|co|io|net|org|ai|app)/\S*",
                      re.IGNORECASE)
 EMOJI_RE = re.compile(r"[\U0001F300-\U0001FAFF☀-➿←-⇿️]")
-CONCRETE_RE = re.compile(r"\$\s?\d|\b\d[\d,.]*\b|(?<!^)\b[A-Z][a-z]{2,}\b", re.MULTILINE)
+CONCRETE_RE = re.compile(r"\$\s?\d|\b\d[\d,.]*\b|(?<!^)\b[A-ZÀ-Ý][a-zà-ÿ]{2,}\b", re.MULTILINE)
 
 ASKS = [
     (re.compile(r"(?i)\bcomment (?:the word |\")?[A-Z0-9]{2,}\b"), "comment a keyword"),
@@ -51,6 +51,13 @@ ASKS = [
     (re.compile(r"(?i)\blink in (?:my )?bio\b"), "link in bio"),
     (re.compile(r"(?i)\b(?:swipe|tap) (?:through|left|right|for|to)\b"), "swipe or tap"),
     (re.compile(r"(?i)\btell me\b|\bwhat would you\b|\bwhich one\b"), "answer a question"),
+    # FR (@coparentalitezen)
+    (re.compile(r"(?:[ÉéEe]cri[st]?z?|[Cc]ommente[sz]?) [A-Z0-9]{2,}\b|\b[A-Z0-9]{2,} en commentaire\b"), "mot-clé en commentaire"),
+    (re.compile(r"(?i)\b(?:lien|link)\b[^.!?\n]{0,40}\b(?:dans|en) (?:la |ma )?bio\b"), "lien en bio"),
+    (re.compile(r"(?i)\b(?:enregistre|sauvegarde)[sz]? (?:ce|ça|cette|le)\b"), "enregistrer"),
+    (re.compile(r"(?i)\bpartage[sz]? (?:ce|ça|cette|le|à)\b"), "partager"),
+    (re.compile(r"(?i)\b(?:[ée]cris|envoie)[- ]moi\b|\ben (?:mp|dm|message priv[ée])\b"), "message privé"),
+    (re.compile(r"(?i)\bdis[- ]moi\b|\bet toi\b[^.!?\n]{0,40}\?|\blequel\b[^.!?\n]{0,40}\?"), "répondre à une question"),
 ]
 
 FILLER_TAGS = {"#viral", "#fyp", "#explore", "#explorepage", "#foryou", "#foryoupage",
