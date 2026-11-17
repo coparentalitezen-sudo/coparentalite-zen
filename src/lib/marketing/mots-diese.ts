@@ -14,7 +14,7 @@ export const LARGES = ['#maman', '#papa'] as const;
 
 /** L'étiquette de sujet, par micro-niche de la banque. */
 export const ETIQUETTE_SUJET: Record<string, string> = {
-  'garde-alternee': '#parentsolo',
+  'garde-alternee': '#parentssepares',
   'vacances-scolaires': '#vacancesscolaires',
   'echange-enfants': '#gardepartagee',
   'depenses-partagees': '#budgetfamilial',
@@ -30,7 +30,7 @@ export const ETIQUETTE_SUJET: Record<string, string> = {
   anniversaires: '#anniversaireenfant',
   'conflits-planning': '#organisationfamiliale',
   noel: '#noel',
-  marque: '#parentsolo',
+  marque: '#parentssepares',
 };
 
 /** Thèmes du visuel quotidien → micro-niche. */
@@ -41,7 +41,7 @@ export const NICHE_DU_THEME: Record<string, string> = {
 };
 
 export function motsDiesePour(niche: string): string[] {
-  return [...BASE, ETIQUETTE_SUJET[niche] ?? '#parentsolo', ...LARGES];
+  return [...BASE, ETIQUETTE_SUJET[niche] ?? '#parentssepares', ...LARGES];
 }
 
 const LIGNE_DIESES = /^(#[\p{L}\p{N}_]+)(\s+#[\p{L}\p{N}_]+)*$/u;

@@ -9,7 +9,7 @@ const LEGENDE_SITE = 'Le contrôle médical approche ?\n\nLe rendez-vous a sa pl
 describe('légende TikTok', () => {
   it('hors campagne : retire la bio, ajoute l’adresse du site, finit par les mots-dièse du sujet', () => {
     const l = legendeTiktok(LEGENDE_IG, 'garde-alternee', '2026-10-01');
-    expect(l).toBe(`Qui accueille les enfants dimanche ?\n\nPartage un même calendrier de garde.\n\n${APPEL_TIKTOK}\n\n#coparentalite #gardealternee #parentsolo #maman #papa`);
+    expect(l).toBe(`Qui accueille les enfants dimanche ?\n\nPartage un même calendrier de garde.\n\n${APPEL_TIKTOK}\n\n#coparentalite #gardealternee #parentssepares #maman #papa`);
     expect(l).not.toMatch(/bio/);
   });
 
@@ -30,7 +30,7 @@ describe('légende TikTok', () => {
   it('un titre seul (Short) suffit, une base vide donne au moins l’appel et les mots-dièse', () => {
     expect(legendeTiktok('Vacances : qui a les enfants ?', 'vacances-scolaires', '2026-10-01'))
       .toBe(`Vacances : qui a les enfants ?\n\n${APPEL_TIKTOK}\n\n#coparentalite #gardealternee #vacancesscolaires #maman #papa`);
-    expect(legendeTiktok('', 'inconnue', '2026-10-01')).toBe(`${APPEL_TIKTOK}\n\n#coparentalite #gardealternee #parentsolo #maman #papa`);
+    expect(legendeTiktok('', 'inconnue', '2026-10-01')).toBe(`${APPEL_TIKTOK}\n\n#coparentalite #gardealternee #parentssepares #maman #papa`);
   });
 
   it('reste sous la limite de TikTok', () => {
