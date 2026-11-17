@@ -2,7 +2,7 @@ import { ImageResponse } from 'next/og';
 import { genererSemaine, type Contenu } from '@/lib/marketing/generateur';
 import { dateDepuisReference } from '@/lib/marketing/pinterest';
 import {
-  planifierVisuel, plancheVisuel, COULEURS, type NomFormat, type Planche,
+  planifierVisuel, plancheVisuel, plancheStory, COULEURS, type NomFormat, type Planche,
 } from '@/lib/marketing/visuel';
 
 /**
@@ -71,6 +71,11 @@ export async function rendreVisuel(
   return rendrePlanche(plancheVisuel(contenu, page, format), format);
 }
 
+/** Story du contenu : accroche en couverture verticale, appel, marges de story. */
+export async function rendreStory(contenu: Contenu) {
+  return rendrePlanche(plancheStory(contenu), 'vertical');
+}
+
 /** Planche entière, fond seul, ou texte seul sur fond transparent. */
 export type Calque = 'complet' | 'fond' | 'texte';
 
@@ -97,7 +102,7 @@ export async function rendrePlanche(planche: Planche, format: NomFormat, calque:
           background: voirFond ? plan.fond : 'transparent',
           color: cache(voirFond, plan.couleurTexte),
           display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-          padding: '110px 90px', fontFamily: 'Inter',
+          padding: plan.marges, fontFamily: 'Inter',
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 34, opacity: 0.65 }}>

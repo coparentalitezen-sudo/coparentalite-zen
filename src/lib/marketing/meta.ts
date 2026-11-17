@@ -476,6 +476,61 @@ export async function publierFacebook(
 }
 
 /**
+ * Publie une story image sur Instagram (compte professionnel).
+ *
+ * Même circuit qu'une image : conteneur, attente de son traitement, puis
+ * publication. Une story n'a ni légende ni texte alternatif côté API : tout
+ * ce qui doit être lu est dans l'image (format vertical 1080 × 1920). Les
+ * autocollants (lien, sondage) ne sont pas disponibles par l'API.
+ */
+export async function publierStoryInstagram(
+  config: ConfigurationMeta,
+  urlImage: string,
+  requete?: Requete,
+): Promise<ResultatMeta<{ id: string }>> {
+  const conteneur = await appelGraph<{ id: string }>(
+    `/${config.igUserId}/media`, config,
+    { methode: 'POST', requete, corps: { image_url: urlImage, media_type: 'STORIES' } },
+  );
+  if (!conteneur.ok) return { ok: false, erreur: `Conteneur : ${conteneur.erreur}` };
+
+  const pret = await attendreConteneur(conteneur.donnees!.id, config, requete);
+  if (!pret.ok) return { ok: false, erreur: pret.erreur };
+
+  const publie = await appelGraph<{ id: string }>(
+    `/${config.igUserId}/media_publish`, config,
+    { methode: 'POST', requete, corps: { creation_id: conteneur.donnees!.id } },
+  );
+  if (!publie.ok) return { ok: false, erreur: `Publication : ${publie.erreur}` };
+  return { ok: true, donnees: publie.donnees };
+}
+
+/**
+ * Publie une story photo sur la page Facebook.
+ *
+ * La photo est d'abord déposée sans être publiée (sinon elle apparaîtrait
+ * aussi dans le fil), puis rattachée à une story de la page.
+ */
+export async function publierStoryFacebook(
+  config: ConfigurationMeta,
+  urlImage: string,
+  requete?: Requete,
+): Promise<ResultatMeta<{ post_id?: string; id?: string }>> {
+  const photo = await appelGraph<{ id: string }>(
+    `/${config.pageId}/photos`, config,
+    { methode: 'POST', requete, corps: { url: urlImage, published: 'false' } },
+  );
+  if (!photo.ok) return { ok: false, erreur: `Photo : ${photo.erreur}` };
+
+  const story = await appelGraph<{ post_id?: string; id?: string }>(
+    `/${config.pageId}/photo_stories`, config,
+    { methode: 'POST', requete, corps: { photo_id: photo.donnees!.id } },
+  );
+  if (!story.ok) return { ok: false, erreur: `Story : ${story.erreur}` };
+  return { ok: true, donnees: story.donnees };
+}
+
+/**
  * Statistiques d'une publication Instagram déjà publiée.
  *
  * « views » n'est pas servie pour tous les types de média selon l'âge et la

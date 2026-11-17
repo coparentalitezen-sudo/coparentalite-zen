@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { PNG } from 'pngjs';
 import jpeg from 'jpeg-js';
 import { verifierVisuel } from '@/lib/marketing/signature';
-import { contenuDeReference, rendreVisuel } from '@/lib/marketing/rendu';
+import { contenuDeReference, rendreVisuel, rendreStory } from '@/lib/marketing/rendu';
 
 /**
  * Visuel accessible sans session, pour que Meta puisse le récupérer.
@@ -31,10 +31,13 @@ export const maxDuration = 60;
 export async function GET(requete: Request) {
   const url = new URL(requete.url);
   const reference = url.searchParams.get('ref') ?? '';
-  const page = Number(url.searchParams.get('page') ?? '0');
+  const story = url.searchParams.get('format') === 'story';
+  const page = story ? 0 : Number(url.searchParams.get('page') ?? '0');
   const jeton = url.searchParams.get('jeton');
 
-  if (!Number.isInteger(page) || page < 0 || !verifierVisuel(reference, page, jeton)) {
+  // Story : la couverture au format vertical, signée sur « référence#story ».
+  const signe = story ? `${reference}#story` : reference;
+  if (!Number.isInteger(page) || page < 0 || !verifierVisuel(signe, page, jeton)) {
     return new NextResponse('Not found', { status: 404 });
   }
 
@@ -43,7 +46,7 @@ export async function GET(requete: Request) {
   if (!contenu || !contenu.pages[page]) return new NextResponse('Not found', { status: 404 });
 
   try {
-    const rendu = await rendreVisuel(contenu, page);
+    const rendu = story ? await rendreStory(contenu) : await rendreVisuel(contenu, page);
     const brut = Buffer.from(await rendu.arrayBuffer());
     const image = PNG.sync.read(brut);
     const converti = jpeg.encode(

@@ -58,3 +58,18 @@ export function urlVisuelPublic(
   url.searchParams.set('jeton', signature);
   return url.toString();
 }
+
+/**
+ * Adresse de la story d'un contenu : sa couverture (planche 0) au format
+ * vertical 1080 × 1920. Signée sur « référence#story » : la signature d'une
+ * planche ordinaire ne donne pas accès à la story, et inversement.
+ */
+export function urlStoryPublic(base: string, reference: string): string | null {
+  const signature = signerVisuel(`${reference}#story`, 0);
+  if (!signature) return null;
+  const url = new URL('/api/marketing/visuel-public', base);
+  url.searchParams.set('ref', reference);
+  url.searchParams.set('format', 'story');
+  url.searchParams.set('jeton', signature);
+  return url.toString();
+}
