@@ -75,7 +75,7 @@ export const BANQUE: Sujet[] = [
       'Ce qui change pendant les vacances scolaires',
     ],
     apport: 'Le calendrier se remplit tout seul et reste identique des deux côtés.',
-    hashtags: ['#coparentalité', '#gardealternée', '#parentsséparés', '#organisationfamiliale'],
+    hashtags: ['#coparentalite', '#gardealternee', '#parentssepares', '#organisationfamiliale'],
   },
   {
     niche: 'vacances-scolaires',
@@ -101,7 +101,7 @@ export const BANQUE: Sujet[] = [
       'Alternance prévue l’année suivante',
     ],
     apport: 'Le calendrier scolaire officiel est déjà chargé, zone par zone.',
-    hashtags: ['#vacancesscolaires', '#coparentalité', '#parentsséparés', '#organisation'],
+    hashtags: ['#vacancesscolaires', '#coparentalite', '#parentssepares', '#organisation'],
     saison: [10, 11, 12, 1, 2, 5, 6],
   },
   {
@@ -129,7 +129,7 @@ export const BANQUE: Sujet[] = [
       'Carte vitale ou carnet de santé si besoin',
     ],
     apport: 'La liste des affaires est rattachée au rendez-vous, et rappelée la veille.',
-    hashtags: ['#coparentalité', '#parentsséparés', '#organisation', '#résidencealternée'],
+    hashtags: ['#coparentalite', '#parentssepares', '#organisation', '#residencealternee'],
   },
   {
     niche: 'depenses-partagees',
@@ -156,7 +156,7 @@ export const BANQUE: Sujet[] = [
       'Part de chaque parent',
     ],
     apport: 'Le solde se met à jour tout seul, et les justificatifs restent attachés.',
-    hashtags: ['#dépensespartagées', '#coparentalité', '#budgetfamilial', '#parentsséparés'],
+    hashtags: ['#depensespartagees', '#coparentalite', '#budgetfamilial', '#parentssepares'],
   },
   {
     niche: 'pension',
@@ -182,7 +182,7 @@ export const BANQUE: Sujet[] = [
       'Justificatif joint',
     ],
     apport: 'Chaque versement garde sa pièce jointe, consultable par les deux parents.',
-    hashtags: ['#coparentalité', '#parentsséparés', '#organisation', '#viedeparent'],
+    hashtags: ['#coparentalite', '#parentssepares', '#organisation', '#viedeparent'],
   },
   {
     niche: 'ecole-activites',
@@ -209,7 +209,7 @@ export const BANQUE: Sujet[] = [
       'Jours sans école',
     ],
     apport: 'Le rendez-vous est visible par les deux parents dès qu’il est créé.',
-    hashtags: ['#rentréescolaire', '#coparentalité', '#parentsséparés', '#écoleprimaire'],
+    hashtags: ['#rentreescolaire', '#coparentalite', '#parentssepares', '#ecoleprimaire'],
     saison: [8, 9, 10, 6],
   },
   {
@@ -237,7 +237,7 @@ export const BANQUE: Sujet[] = [
       'Prochaine échéance',
     ],
     apport: 'La note reste attachée au rendez-vous, lisible par les deux parents.',
-    hashtags: ['#santéenfant', '#coparentalité', '#parentsséparés', '#organisationfamiliale'],
+    hashtags: ['#santeenfant', '#coparentalite', '#parentssepares', '#organisationfamiliale'],
   },
   {
     niche: 'documents-familiaux',
@@ -264,7 +264,7 @@ export const BANQUE: Sujet[] = [
       'Autorisation de sortie du territoire si nécessaire',
     ],
     apport: 'Les documents sont rangés par enfant et consultables par les deux parents.',
-    hashtags: ['#organisationfamiliale', '#coparentalité', '#parentsséparés', '#administratif'],
+    hashtags: ['#organisationfamiliale', '#coparentalite', '#parentssepares', '#administratif'],
   },
   {
     niche: 'communication',
@@ -290,7 +290,7 @@ export const BANQUE: Sujet[] = [
       'Jusqu’à quand tu attends une réponse',
     ],
     apport: 'L’information d’organisation vit dans l’application, pas dans une messagerie.',
-    hashtags: ['#coparentalité', '#communication', '#parentsséparés', '#famille'],
+    hashtags: ['#coparentalite', '#communication', '#parentssepares', '#famille'],
   },
   {
     niche: 'nouveaux-conjoints',
@@ -316,7 +316,7 @@ export const BANQUE: Sujet[] = [
       'Ce qui reste entre parents',
     ],
     apport: 'Chaque membre du foyer a son propre accès, avec les droits qui lui reviennent.',
-    hashtags: ['#famillerecomposée', '#coparentalité', '#parentsséparés', '#beauparent'],
+    hashtags: ['#famillerecomposee', '#coparentalite', '#parentssepares', '#beauparent'],
   },
   {
     niche: 'familles-recomposees',
@@ -342,7 +342,7 @@ export const BANQUE: Sujet[] = [
       'Vacances communes possibles',
     ],
     apport: 'Les périodes se lisent côte à côte, sans calcul.',
-    hashtags: ['#famillerecomposée', '#coparentalité', '#organisationfamiliale', '#parentsséparés'],
+    hashtags: ['#famillerecomposee', '#coparentalite', '#organisationfamiliale', '#parentssepares'],
   },
   {
     niche: 'longue-distance',
@@ -368,7 +368,7 @@ export const BANQUE: Sujet[] = [
       'Solution de repli en cas d’annulation',
     ],
     apport: 'Les périodes lointaines sont visibles longtemps à l’avance par les deux parents.',
-    hashtags: ['#coparentalité', '#parentsséparés', '#gardealternée', '#organisation'],
+    hashtags: ['#coparentalite', '#parentssepares', '#gardealternee', '#organisation'],
   },
   {
     niche: 'imprevus',
@@ -394,7 +394,7 @@ export const BANQUE: Sujet[] = [
       'Contrepartie éventuelle et sa date',
     ],
     apport: 'L’exception ne touche pas au rythme, qui reprend tout seul ensuite.',
-    hashtags: ['#coparentalité', '#parentsséparés', '#organisation', '#gardealternée'],
+    hashtags: ['#coparentalite', '#parentssepares', '#organisation', '#gardealternee'],
   },
   {
     niche: 'anniversaires',
@@ -420,7 +420,7 @@ export const BANQUE: Sujet[] = [
       'Invités et horaires',
     ],
     apport: 'La préparation est visible des deux côtés, avant l’achat.',
-    hashtags: ['#anniversaire', '#coparentalité', '#parentsséparés', '#famille'],
+    hashtags: ['#anniversaire', '#coparentalite', '#parentssepares', '#famille'],
   },
   {
     niche: 'conflits-planning',
@@ -446,7 +446,7 @@ export const BANQUE: Sujet[] = [
       'Ce qui reste à trancher',
     ],
     apport: 'Chaque modification est enregistrée avec sa date et son auteur.',
-    hashtags: ['#coparentalité', '#parentsséparés', '#organisation', '#médiationfamiliale'],
+    hashtags: ['#coparentalite', '#parentssepares', '#organisation', '#mediationfamiliale'],
   },
 ];
 
@@ -482,7 +482,7 @@ export const NOEL: Sujet = {
     'Heure et lieu du passage',
   ],
   apport: 'Ton calendrier de Noël est gratuit, sur le site.',
-  hashtags: ['#noël', '#gardealternée', '#coparentalité', '#parentsséparés'],
+  hashtags: ['#noel', '#gardealternee', '#coparentalite', '#parentssepares'],
   saison: [11, 12],
 };
 

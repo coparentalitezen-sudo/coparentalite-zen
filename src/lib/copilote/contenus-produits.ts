@@ -85,10 +85,10 @@ const ACCROCHES: Record<Theme['id'] | 'autre', string[]> = {
 };
 
 const MOTS_DIESE: Record<Theme['id'] | 'autre', string[]> = {
-  coparentalite: ['#coparentalité', '#gardealternée', '#parentsséparés'],
+  coparentalite: ['#coparentalite', '#gardealternee', '#parentssepares'],
   budget: ['#budgetfamilial', '#gestionbudget', '#organisationfamiliale'],
   organisation: ['#organisationfamiliale', '#chargementale', '#planner'],
-  scolarite: ['#rentréescolaire', '#organisationfamiliale', '#parents'],
+  scolarite: ['#rentreescolaire', '#organisationfamiliale', '#parents'],
   autre: ['#organisationfamiliale', '#parents'],
 };
 

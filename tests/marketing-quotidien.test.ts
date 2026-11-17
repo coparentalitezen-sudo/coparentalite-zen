@@ -58,7 +58,7 @@ describe('mots-dièse du visuel quotidien', () => {
       expect(histoire).toBeTruthy();
       const tags = histoire.legende.match(/#[\p{L}\p{N}_]+/gu) ?? [];
       expect(tags.length).toBe(5);
-      for (const mot of ['#coparentalité', '#gardealternée', '#maman', '#papa']) expect(tags).toContain(mot);
+      for (const mot of ['#coparentalite', '#gardealternee', '#maman', '#papa']) expect(tags).toContain(mot);
       expect(histoire.legende).not.toContain('#OrganisationFamiliale');
       expect(histoire.legende).not.toContain('#ParentsSepares');
     }

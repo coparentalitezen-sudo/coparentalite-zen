@@ -90,7 +90,7 @@ describe('exigences éditoriales de chaque contenu', () => {
     for (const c of semaine) {
       const tags = c.legendeInstagram.match(/#[\p{L}\p{N}_]+/gu) ?? [];
       expect(tags.length).toBeLessThanOrEqual(5);
-      for (const h of ['#coparentalité', '#gardealternée', '#maman', '#papa']) expect(tags).toContain(h);
+      for (const h of ['#coparentalite', '#gardealternee', '#maman', '#papa']) expect(tags).toContain(h);
       expect(c.hashtags).toEqual(tags);
     }
   });

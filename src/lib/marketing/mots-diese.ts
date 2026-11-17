@@ -9,27 +9,27 @@
  * #pensionalimentaire…), celle qu'un parent qui cherche ce sujet suit.
  */
 
-export const BASE = ['#coparentalité', '#gardealternée'] as const;
+export const BASE = ['#coparentalite', '#gardealternee'] as const;
 export const LARGES = ['#maman', '#papa'] as const;
 
 /** L'étiquette de sujet, par micro-niche de la banque. */
 export const ETIQUETTE_SUJET: Record<string, string> = {
   'garde-alternee': '#parentsolo',
   'vacances-scolaires': '#vacancesscolaires',
-  'echange-enfants': '#gardepartagée',
+  'echange-enfants': '#gardepartagee',
   'depenses-partagees': '#budgetfamilial',
   pension: '#pensionalimentaire',
   'ecole-activites': '#viescolaire',
-  'rendez-vous-medicaux': '#santédesenfants',
+  'rendez-vous-medicaux': '#santedesenfants',
   'documents-familiaux': '#papiersadministratifs',
   communication: '#communicationbienveillante',
   'nouveaux-conjoints': '#beauparent',
-  'familles-recomposees': '#famillerecomposée',
-  'longue-distance': '#parentàdistance',
+  'familles-recomposees': '#famillerecomposee',
+  'longue-distance': '#parentadistance',
   imprevus: '#organisationfamiliale',
   anniversaires: '#anniversaireenfant',
   'conflits-planning': '#organisationfamiliale',
-  noel: '#noël',
+  noel: '#noel',
   marque: '#parentsolo',
 };
 

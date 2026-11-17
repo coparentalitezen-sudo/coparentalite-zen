@@ -58,11 +58,11 @@ export interface Contenu {
  * porterait plus serait refusé ou tronqué sans avertissement.
  *
  * Remis le 8/11 à la demande de l'éditeur : le jeu plus « précis » du 7/11
- * (#parentsséparés, #résidencealternée) a coïncidé avec moins de vues ; les
+ * (#parentssepares, #residencealternee) a coïncidé avec moins de vues ; les
  * étiquettes larges (#maman, #papa, #parentsolo) touchent plus de monde.
  */
 export const HASHTAGS = [
-  '#coparentalité', '#gardealternée', '#parentsolo', '#maman', '#papa',
+  '#coparentalite', '#gardealternee', '#parentsolo', '#maman', '#papa',
 ] as const;
 
 /**
