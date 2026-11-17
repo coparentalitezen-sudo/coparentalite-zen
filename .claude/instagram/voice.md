@@ -38,7 +38,7 @@ Brouillon établi à partir des réponses du fondateur et des règles du produit
   >
   > Écris ZEN en commentaire et je t'envoie le lien.
   >
-  > #coparentalite #parentsseparés #gardealternee
+  > #coparentalite #parentssepares #gardealternee
 
   **Référence : Planning et vacances (mot-clé ZEN)**
 
@@ -66,7 +66,7 @@ Brouillon établi à partir des réponses du fondateur et des règles du produit
   >
   > Le lien pour tester l'application est dans la bio.
   >
-  > #coparentalite #parentsseparés #gardealternee
+  > #coparentalite #parentssepares #gardealternee
 
 - **Bio actuelle:** « Organiser la garde, les dépenses et les infos des
   enfants, à deux. Application française, données hébergées en France. »
