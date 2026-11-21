@@ -501,6 +501,70 @@ export async function statistiquesInstagram(
   return { ok: true, donnees: mesures };
 }
 
+/**
+ * État d'un Reel Facebook déjà publié : vraiment en ligne, visible de tous,
+ * et combien de lectures.
+ *
+ * La fin d'envoi (« upload_phase: finish ») répond avant que Facebook ait fini
+ * de traiter la vidéo : un succès à l'envoi ne prouve pas que le Reel est en
+ * ligne. On relit donc la vidéo elle-même. Les statistiques sont facultatives
+ * (null si Facebook ne les donne pas encore) ; l'état, lui, est exigé.
+ */
+export interface EtatReelFacebook {
+  publie: boolean;
+  /** Visible de tous ; null si Facebook ne précise pas la confidentialité. */
+  public: boolean | null;
+  etat: string;
+  lien: string | null;
+  lectures: number | null;
+  portee: number | null;
+}
+
+export async function etatReelFacebook(
+  config: ConfigurationMeta, videoId: string, requete?: Requete,
+): Promise<ResultatMeta<EtatReelFacebook>> {
+  const v = await appelGraph<{
+    published?: boolean; permalink_url?: string; privacy?: { value?: string };
+    status?: { video_status?: string };
+  }>(`/${videoId}?fields=published,permalink_url,privacy,status`, config, { requete });
+  if (!v.ok) return { ok: false, erreur: v.erreur };
+  const d = v.donnees ?? {};
+
+  let lectures: number | null = null;
+  let portee: number | null = null;
+  const i = await appelGraph<{ data?: { name: string; values?: { value: unknown }[] }[] }>(
+    `/${videoId}/video_insights?metric=blue_reels_play_count,post_impressions_unique`, config, { requete });
+  if (i.ok) {
+    for (const m of i.donnees?.data ?? []) {
+      const val = m.values?.[0]?.value;
+      if (typeof val !== 'number') continue;
+      if (m.name === 'blue_reels_play_count') lectures = val;
+      if (m.name === 'post_impressions_unique') portee = val;
+    }
+  }
+
+  const confidentialite = d.privacy?.value;
+  return {
+    ok: true,
+    donnees: {
+      publie: d.published === true,
+      public: confidentialite ? confidentialite === 'EVERYONE' : null,
+      etat: d.status?.video_status ?? 'inconnu',
+      lien: d.permalink_url ? new URL(d.permalink_url, 'https://www.facebook.com').toString() : null,
+      lectures,
+      portee,
+    },
+  };
+}
+
+/** Ce qui empêche le Reel d'être vu de tous, en clair ; null si rien. */
+export function problemeReelFacebook(e: EtatReelFacebook): string | null {
+  if (['error', 'expired'].includes(e.etat)) return `traitement de la vidéo en échec (${e.etat})`;
+  if (!e.publie) return `pas en ligne (état : ${e.etat})`;
+  if (e.public === false) return 'en ligne, mais pas visible de tout le monde';
+  return null;
+}
+
 /** Publications restantes sur les vingt-quatre heures glissantes. */
 export async function quotaPublication(
   config: ConfigurationMeta, requete?: Requete,
