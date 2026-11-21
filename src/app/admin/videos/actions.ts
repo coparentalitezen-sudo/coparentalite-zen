@@ -65,6 +65,13 @@ export async function actionRerendre(cle: string): Promise<Retour> {
   const { data: v } = await service.from('marketing_videos').select('id, source, jour, statut').eq('cle', cle).maybeSingle();
   if (!v) return { ok: false, message: 'Vidéo introuvable.' };
   if (v.statut === 'en_cours') return { ok: false, message: 'Rendu déjà en cours.' };
+  // Le rendu ne reprend que les vidéos d'aujourd'hui et des jours suivants, et une vidéo ne se
+  // publie que le jour prévu : remettre en file une vidéo d'un jour passé ne servirait à rien
+  // (cas du Short du 20/11/2026, remis en file puis jamais rendu).
+  const aujourdhui = jourParis();
+  if (v.jour < aujourdhui) {
+    return { ok: false, message: `Prévue le ${v.jour}, jour passé : elle ne serait jamais rendue ni publiée. Rien n’a été modifié.` };
+  }
   const publiee = v.source === 'youtube'
     ? (await service.from('marketing_youtube_shorts').select('id').eq('cle_idempotence', `short-${v.jour}`).in('statut', ['publiee', 'en_cours', 'a_verifier'])).data?.length
     : (await service.from('marketing_publications').select('id').like('cle_idempotence', `${cle}:%`).in('statut', ['publiee', 'envoyee', 'a_verifier'])).data?.length;
@@ -74,7 +81,11 @@ export async function actionRerendre(cle: string): Promise<Retour> {
   }).eq('id', v.id);
   rafraichir();
   return error ? { ok: false, message: 'Échec de l’enregistrement.' }
-    : { ok: true, message: 'Remise en file : elle sera rendue au prochain passage du rendu (ou lancez « Vidéos animées — rendu » dans GitHub Actions).' };
+    : v.jour === aujourdhui
+      // Le passage planifié du soir part en pratique vers 3 h (retards de GitHub), donc le lendemain :
+      // pour la vidéo du jour, seul un lancement manuel arrive à temps.
+      ? { ok: true, message: `Remise en file. C’est la vidéo d’aujourd’hui : le rendu planifié passera trop tard. Lancez « Vidéos animées — rendu » à la main dans GitHub Actions avec cle = ${cle} ; elle partira au passage horaire suivant si ses contrôles sont verts.` }
+      : { ok: true, message: 'Remise en file : elle sera rendue au prochain passage du rendu (ou lancez « Vidéos animées — rendu » dans GitHub Actions).' };
 }
 
 /** Relance une plateforme en échec. Contrôles, arrêt d'urgence et idempotence restent appliqués ; seule l'heure est ignorée. */

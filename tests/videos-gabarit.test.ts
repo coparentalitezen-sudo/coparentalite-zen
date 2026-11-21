@@ -9,7 +9,7 @@ import {
 } from '@/lib/marketing/scenario-video';
 import { genererSemaine } from '@/lib/marketing/generateur';
 // Module JavaScript partagé avec la page de rendu.
-import { minuter, ecarts, lecture, DUREE_MAX, FIN } from '../video-gabarit/minutage.mjs';
+import { minuter, ecarts, lecture, exigenceControle, DUREE_MAX, FIN, APRES, CARTE_RETARD } from '../video-gabarit/minutage.mjs';
 
 /** Voix estimée de la synthèse « Denise » : environ 12,5 caractères par seconde (mesure prudente). */
 const voixEstimee = (t: string) => [...t].length / 12.5;
@@ -99,6 +99,37 @@ describe('minutage', () => {
     const m = minutageDe(scenarioVideo(BANQUE[1], BANQUE[1].accroches[0], 'x'));
     expect(m.duree - m.fin.site).toBeGreaterThanOrEqual(3);
     expect(FIN.tenue).toBeGreaterThanOrEqual(3);
+  });
+  // Ce que readcheck.mjs mesure réellement (film.js, texts()) : la carte d'étape n'apparaît que
+  // CARTE_RETARD après le début de sa voix et disparaît à la fin du plan ; le sous-titre de l'apport
+  // reste exactement sa tenue ; l'adresse du site, FIN.tenue moins son apparition (0,3 s).
+  const visibles = (m: ReturnType<typeof minuter>) => m.plans.flatMap((p) => {
+    if (p.role === 'etape') return [{ id: p.id, texte: p.sousTitre!.texte, vu: p.t1 - (p.voix!.t + CARTE_RETARD) }];
+    if (p.role === 'apport') return [{ id: p.id, texte: p.sousTitre!.texte, vu: p.sousTitre!.t1 - p.sousTitre!.t0 }];
+    return [];
+  });
+  it('Short du 20/11/2026 : chaque carte passe le contrôle de lecture avec de la marge (régression)', () => {
+    const lignes = [
+      ['accroche', 'accroche', 'Une réunion d’école oubliée n’est presque jamais un oubli volontaire.'],
+      ['e1', 'etape', 'Note la date dès réception.'], ['e2', 'etape', 'Précise qui s’y rend.'],
+      ['e3', 'etape', 'Ajoute les activités récurrentes une fois.'],
+      ['apport', 'apport', 'Le rendez-vous est visible par les deux parents dès qu’il est créé.'],
+    ].map(([id, role, texte]) => ({ id, role, texte }));
+    // durées de voix mesurées dans le rendu refusé (journal GitHub Actions du 18/11)
+    const m = minuter(lignes, { accroche: 3.578, e1: 1.684, e2: 1.182, e3: 2.312, apport: 2.994 });
+    for (const v of visibles(m)) expect(v.vu, v.id).toBeGreaterThanOrEqual(exigenceControle(v.texte) + 0.2);
+    expect(ecarts(m)).toEqual([]);
+  });
+  it('toute la banque, voix rapide ou normale : chaque carte et l’adresse du site passent le contrôle de lecture', () => {
+    for (const debit of [voixEstimee, (t: string) => [...t].length / 25]) {
+      for (const sujet of BANQUE) for (const a of sujet.accroches) {
+        const m = minutageDe(scenarioVideo(sujet, a, `${sujet.niche}-${a.length}`), debit);
+        for (const v of visibles(m)) expect(v.vu, `${sujet.niche} / ${v.id} : ${v.texte}`).toBeGreaterThanOrEqual(exigenceControle(v.texte) + 0.2);
+        expect(ecarts(m), `${sujet.niche} : ${a}`).toEqual([]);
+      }
+    }
+    expect(FIN.tenue - 0.3).toBeGreaterThanOrEqual(exigenceControle('coparentalitezen.fr') + 0.1);
+    expect(APRES - CARTE_RETARD).toBeGreaterThan(-0.2);
   });
   it('refuse une voix manquante plutôt que d’inventer une durée', () => {
     expect(() => minuter([{ id: 'a', role: 'accroche', texte: 'x' }], {})).toThrow(/manquante/);

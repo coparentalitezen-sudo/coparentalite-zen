@@ -4,8 +4,11 @@
 // Entrées : les lignes du scénario (rôle, texte affiché) et la durée mesurée de chaque voix.
 // Sortie : les plans avec leurs bornes, l'instant de chaque voix, les sous-titres, la durée totale.
 //
-// Règle de lecture (la même que celle du style) : un texte reste à l'écran au moins
-//   max(1,8 s ; voix + 0,6 s ; caractères / 12 + 1 s).
+// Règle de lecture : un texte reste à l'écran au moins
+//   max(1,8 s ; voix + 0,6 s ; caractères / 12 + 1 s ; exigence du contrôle + MARGE_CONTROLE).
+// L'exigence du contrôle est celle de readcheck.mjs (caractères hors espaces / 15 + 1,5 s) : sans
+// elle, une carte d'étape courte (« Précise qui s’y rend. », Short du 20/11/2026) apparaissait
+// 0,3 s après sa voix et restait visible 2,65 s pour 2,70 s exigées — vidéo refusée.
 // Le plan dure le temps de sa voix et de sa lecture, plus une respiration avant et après.
 
 export const AVANT = 0.35;         // la voix part 0,35 s après le début du plan (pendant la transition)
@@ -14,9 +17,17 @@ export const ACCROCHE_MIN = 3.0;   // l'accroche tient au moins 3 s : c'est la m
 export const FIN = { fusion: 0.9, iris: 0.5, site: 0.3, tenue: 3.2 };   // la fin, sans voix
 export const DUREE_MIN = 20, DUREE_MAX = 35;
 
+export const CARTE_RETARD = 0.3;    // la carte d'étape apparaît 0,3 s après le début de sa voix (film.js)
+export const MARGE_CONTROLE = 0.4; // marge au-dessus de l'exigence de readcheck (pas de 0,04 s, arrondis)
+
+/** Exigence de readcheck.mjs : caractères hors espaces / 15 + 1,5 s, au moins 1,5 s. */
+export function exigenceControle(texte) {
+  return Math.max(1.5, [...texte].filter((c) => !/\s/.test(c)).length / 15 + 1.5);
+}
+
 /** Temps minimal de lecture d'un texte prononcé en `voix` secondes. */
 export function lecture(texte, voix) {
-  return Math.max(1.8, voix + 0.6, [...texte].length / 12 + 1);
+  return Math.max(1.8, voix + 0.6, [...texte].length / 12 + 1, exigenceControle(texte) + MARGE_CONTROLE);
 }
 
 const r3 = x => Math.round(x * 1000) / 1000;
