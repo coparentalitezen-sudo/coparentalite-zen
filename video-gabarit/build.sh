@@ -50,10 +50,21 @@ if [ "$VOIX_OK" = 1 ]; then
   node core/render/video.mjs "$D" --fps 24 --workers "$TRAV" --size 1080x1920 --out "$D/out/image.mp4"
   # mux.sh de la bibliothèque vise une crête de −1,2 dBTP ; l'encodage AAC la fait remonter
   # (−0,9 dBTP mesuré sur la vidéo du 11/11, refusée par le contrôle « sonie » à −1).
-  # Copie locale visant −2 dBTP : la marge absorbe le dépassement, la sonie reste −14 LUFS.
-  sed 's/TP=-1\.2/TP=-2.0/g' core/render/mux.sh > "$D/out/mux.sh"
-  grep -q 'TP=-2.0' "$D/out/mux.sh" || { echo "mux.sh : cible de crête introuvable" >&2; exit 1; }
-  sh "$D/out/mux.sh" "$D/out/image.mp4" "$D/out/mix.wav" "$D/video.mp4" 24 1 > "$D/out/mux.log" 2>&1 || { cat "$D/out/mux.log"; rm -f "$D/video.mp4"; }
+  # Copie locale visant −2 dBTP. Le dépassement de l'AAC varie d'une voix à l'autre : le Short du
+  # 20/11/2026 est sorti à −0,9 dBTP malgré la cible −2. On mesure donc la crête vraie du fichier
+  # final et, si elle dépasse −1,2 dBTP, on refait l'assemblage en visant plus bas (−3, puis −4).
+  # La sonie intégrée reste −14 LUFS ; le contrôle « sonie » reste inchangé et bloquant.
+  for CIBLE in -2.0 -3.0 -4.0; do
+    sed "s/TP=-1\.2/TP=$CIBLE/g" core/render/mux.sh > "$D/out/mux.sh"
+    grep -q "TP=$CIBLE" "$D/out/mux.sh" || { echo "mux.sh : cible de crête introuvable" >&2; exit 1; }
+    if ! sh "$D/out/mux.sh" "$D/out/image.mp4" "$D/out/mix.wav" "$D/video.mp4" 24 1 > "$D/out/mux.log" 2>&1; then
+      cat "$D/out/mux.log"; rm -f "$D/video.mp4"; break
+    fi
+    CRETE=$(ffmpeg -hide_banner -nostats -i "$D/video.mp4" -filter_complex ebur128=peak=true -f null - 2>&1 \
+      | sed -n '/Summary:/,$p' | awk '$1 == "Peak:" { print $2 }' | tail -1)
+    echo "assemblage : cible $CIBLE dBTP, crête vraie mesurée ${CRETE:-?} dBTP"
+    awk -v c="${CRETE:-0}" 'BEGIN { exit !(c != "-inf" && c + 0 <= -1.2) }' && break
+  done
   # vignette : image de couverture dessinée exprès (question courte en très gros), pas une image tirée du film
   node core/render/still.mjs "$D" 1 --size 1080x1920 --q vignette=1 --prefix vignette_ --out "$D/out" > /dev/null && \
     ffmpeg -loglevel error -y -i "$D/out/vignette_1.jpg" -q:v 3 "$D/affiche.jpg"
