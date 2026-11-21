@@ -127,7 +127,7 @@ export async function actionReleverMesures(): Promise<{
   if (r.bloquant) return { ok: false, message: r.bloquant };
 
   if (r.examinees === 0) {
-    return { ok: false, message: 'Aucune publication Instagram à relever.' };
+    return { ok: false, message: 'Aucune publication à relever.' };
   }
 
   revalidatePath('/admin/mesures');
@@ -144,7 +144,13 @@ export async function actionReleverMesures(): Promise<{
   const reste = r.echecs.length
     ? ` ${r.echecs.length} en échec — ${r.echecs[0].erreur}`
     : '';
-  return { ok: true, message: `${r.releves} relevés sur ${r.examinees}.${reste}` };
+  const fb = r.facebook ?? [];
+  const fbProblemes = fb.filter((f) => f.probleme);
+  const facebook = fb.length === 0 ? ''
+    : fbProblemes.length === 0
+      ? ` Reels Facebook : ${fb.length} en ligne et visibles de tous.`
+      : ` Reels Facebook : ${fbProblemes.length} sur ${fb.length} à revoir — ${fbProblemes[0].reference} : ${fbProblemes[0].probleme}.`;
+  return { ok: true, message: `${r.releves} relevés sur ${r.examinees}.${reste}${facebook}` };
 }
 
 /**
