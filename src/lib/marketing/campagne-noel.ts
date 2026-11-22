@@ -20,6 +20,21 @@ export const CHEMIN_PLANNING_NOEL = '/planning-noel';
 const DEBUT_LEGENDES = '11-12';
 export const DEBUT_VIDEOS = '11-14';
 const FIN = '12-24';
+/**
+ * À partir du 25/11, un Short de Noël chaque jour (décision du 22/11, d'après
+ * les vues : ~900 pour les Shorts de Noël, quelques-unes pour les autres).
+ * Les Shorts déjà rendus avant cette date gardent l'alternance d'origine.
+ */
+export const DEBUT_QUOTIDIEN = '11-25';
+
+/** Rang de l'accroche de Noël du jour : chaque accroche revient le plus tard possible. */
+export function rangAccrocheNoel(jour: string, nombre: number): number {
+  const debut = Date.parse(`${jour.slice(0, 4)}-${DEBUT_QUOTIDIEN}T12:00:00Z`);
+  const jours = Math.round((Date.parse(`${jour}T12:00:00Z`) - debut) / 86_400_000);
+  // Les trois premières accroches ont déjà servi entre le 15 et le 21/11 : on commence par les nouvelles.
+  const k = jours + 3;
+  return ((k % nombre) + nombre) % nombre;
+}
 
 const SITE = 'https://www.coparentalitezen.fr';
 

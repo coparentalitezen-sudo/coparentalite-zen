@@ -110,12 +110,16 @@ describe('OAuth', () => {
 
 describe('contenu du Short', () => {
   it('ne traite jamais le même sujet deux jours de suite', () => {
+    // Exception voulue : du 25/11 au 24/12, Noël chaque jour, mais jamais deux fois la même accroche de suite.
     let precedent = '';
+    let accroche = '';
     for (let i = 0; i < 60; i += 1) {
       const jour = new Date(Date.UTC(2026, 9, 25 + i)).toISOString().slice(0, 10);
       const s = shortDuJour(jour);
-      expect(s.sujet.niche).not.toBe(precedent);
+      if (s.sujet.niche === 'noel' && precedent === 'noel') expect(s.accroche).not.toBe(accroche);
+      else expect(s.sujet.niche).not.toBe(precedent);
       precedent = s.sujet.niche;
+      accroche = s.accroche;
     }
   });
 

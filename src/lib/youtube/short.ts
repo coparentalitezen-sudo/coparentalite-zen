@@ -12,7 +12,9 @@
  */
 
 import { BANQUE, NOEL, type Sujet } from '@/lib/marketing/banque';
-import { CHEMIN_PLANNING_NOEL, DEBUT_VIDEOS, dansCampagneNoel, lienPlanningNoel } from '@/lib/marketing/campagne-noel';
+import {
+  CHEMIN_PLANNING_NOEL, DEBUT_QUOTIDIEN, DEBUT_VIDEOS, dansCampagneNoel, lienPlanningNoel, rangAccrocheNoel,
+} from '@/lib/marketing/campagne-noel';
 import { pageDeLaNiche } from '@/lib/marketing/pages-thematiques';
 import { construireLien } from '@/lib/marketing/utm';
 import { dureeVideo } from '@/lib/marketing/video';
@@ -50,8 +52,12 @@ export function shortDuJour(jour: string): ShortDuJour {
   const n = ((rang % BANQUE.length) + BANQUE.length) % BANQUE.length;
   const tour = Math.floor(rang / BANQUE.length);
   // Campagne de Noël : un jour sur deux, le Short parle de Noël (accroches en rotation).
+  if (dansCampagneNoel(jour, DEBUT_QUOTIDIEN)) {
+    return { jour, sujet: NOEL, accroche: NOEL.accroches[rangAccrocheNoel(jour, NOEL.accroches.length)], rang };
+  }
+  // Avant le 25/11 : un jour sur deux, sur les trois premières accroches (Shorts déjà rendus).
   if (dansCampagneNoel(jour, DEBUT_VIDEOS) && rang % 2 === 1) {
-    return { jour, sujet: NOEL, accroche: NOEL.accroches[Math.floor(rang / 2) % NOEL.accroches.length], rang };
+    return { jour, sujet: NOEL, accroche: NOEL.accroches[Math.floor(rang / 2) % 3], rang };
   }
   const sujet = BANQUE[n];
   const accroche = sujet.accroches[((tour % sujet.accroches.length) + sujet.accroches.length)

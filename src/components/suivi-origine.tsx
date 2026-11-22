@@ -42,17 +42,50 @@ export function SuiviOrigine() {
         window.localStorage.setItem(CLE_ORIGINE, JSON.stringify(origine));
       }
       if (window.sessionStorage.getItem(CLE_COMPTEE)) return;
-      window.sessionStorage.setItem(CLE_COMPTEE, '1');
     } catch {
       return;
     }
+    // Navigateur piloté par un programme : ce n'est pas un visiteur.
+    if (navigator.webdriver) return;
 
-    void fetch('/api/marketing/visite', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(origine),
-      keepalive: true,
-    }).catch(() => { /* une mesure perdue ne casse rien */ });
+    // Une visite ne compte qu'après un geste (toucher, défilement, clic,
+    // touche) ou dix secondes de page visible. Les robots qui vérifient les
+    // liens des descriptions YouTube ouvraient la page et repartaient : deux
+    // « visites » d'ordinateur chaque jour de publication, sans un seul geste.
+    const evenements = ['pointerdown', 'touchstart', 'scroll', 'keydown'] as const;
+    let minuteur: number | undefined;
+    const compter = () => {
+      arreter();
+      try {
+        if (window.sessionStorage.getItem(CLE_COMPTEE)) return;
+        window.sessionStorage.setItem(CLE_COMPTEE, '1');
+      } catch {
+        return;
+      }
+      void fetch('/api/marketing/visite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(origine),
+        keepalive: true,
+      }).catch(() => { /* une mesure perdue ne casse rien */ });
+    };
+    const armer = () => {
+      if (document.visibilityState === 'visible' && minuteur === undefined) {
+        minuteur = window.setTimeout(compter, 10_000);
+      } else if (document.visibilityState !== 'visible' && minuteur !== undefined) {
+        window.clearTimeout(minuteur);
+        minuteur = undefined;
+      }
+    };
+    function arreter() {
+      if (minuteur !== undefined) window.clearTimeout(minuteur);
+      evenements.forEach((e) => window.removeEventListener(e, compter));
+      document.removeEventListener('visibilitychange', armer);
+    }
+    evenements.forEach((e) => window.addEventListener(e, compter, { once: true, passive: true }));
+    document.addEventListener('visibilitychange', armer);
+    armer();
+    return arreter;
   }, []);
 
   return null;
