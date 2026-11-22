@@ -50,18 +50,31 @@ describe('campagne de Noël : légendes', () => {
 });
 
 describe('campagne de Noël : Shorts', () => {
-  it('un jour sur deux à partir du 14/11, jusqu’au 24/12 ; jamais les 12 et 13 (déjà rendus)', () => {
-    const jours = Array.from({ length: 41 }, (_, i) => new Date(Date.UTC(2026, 10, 14 + i)).toISOString().slice(0, 10));
-    const noel = jours.filter((j) => shortDuJour(j).sujet.niche === 'noel');
-    expect(noel.length).toBeGreaterThanOrEqual(20);
-    expect(noel.length).toBeLessThanOrEqual(21);
-    for (let i = 1; i < jours.length; i++) {
-      expect(shortDuJour(jours[i]).sujet.niche === 'noel' && shortDuJour(jours[i - 1]).sujet.niche === 'noel').toBe(false);
+  it('un jour sur deux du 14 au 24/11 (Shorts déjà rendus), puis Noël chaque jour jusqu’au 24/12', () => {
+    const avant = Array.from({ length: 11 }, (_, i) => new Date(Date.UTC(2026, 10, 14 + i)).toISOString().slice(0, 10));
+    for (let i = 1; i < avant.length; i++) {
+      expect(shortDuJour(avant[i]).sujet.niche === 'noel' && shortDuJour(avant[i - 1]).sujet.niche === 'noel').toBe(false);
     }
+    // Les Shorts déjà publiés gardent leur accroche d'origine.
+    expect(shortDuJour('2026-11-15').accroche).toBe('Le 24 ou le 25 ? Décide-le à l’avance.');
+    expect(shortDuJour('2026-11-21').accroche).toBe('Le 24 ou le 25 ? Décide-le à l’avance.');
+
+    const apres = Array.from({ length: 30 }, (_, i) => new Date(Date.UTC(2026, 10, 25 + i)).toISOString().slice(0, 10));
+    expect(apres.every((j) => shortDuJour(j).sujet.niche === 'noel')).toBe(true);
+    // Les onze nouvelles accroches d'abord, puis chacune revient au plus tôt quatorze jours après.
+    expect(new Set(apres.slice(0, 11).map((j) => shortDuJour(j).accroche)).size).toBe(11);
+    expect(apres.slice(0, 11).map((j) => shortDuJour(j).accroche)).not.toContain(NOEL.accroches[0]);
+    const vu = new Map<string, number>();
+    apres.forEach((j, i) => {
+      const a = shortDuJour(j).accroche;
+      if (vu.has(a)) expect(i - vu.get(a)!).toBeGreaterThanOrEqual(14);
+      vu.set(a, i);
+    });
+    expect(VIGNETTES.noel).toHaveLength(NOEL.accroches.length);
+
     expect(shortDuJour('2026-11-12').sujet.niche).not.toBe('noel');
     expect(shortDuJour('2026-11-13').sujet.niche).not.toBe('noel');
     expect(['2026-12-25', '2026-12-26', '2027-01-10'].map((j) => shortDuJour(j).sujet.niche)).not.toContain('noel');
-    expect(new Set(noel.map((j) => shortDuJour(j).accroche)).size).toBe(3);
   });
 
   it('Short de Noël : lien direct vers le planning ; autres Shorts : appel en deuxième ligne', () => {
