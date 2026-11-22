@@ -474,7 +474,7 @@ export const NOEL: Sujet = {
     'Noël l’an dernier, et cette année ?',
     'Les grands-parents aussi attendent la réponse.',
     'Noël s’écrit, il ne se devine pas.',
-    'Une semaine chacun, ou les fêtes partagées ?',
+    'Une semaine chacun, ou Noël partagé ?',
     'Qui emmène les enfants au repas de famille ?',
     'Le 31 au soir, les enfants dorment où ?',
     'Les vacances de Noël arrivent vite.',
