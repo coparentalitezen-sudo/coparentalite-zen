@@ -36,14 +36,19 @@ import re
 import statistics
 import sys
 
-WORD_RE = re.compile(r"[A-Za-z0-9$%'’-]+")
+# Adaptation FR : \w couvre les lettres accentuées (é, è, à, ç...), sinon
+# "séparés" était coupé en trois morceaux.
+WORD_RE = re.compile(r"[^\W_]+(?:['’-][^\W_]+)*|[$€%]?\d[\d,.]*[$€%]?")
 NUMBER_RE = re.compile(
     r"\$\s?\d[\d,]*(?:\.\d+)?"                       # money, whole
     r"|\b\d[\d,]*(?:\.\d+)?\s?"                      # a figure, with or
-    r"(?:%|k\b|x\b|hrs?\b|hours?\b|mins?\b|minutes?\b"  # without a unit
-    r"|days?\b|weeks?\b|months?\b|years?\b)?",
+    r"(?:%|€|k\b|x\b|hrs?\b|hours?\b|mins?\b|minutes?\b"  # without a unit
+    r"|days?\b|weeks?\b|months?\b|years?\b"
+    r"|euros?\b|h\b|heures?\b|jours?\b|semaines?\b|mois\b|ans\b|années?\b)?",
     re.IGNORECASE)
-PROPER_RE = re.compile(r"(?<!^)\b[A-Z][a-z]{2,}\b")
+PROPER_RE = re.compile(r"(?<!^)\b[A-ZÀ-Ý][a-zà-ÿ]{2,}\b")
+# Élisions françaises : "l'argent" -> "l'" + "argent", "n'oublie" -> "n'" + "oublie".
+ELISION_RE = re.compile(r"^(jusqu|lorsqu|puisqu|qu|[ljdnmtsc])['’](.+)$", re.IGNORECASE)
 HASHTAG_RE = re.compile(r"(?:^|\s)#\w+")
 EMOJI_RE = re.compile(r"[\U0001F300-\U0001FAFF☀-➿]")
 
@@ -95,7 +100,60 @@ IMPERATIVES = {
     "never", "always", "don't", "dont", "do", "put", "run", "check",
 }
 
+# ---------------------------------------------------------------------------
+# Français (ajouté pour @coparentalitezen). Mêmes règles, vocabulaire FR.
+# ---------------------------------------------------------------------------
+SPOKEN_NUMBERS |= {
+    "zéro", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf",
+    "dix", "onze", "douze", "quinze", "vingt", "trente", "quarante",
+    "cinquante", "soixante", "cent", "cents", "mille", "million", "millions",
+    "milliard", "moitié", "dizaine", "douzaine", "centaine", "double",
+    # Jours et mois : « jeudi prochain », « en novembre » sont concrets.
+    "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche",
+    "janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août",
+    "septembre", "octobre", "novembre", "décembre", "toussaint", "noël",
+}
+MONEY_WORDS |= {
+    "euro", "euros", "€", "centimes", "pension", "salaire", "loyer", "facture",
+    "factures", "cantine", "frais", "budget", "remboursement", "rembourser",
+    "dépense", "dépenses",
+}
+STAKES |= {
+    "arrête", "arrêtez", "jamais", "erreur", "erreurs", "perdu", "perdre",
+    "perds", "coûte", "coûté", "coûter", "raté", "échoué", "personne", "rien",
+    "ne", "n'", "pas", "sans", "seul", "seule", "seulement", "pire", "déteste",
+    "faux", "fausse", "vérité", "secret", "caché", "cachée", "avant", "jusqu'",
+    "jusqu'à", "mais", "sauf", "problème", "risque", "attention", "regret",
+    "regrette", "devrais", "devrait", "encore", "déjà", "vraiment", "contre",
+    "oublié", "oublie", "oublier", "gratuit", "gratuite", "payé", "payer",
+    "dispute", "disputes", "tension", "tensions", "épuisé", "épuisée",
+    "stress", "piège", "interdit", "honte", "culpabilité", "coupable",
+    "galère", "fini", "finie",
+}
+WEAK_OPENERS += [
+    "bonjour", "bonsoir", "salut", "coucou", "hello", "alors", "donc", "bon",
+    "bref", "aujourd'hui", "aujourd’hui", "voilà", "voila", "en fait",
+    "du coup", "bienvenue", "dans cette", "dans ce", "je voulais", "je vais",
+    "on va", "il y a", "c'est", "c’est", "est-ce que", "vous savez",
+    "tu sais", "en tant que", "petit rappel", "vous êtes", "ceci est",
+    "quand on", "lorsque",
+]
+IMPERATIVES |= {
+    "arrête", "essaie", "essaye", "copie", "garde", "note", "enregistre",
+    "sauvegarde", "lis", "regarde", "écris", "envoie", "fais", "commence",
+    "teste", "vérifie", "utilise", "oublie", "évite", "mets", "prends",
+    "demande", "ne", "n'", "imagine", "dis", "pose", "vole",
+}
+
 DEALBREAKERS = [
+    (re.compile(r"(?i)^\s*(?:arr[êe]te[sz]? de scroll\w*|ne scroll\w* pas|stop au scroll)"),
+     "Ouvre sur « arrête de scroller ». Demander l'attention prouve qu'on ne l'a pas méritée."),
+    (re.compile(r"(?i)\b(?:dans (?:cette|la) vid[ée]o|dans ce (?:reel|post|carrousel)"
+                r"|aujourd['’]hui (?:je|on) (?:vais|va|voulais|veux)"
+                r"|je vais (?:te|vous) (?:montrer|expliquer|parler)|on va (?:voir|parler))\b"),
+     "Préambule. Supprime-le et ouvre directement sur ce qu'on gagne."),
+    (re.compile(r"(?i)^\s*(?:bonjour|bonsoir|salut|coucou|hello|bienvenue)\b"),
+     "Salutation. Personne n'est venu sur le fil pour être salué."),
     (re.compile(r"(?i)^\s*(?:stop scrolling|don'?t scroll)"),
      "Opens with \"stop scrolling\". Asking for attention proves you have not earned it."),
     (re.compile(r"(?i)\b(?:in (?:this|today'?s) (?:video|reel)|i'?m going to show you|i'?ll show you how)\b"),
@@ -115,7 +173,21 @@ def clamp(n):
 
 def words(text):
     # "$18,000" is one word when it is spoken, so it is one word here too.
+    # FR : "1 200 €" aussi (espace, insécable ou fine comme séparateur de milliers).
+    text = re.sub(r"(?<=\d)[   ](?=\d{3}\b)", "", text)
+    text = re.sub(r"(?<=\d)[   ]?€", "€", text)
     return WORD_RE.findall(re.sub(r"(?<=\d),(?=\d)", "", text))
+
+
+def tokens(text, keep_case=False):
+    """Mots, élisions séparées : "n'oublie" -> ["n'", "oublie"]. Minuscules par défaut."""
+    out = []
+    for w in words(text):
+        w = w.replace("’", "'")
+        m = ELISION_RE.match(w)
+        parts = [m.group(1) + "'", m.group(2)] if m else [w.strip("'")]
+        out += parts if keep_case else [p.lower() for p in parts]
+    return out
 
 
 def check_length(text):
@@ -139,7 +211,7 @@ def check_specificity(text):
     """One concrete thing beats three abstract ones."""
     nums = [n.strip() for n in NUMBER_RE.findall(text) if n.strip()]
     propers = set(PROPER_RE.findall(text))
-    low = [w.lower().strip("'’") for w in words(text)]
+    low = tokens(text)
     spoken = [w for w in low if w in SPOKEN_NUMBERS or w in MONEY_WORDS]
     hits = len(nums) + len(propers) + len(spoken)
     score = 15.0 if hits == 0 else clamp(45 + hits * 30)
@@ -150,10 +222,10 @@ def check_specificity(text):
 
 def check_stakes(text):
     """Tension, cost, negation. Something the viewer might lose."""
-    w = [x.lower().strip("'’") for x in words(text)]
+    w = tokens(text)
     hits = [x for x in w if x in STAKES]
     markers = sorted(set(hits))
-    if re.search(r"\$\s?\d", text):
+    if re.search(r"\$\s?\d|\d\s?€", text):
         markers.append("a price")
     n = len(markers)
     score = {0: 20.0, 1: 70.0}.get(n, 100.0)
@@ -164,15 +236,15 @@ def check_stakes(text):
 
 def check_frontload(text):
     """The interesting word cannot be in position nine."""
-    w = words(text)
+    w = tokens(text, keep_case=True)
     if not w:
         return 0.0, "empty"
-    low = [x.lower().strip("'’") for x in w]
-    opener = " ".join(low[:2])
+    low = [x.lower() for x in w]
+    head = text.lower().replace("’", "'").lstrip(" \t\"'«“")
     penalty = 0
     hit_opener = None
     for weak in WEAK_OPENERS:
-        if opener.startswith(weak) or low[0] == weak:
+        if re.match(re.escape(weak.replace("’", "'")) + r"(?![^\W_])", head):
             penalty, hit_opener = 30, weak
             break
     payload = None
@@ -199,12 +271,16 @@ def check_frontload(text):
 
 def check_address(text):
     """Aimed at one viewer, or floating in the air."""
-    low = text.lower()
-    w = [x.lower().strip("'’") for x in words(text)]
+    low = text.lower().replace("’", "'")
+    w = tokens(text)
     if re.search(r"\b(you|your|you're|youre|yourself)\b", low):
         return 100.0, "speaks to the viewer"
+    if re.search(r"\b(?:tu|te|toi|ton|ta|tes|vous|votre|vos)\b|\bt'", low):
+        return 100.0, "parle au spectateur (tu/vous)"
     if w and w[0] in IMPERATIVES:
         return 90.0, f"imperative opener (\"{w[0]}\")"
+    if re.search(r"\b(?:je|moi|mon|ma|mes|nous|notre|nos|on)\b|\bj'", low):
+        return 70.0, "première personne, sans s'adresser au spectateur"
     if re.search(r"\b(i|my|me|we|our)\b", low):
         return 70.0, "first person, no viewer named"
     return 35.0, "third person, nobody in the room"

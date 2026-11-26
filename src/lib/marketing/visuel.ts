@@ -65,6 +65,11 @@ export interface Planche {
   rang?: { position: number; total: number };
   /** Une couverture s'affiche plus grand et sur fond marine. */
   couverture?: boolean;
+  /**
+   * Story : marges agrandies en haut (nom du compte, barre de progression)
+   * et en bas (champ de réponse), qu'Instagram et Facebook recouvrent.
+   */
+  story?: boolean;
 }
 
 /**
@@ -102,6 +107,8 @@ export interface PlanVisuel {
   couleurAppel: string;
   pagination: string | null;
   signature: string;
+  /** Marges intérieures (CSS) : plus grandes sur une story. */
+  marges: string;
 }
 
 /**
@@ -140,7 +147,19 @@ export function planifierVisuel(planche: Planche, format: NomFormat): PlanVisuel
     couleurAppel: couverture ? COULEURS.corailClair : COULEURS.corail,
     pagination: planche.rang ? `${planche.rang.position} / ${planche.rang.total}` : null,
     signature: 'coparentalitezen.fr',
+    marges: planche.story ? '260px 90px 400px' : '110px 90px',
   };
+}
+
+/** Appel de la story : sans autocollant de lien par l'API, on donne l'adresse. */
+export const APPEL_STORY = 'Essaie l’application : coparentalitezen.fr';
+
+/**
+ * La story d'un contenu : son accroche (couverture), un appel à l'action,
+ * pas de numéro de planche — une story ne se fait pas défiler.
+ */
+export function plancheStory(contenu: Contenu): Planche {
+  return { texte: contenu.pages[0].texte, appel: APPEL_STORY, couverture: true, story: true };
 }
 
 

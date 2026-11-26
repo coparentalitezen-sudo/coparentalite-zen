@@ -16,21 +16,21 @@
 export const VIGNETTE_MAX = 34;
 
 export const VIGNETTES: Record<string, readonly string[]> = {
-  'garde-alternee': ['Encore à compter de tête ?', 'Jeudi prochain, chez qui ?', 'Le rythme de garde, lisible'],
+  'garde-alternee': ['Encore à compter de tête ?', 'Jeudi prochain, chez qui ?', 'Ton rythme, écrit une fois'],
   'vacances-scolaires': ['Février ? Ça se joue déjà', 'Qui prend la première semaine ?', 'Réserver deux fois ? Non.'],
   'echange-enfants': ['Pourquoi l’échange coince ?', 'Le sac prêt la veille', 'L’échange sans surprise'],
   'depenses-partagees': ['Qui a payé les chaussures ?', 'Les comptes, au fil de l’eau', 'La dépense notée le jour même'],
   pension: ['Le justificatif de mars ?', 'Trente secondes ou une soirée ?', 'L’historique, pas la mémoire'],
-  'ecole-activites': ['La réunion d’école oubliée ?', 'Une seule convocation ?', 'Et l’autre parent, prévenu ?'],
+  'ecole-activites': ['Réunion d’école : prévenu ?', 'Une seule convocation ?', 'Et l’autre parent, prévenu ?'],
   'rendez-vous-medicaux': ['Qui a le carnet de santé ?', 'Le médecin a dit quoi ?', 'Trois lignes suffisent'],
-  'documents-familiaux': ['La carte d’identité, chez qui ?', 'Une copie accessible', 'Le papier qui manque…'],
+  'documents-familiaux': ['La carte d’identité, chez qui ?', 'Le livret de famille, partagé', 'Le papier qui manque…'],
   communication: ['Pas une conversation', 'Écrire moins, écrire précis', 'Fini les relances'],
-  'nouveaux-conjoints': ['Mercredi, qui va les chercher ?', 'Un rôle clair pour chacun', 'Les nouveaux repères'],
+  'nouveaux-conjoints': ['Mercredi, qui va les chercher ?', 'Un rôle clair pour chacun', 'Prévenir avant, pas après'],
   'familles-recomposees': ['Deux rythmes, une maison', 'Tout le monde là ce week-end ?', 'Deux calendriers de tête ?'],
   'longue-distance': ['À trois cents kilomètres…', 'Loin, et organisés', 'La distance s’organise'],
   imprevus: ['Un week-end échangé, et après ?', 'L’exception, à part', 'Convenu par message… perdu ?'],
   anniversaires: ['Deux fois le même cadeau ?', 'Mercredi : chez qui ?', 'L’anniversaire, à deux'],
-  'conflits-planning': ['Deux souvenirs sincères', '« On avait dit… »', 'Daté, donc plus discuté'],
+  'conflits-planning': ['Ton souvenir contre le sien ?', '« On avait dit… »', 'Daté, donc plus discuté'],
   noel: [
     'Noël chez qui ?', 'Le 24 ou le 25 ?', 'Jour de l’An : chez qui ?',
     'Le 25 : à quelle heure ?', 'Deux familles, un réveillon', 'Les cadeaux : qui achète ?',

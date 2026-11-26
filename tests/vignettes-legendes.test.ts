@@ -21,12 +21,12 @@ function faussaire(reponses: { statut?: number; corps: unknown }[]) {
 }
 
 describe('légende Facebook', () => {
-  const ig = 'Qui prend la première semaine ?\n\nLes dates sont posées.\n\nL’application est sur www.coparentalitezen.fr (lien aussi dans la bio).\n\n#coparentalité #gardealternée #parentsolo #maman #papa';
+  const ig = 'Qui prend la première semaine ?\n\nLes dates sont posées.\n\nL’application est sur www.coparentalitezen.fr (lien aussi dans la bio).\n\n#coparentalite #gardealternee #parentsolo #maman #papa';
 
   it('remonte deux mots-dièse à la fin du premier paragraphe et garde les autres en bas', () => {
     const fb = legendeFacebook(ig);
     const [premier, ...reste] = fb.split('\n\n');
-    expect(premier).toBe('Qui prend la première semaine ? #coparentalité #gardealternée');
+    expect(premier).toBe('Qui prend la première semaine ? #coparentalite #gardealternee');
     expect(reste[reste.length - 1]).toBe('#parentsolo #maman #papa');
     // aucun mot-dièse perdu ni doublé
     for (const h of HASHTAGS) expect(fb.split(h).length - 1).toBe(1);
@@ -119,15 +119,15 @@ beforeAll(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new D
 afterAll(() => { vi.useRealTimers(); });
 describe('mots-dièse par sujet', () => {
   it('cinq au plus, avec l’étiquette du sujet', () => {
-    expect(motsDiesePour('vacances-scolaires')).toEqual(['#coparentalité', '#gardealternée', '#vacancesscolaires', '#maman', '#papa']);
+    expect(motsDiesePour('vacances-scolaires')).toEqual(['#coparentalite', '#gardealternee', '#vacancesscolaires', '#maman', '#papa']);
     expect(motsDiesePour('inconnue')).toHaveLength(5);
   });
   it('remplace le paragraphe final des légendes déjà écrites, de façon idempotente', () => {
-    const ancienne = 'Accroche\n\nCorps\n\n#coparentalité #gardealternée #parentsséparés #résidencealternée';
+    const ancienne = 'Accroche\n\nCorps\n\n#coparentalite #gardealternee #parentssepares #residencealternee';
     const nouvelle = avecMotsDiese(ancienne, 'pension');
-    expect(nouvelle).toBe('Accroche\n\nCorps\n\n#coparentalité #gardealternée #pensionalimentaire #maman #papa');
+    expect(nouvelle).toBe('Accroche\n\nCorps\n\n#coparentalite #gardealternee #pensionalimentaire #maman #papa');
     expect(avecMotsDiese(nouvelle, 'pension')).toBe(nouvelle);
-    expect(avecMotsDiese('Sans mots-dièse', 'pension')).toMatch(/\n\n#coparentalité .*#papa$/);
+    expect(avecMotsDiese('Sans mots-dièse', 'pension')).toMatch(/\n\n#coparentalite .*#papa$/);
   });
   it('visuel quotidien : Facebook reçoit le lien cliquable à la place du renvoi à la bio', () => {
     const fb = legendeFacebook(histoire('2026-11-10')!.legende);

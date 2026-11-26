@@ -12,7 +12,7 @@ import { lienEpinglePinterest } from '@/lib/marketing/pinterest';
 import { scenarioVideo } from '@/lib/marketing/scenario-video';
 import { motsDiesePour } from '@/lib/marketing/mots-diese';
 
-const LEGENDE = 'Encore à compter de tête ?\n\nÉcris le rythme une fois. Essaie l’application : lien dans la bio.\n\n#coparentalité #gardealternée #parentsolo #maman #papa';
+const LEGENDE = 'Encore à compter de tête ?\n\nÉcris le rythme une fois. Essaie l’application : lien dans la bio.\n\n#coparentalite #gardealternee #parentsolo #maman #papa';
 
 describe('campagne de Noël : période', () => {
   it('du 12 novembre au 24 décembre, chaque année ; vidéos à partir du 14', () => {
@@ -28,7 +28,7 @@ describe('campagne de Noël : période', () => {
 describe('campagne de Noël : légendes', () => {
   it('Instagram : l’appel remplace la phrase « lien dans la bio », avant les mots-dièse, une seule demande', () => {
     const l = avecAppelNoel(LEGENDE, 'instagram', '2026-11-20');
-    expect(l).toBe('Encore à compter de tête ?\n\nÉcris le rythme une fois.\n\n🎄 Noël chez qui ? Ton planning gratuit en 1 minute : lien dans la bio.\n\n#coparentalité #gardealternée #parentsolo #maman #papa');
+    expect(l).toBe('Encore à compter de tête ?\n\nÉcris le rythme une fois.\n\n🎄 Noël chez qui ? Ton planning gratuit en 1 minute : lien dans la bio.\n\n#coparentalite #gardealternee #parentsolo #maman #papa');
     expect(l.match(/lien dans la bio/g)).toHaveLength(1);
     expect(avecAppelNoel(l, 'instagram', '2026-11-20')).toBe(l);
   });
@@ -94,7 +94,7 @@ describe('campagne de Noël : sujet complet, comme ceux de la banque', () => {
     for (const e of ETAPES_COURTES.noel) expect(e.length).toBeLessThanOrEqual(LONGUEUR_MAX_ETAPE_COURTE);
     expect(VIGNETTES.noel).toHaveLength(NOEL.accroches.length);
     for (const v of VIGNETTES.noel) expect(v.length).toBeLessThanOrEqual(VIGNETTE_MAX);
-    expect(motsDiesePour('noel')).toContain('#noël');
+    expect(motsDiesePour('noel')).toContain('#noel');
     expect(TOUS_LES_SUJETS).toContain(NOEL);
     const s = scenarioVideo(NOEL, NOEL.accroches[0], 'yt-2026-11-15');
     expect(JSON.stringify(s)).toContain('Noël chez qui');

@@ -31,7 +31,7 @@ export interface RapportPlateforme {
 
 export interface RapportPublication {
   jour: string;
-  source: 'reserve' | 'quotidien' | 'generateur' | 'video' | 'aucune';
+  source: 'reserve' | 'quotidien' | 'carrousel' | 'generateur' | 'video' | 'aucune';
   rapports: RapportPlateforme[];
   motif?: string;
 }
@@ -52,7 +52,7 @@ async function journaliser(
   // plateforme ouverte compte pour la suspension automatique et déclenche une
   // alerte ; un succès remet le compteur à zéro. Les Reels animés sont déjà
   // comptés par publierReelAnime.
-  if (rapport.source === 'reserve' || rapport.source === 'quotidien') {
+  if (rapport.source === 'reserve' || rapport.source === 'quotidien' || rapport.source === 'carrousel') {
     for (const r of rapport.rapports) {
       const ferme = /hors service|Mode validation|pas encore atteinte|suspendue/i.test(r.motif ?? '');
       if (ferme) continue;
@@ -152,6 +152,33 @@ export async function executerPublicationPlanifiee(
     }
     const rapport: RapportPublication = { jour: aujourdhui, source: 'reserve', rapports };
     await journaliser(service, rapport);
+    return rapport;
+  }
+
+  // Jour de carrousel (mardi et vendredi, CADENCE du générateur) : le
+  // carrousel de la semaine part en carrousel sur Instagram et en album sur
+  // Facebook, à la place du visuel du jour. Sans ce passage, les carrousels
+  // n'étaient jamais publiés : le visuel du jour passait toujours avant eux.
+  // Idempotent par publierContenu (même clé par contenu et par plateforme).
+  const { data: carrousel } = ouverts.length > 0
+    ? await service.from('marketing_contenus')
+      .select('reference').eq('format', 'carrousel').eq('prevu_le', jourParis())
+      .neq('statut', 'rejete').order('reference').limit(1).maybeSingle()
+    : { data: null };
+  if (carrousel) {
+    for (const plateforme of PLATEFORMES) {
+      const ferme = fermes.get(plateforme);
+      if (ferme) { rapports.push({ plateforme, publie: false, reference: carrousel.reference, motif: ferme }); continue; }
+      const r = await publierContenu(carrousel.reference, plateforme, 0);
+      rapports.push({
+        plateforme, publie: r.ok, reference: carrousel.reference,
+        motif: r.ok ? undefined : r.dejaPublie ? 'deja : carrousel déjà publié' : (r.erreur ?? 'échec sans message'),
+      });
+    }
+    const rapport: RapportPublication = { jour: aujourdhui, source: 'carrousel', rapports };
+    if (!rapports.every((r) => !r.publie && /^deja|hors service|Mode validation|pas encore atteinte/.test(r.motif ?? ''))) {
+      await journaliser(service, rapport);
+    }
     return rapport;
   }
 

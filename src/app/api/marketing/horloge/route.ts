@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseService } from '@/lib/supabase/server';
 import { enregistrerSemaine } from '@/lib/marketing/depot';
 import { executerPublicationPlanifiee } from '@/lib/marketing/planification';
+import { executerStoriesDuJour } from '@/lib/marketing/stories';
 import { executerPublicationYoutube } from '@/lib/youtube/publication';
 import { envoyerAlertesEnAttente } from '@/lib/marketing/alertes';
 import { programmerRecapitulatif } from '@/lib/marketing/recapitulatif';
@@ -19,7 +20,8 @@ import { semaineIso } from '@/lib/marketing/generateur';
  *      des Reels a besoin de les connaître à l'avance) ;
  *   2. publie YouTube, puis Instagram et Facebook — chacun ne part que si son
  *      heure est atteinte, son interrupteur allumé et sa vidéo contrôlée ;
- *      une plateforme en échec n'empêche pas les autres ;
+ *      une plateforme en échec n'empêche pas les autres ; puis la story du
+ *      jour sur Instagram et Facebook, trois heures après (stories.ts) ;
  *   3. le lundi à partir de 8 h, prépare le récapitulatif de la semaine ;
  *   4. envoie les alertes en attente.
  *
@@ -52,11 +54,12 @@ export async function GET(requete: Request) {
   });
   const youtube = await sur(() => executerPublicationYoutube({ maintenant }));
   const meta = await sur(() => executerPublicationPlanifiee());
+  const stories = await sur(() => executerStoriesDuJour(maintenant));
   let recapitulatif: unknown = null;
   if (jourSemaineParis(maintenant) === 1 && heureParis(maintenant) >= 8) {
     recapitulatif = await sur(() => programmerRecapitulatif(service, jourParis(maintenant),
       `${maintenant.getFullYear()}s${String(semaineIso(maintenant)).padStart(2, '0')}`));
   }
   const alertes = await sur(() => envoyerAlertesEnAttente(service));
-  return NextResponse.json({ heure: heureParis(maintenant), semaines, youtube, meta, recapitulatif, alertes });
+  return NextResponse.json({ heure: heureParis(maintenant), semaines, youtube, meta, stories, recapitulatif, alertes });
 }

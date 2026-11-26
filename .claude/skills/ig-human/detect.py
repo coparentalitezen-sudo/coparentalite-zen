@@ -33,11 +33,16 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 LEX = os.path.join(HERE, "slop.json")
 
 SENT_RE = re.compile(r"[^.!?\n]+[.!?]*")
-WORD_RE = re.compile(r"[A-Za-z']+")
-CONTRACTIONS = re.compile(r"\b\w+'(?:s|t|re|ve|ll|d|m)\b", re.IGNORECASE)
-PRONOUNS = re.compile(r"\b(i|me|my|mine|we|us|our|you|your)\b", re.IGNORECASE)
-NUMBERS = re.compile(r"\b\d[\d,.]*%?\b|\$\d")
-PROPER = re.compile(r"(?<![.!?]\s)(?<!^)\b[A-Z][a-z]{2,}\b", re.MULTILINE)
+# Adaptation FR : lettres accentuées, élisions parlées (j'ai, c'est, t'as, qu'on),
+# pronoms français et tutoiement.
+WORD_RE = re.compile(r"[^\W\d_]+(?:['’][^\W\d_]+)*")
+CONTRACTIONS = re.compile(r"\b\w+['’](?:s|t|re|ve|ll|d|m)\b"
+                          r"|\b(?:j|c|t|qu|y)['’]\w+", re.IGNORECASE)
+PRONOUNS = re.compile(r"\b(i|me|my|mine|we|us|our|you|your"
+                      r"|je|moi|mon|ma|mes|nous|notre|nos|on|tu|te|toi|ton|ta|tes"
+                      r"|vous|votre|vos)\b|\b[jt]['’]", re.IGNORECASE)
+NUMBERS = re.compile(r"\b\d[\d,.]*\s?[%€]?|\$\d")
+PROPER = re.compile(r"(?<![.!?]\s)(?<!^)\b[A-ZÀ-Ý][a-zà-ÿ]{2,}\b", re.MULTILINE)
 
 
 def clamp(n):
@@ -88,6 +93,7 @@ def check_slop(text, lex):
     if not w:
         return 50.0, "empty"
     hits, found = 0, []
+    text = text.replace("’", "'")              # FR : "n’hésitez" == "n'hésitez"
     for entry in lex["words"] + lex["phrases"]:
         pattern = re.compile(r"\b" + re.escape(entry["find"]).replace(r"\ ", r"\s+") + r"\b",
                              re.IGNORECASE)
