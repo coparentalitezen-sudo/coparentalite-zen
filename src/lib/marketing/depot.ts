@@ -331,6 +331,30 @@ export async function publicationsAMesurer(): Promise<PublicationAMesurer[]> {
   return [...depuisPublications, ...depuisReserve];
 }
 
+/** Reels Facebook des trente derniers jours, les plus récents d'abord. */
+export async function reelsFacebookAVerifier(limite = 15): Promise<PublicationAMesurer[]> {
+  const service = supabaseService();
+  if (!service) return [];
+  const depuis = new Date(Date.now() - 30 * 86_400_000).toISOString();
+  const { data } = await service
+    .from('marketing_publications')
+    .select('id, plateforme, meta_media_id, publie_le, marketing_contenus!inner(reference, format)')
+    .eq('statut', 'publiee')
+    .eq('plateforme', 'facebook')
+    .eq('marketing_contenus.format', 'reel')
+    .gte('publie_le', depuis)
+    .not('meta_media_id', 'is', null)
+    .order('publie_le', { ascending: false })
+    .limit(limite);
+  return (data ?? []).map((p) => ({
+    id: p.id as string,
+    plateforme: 'facebook',
+    metaMediaId: p.meta_media_id as string,
+    reference: (p.marketing_contenus as unknown as { reference?: string } | null)?.reference ?? '',
+    source: 'publication' as const,
+  }));
+}
+
 export interface MesureRelevee {
   portee: number | null;
   vues: number | null;
@@ -386,8 +410,11 @@ export async function lireDerniersReleves(): Promise<Map<string, MesureContenu>>
     service.from('marketing_mesures')
       .select('publication_id, reserve_id, releve_le, portee, vues, interactions')
       .order('releve_le', { ascending: true }),
+    // Instagram seulement : un Reel part aussi sur Facebook sous la même
+    // référence, et ses lectures écraseraient celles d'Instagram ici.
     service.from('marketing_publications')
-      .select('id, marketing_contenus(reference)'),
+      .select('id, marketing_contenus(reference)')
+      .eq('plateforme', 'instagram'),
     // Les visuels quotidiens n'ont pas de référence de contenu : leur thème
     // en tient lieu, sans quoi leurs relevés seraient écartés ici.
     service.from('marketing_reserve').select('id, theme'),

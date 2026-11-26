@@ -24,6 +24,8 @@ export const SEUIL_PREUVE_VUES = 400;
 
 export const ACCROCHES_PROUVEES: readonly AccrocheProuvee[] = [
   { accroche: 'Le 24 ou le 25 ? Décide-le à l’avance.', preuve: 'Short YouTube du 15/11/2026 : 933 vues' },
+  { accroche: 'Jour de l’An : chez qui sont les enfants ?', preuve: 'Short YouTube du 17/11/2026 : 920 vues' },
+  { accroche: 'Noël chez qui ? Mieux vaut le savoir tôt.', preuve: 'Short YouTube du 19/11/2026 : 797 vues' },
   { accroche: 'Superposer deux calendriers de tête, personne n’y arrive.', preuve: 'Short YouTube du 10/11/2026 : 898 vues' },
   { accroche: 'Le papier manquant se découvre toujours au mauvais moment.', preuve: 'Short YouTube du 07/11/2026 : 848 vues' },
   { accroche: 'L’anniversaire se prépare à deux, et à l’avance.', preuve: 'Short YouTube du 13/11/2026 : 585 vues' },

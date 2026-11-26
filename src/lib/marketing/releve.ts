@@ -1,6 +1,8 @@
 import 'server-only';
-import { configurationPrete, statistiquesInstagram, expurger } from './meta';
-import { publicationsAMesurer, enregistrerMesure } from './depot';
+import { configurationPrete, statistiquesInstagram, expurger, etatReelFacebook, problemeReelFacebook } from './meta';
+import { publicationsAMesurer, enregistrerMesure, reelsFacebookAVerifier } from './depot';
+import { signaler } from './alertes';
+import { supabaseService } from '@/lib/supabase/server';
 
 /**
  * Relevé des statistiques Meta.
@@ -22,6 +24,8 @@ export interface RapportMesures {
   examinees: number;
   releves: number;
   echecs: { reference: string; erreur: string }[];
+  /** Reels Facebook relus : en ligne et visibles de tous, ou pourquoi pas. */
+  facebook?: { reference: string; lectures: number | null; probleme: string | null; lien: string | null }[];
   /** Renseigné quand rien n'a pu être tenté : configuration ou jeton. */
   bloquant?: string;
 }
@@ -70,5 +74,44 @@ export async function releverMesures(plafond = PLAFOND): Promise<RapportMesures>
     else echecs.push({ reference: publication.reference, erreur: 'Écriture refusée.' });
   }
 
-  return { examinees: publications.length, releves, echecs };
+  const facebook = await verifierReelsFacebook(config, echecs);
+  return { examinees: publications.length, releves, echecs, facebook };
+}
+
+/**
+ * Reels Facebook : vérifie qu'ils sont bien en ligne et visibles de tous, et
+ * note leurs lectures. Un Reel publié mais invisible ne se voit nulle part
+ * ailleurs : sans cette relecture, « 0 vue » ne dit pas si personne ne l'a
+ * regardé ou si personne ne pouvait le voir. Un problème lève une alerte.
+ */
+async function verifierReelsFacebook(
+  config: Parameters<typeof etatReelFacebook>[0],
+  echecs: { reference: string; erreur: string }[],
+): Promise<NonNullable<RapportMesures['facebook']>> {
+  const service = supabaseService();
+  const sortie: NonNullable<RapportMesures['facebook']> = [];
+  for (const reel of await reelsFacebookAVerifier()) {
+    const r = await etatReelFacebook(config, reel.metaMediaId);
+    if (!r.ok) {
+      echecs.push({ reference: `${reel.reference} (Facebook)`, erreur: expurger(r.erreur ?? 'inconnue', config.jeton) });
+      continue;
+    }
+    const e = r.donnees!;
+    const probleme = problemeReelFacebook(e);
+    sortie.push({ reference: reel.reference, lectures: e.lectures, probleme, lien: e.lien });
+    await enregistrerMesure({ id: reel.id, source: 'publication' }, {
+      portee: e.portee, vues: e.lectures, interactions: null,
+    });
+    if (probleme && service) {
+      await signaler(service, {
+        cle: `facebook-visibilite:${reel.reference}`,
+        niveau: 'echec',
+        sujet: `Reel Facebook ${reel.reference} : ${probleme}`,
+        message: `Le Reel ${reel.reference} est publié côté application, mais Facebook indique : ${probleme}.`
+          + (e.lien ? `\nLien : ${e.lien}` : ''),
+      });
+    }
+  }
+  console.info('[mesures] reels facebook', JSON.stringify(sortie));
+  return sortie;
 }

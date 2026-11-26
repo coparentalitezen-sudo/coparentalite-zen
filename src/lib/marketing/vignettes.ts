@@ -15,7 +15,7 @@
 
 export const VIGNETTE_MAX = 34;
 
-export const VIGNETTES: Record<string, readonly [string, string, string]> = {
+export const VIGNETTES: Record<string, readonly string[]> = {
   'garde-alternee': ['Encore à compter de tête ?', 'Jeudi prochain, chez qui ?', 'Ton rythme, écrit une fois'],
   'vacances-scolaires': ['Février ? Ça se joue déjà', 'Qui prend la première semaine ?', 'Réserver deux fois ? Non.'],
   'echange-enfants': ['Pourquoi l’échange coince ?', 'Le sac prêt la veille', 'L’échange sans surprise'],
@@ -31,7 +31,13 @@ export const VIGNETTES: Record<string, readonly [string, string, string]> = {
   imprevus: ['Un week-end échangé, et après ?', 'L’exception, à part', 'Convenu par message… perdu ?'],
   anniversaires: ['Deux fois le même cadeau ?', 'Mercredi : chez qui ?', 'L’anniversaire, à deux'],
   'conflits-planning': ['Ton souvenir contre le sien ?', '« On avait dit… »', 'Daté, donc plus discuté'],
-  noel: ['Noël chez qui ?', 'Le 24 ou le 25 ?', 'Nouvel An : chez qui ?'],
+  noel: [
+    'Noël chez qui ?', 'Le 24 ou le 25 ?', 'Jour de l’An : chez qui ?',
+    'Le 25 : à quelle heure ?', 'Deux familles, un réveillon', 'Les cadeaux : qui achète ?',
+    'Et cette année, Noël ?', 'Et les grands-parents ?', 'Noël ne se devine pas',
+    'Une semaine chacun ?', 'Le repas de famille, qui ?', 'Le 31 au soir, où ?',
+    'Noël arrive vite', '« On avait dit… » à Noël ?',
+  ],
 };
 
 /** Vignette de l'accroche : celle de même rang, sinon une des trois selon la graine. */

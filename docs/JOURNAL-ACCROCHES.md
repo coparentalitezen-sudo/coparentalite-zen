@@ -2,6 +2,15 @@
 
 Le plus récent en haut. Tenu par le suivi hebdomadaire (docs/SUIVI-ACCROCHES.md).
 
+## 26/11/2026 — fusion avec develop
+
+- Accroches de Noël de #32 gardées telles quelles (vidéos déjà rendues) ;
+  la campagne de Noël échappe au seuil de note jusqu'à la fin des fêtes.
+- Ajoutées aux prouvées : « Jour de l’An : chez qui sont les enfants ? »
+  (920 vues, 17/11) et « Noël chez qui ? Mieux vaut le savoir tôt. » (797 vues, 19/11).
+- Pour mémoire : « La carte d’identité est chez qui, déjà ? » a fait 313 vues
+  le 22/11 (sous le seuil de 400) ; sa remplaçante est à surveiller.
+
 ## 17/11/2026 — mise en place
 
 - Skills Instagram du dépôt adaptés au français (`.claude/instagram/ADAPTATION-FR.md`).
