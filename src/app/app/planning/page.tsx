@@ -502,20 +502,24 @@ function ContenuPlanning() {
                     <ul className="border-t border-line-soft pt-2.5">
                       {rdvDuJour(jourOuvert).map((r) => (
                         <li key={r.id} className="text-[13px] leading-snug">
-                          <span className="font-bold">
-                            {r.journeeEntiere ? '' : `${new Date(r.debut).toLocaleTimeString('fr-FR',
-                              { hour: '2-digit', minute: '2-digit' })} · `}
-                            {r.titre}
-                          </span>
-                          <span className="block text-soft/85">
-                            {r.enfants}
-                            {r.lieu && ` · ${r.lieu}`}
-                            {r.affairesTotal > 0 && ` · ${r.affairesCochees}/${r.affairesTotal} préparé`}
-                          </span>
+                          {/* Chaque rendez-vous mène à sa fiche, dépliée, pour
+                              le modifier ou l'annuler, même au-delà de 90 jours. */}
+                          <Link href={`/app/rendez-vous?jour=${jourOuvert}&rdv=${r.id}`} className="block">
+                            <span className="font-bold">
+                              {r.journeeEntiere ? '' : `${new Date(r.debut).toLocaleTimeString('fr-FR',
+                                { hour: '2-digit', minute: '2-digit' })} · `}
+                              {r.titre}
+                            </span>
+                            <span className="block text-soft/85">
+                              {r.enfants}
+                              {r.lieu && ` · ${r.lieu}`}
+                              {r.affairesTotal > 0 && ` · ${r.affairesCochees}/${r.affairesTotal} préparé`}
+                            </span>
+                          </Link>
                         </li>
                       ))}
                       <li className="mt-1.5">
-                        <Link href="/app/rendez-vous" className="text-[12px] font-bold underline">
+                        <Link href={`/app/rendez-vous?jour=${jourOuvert}`} className="text-[12px] font-bold underline">
                           Voir les rendez-vous
                         </Link>
                       </li>

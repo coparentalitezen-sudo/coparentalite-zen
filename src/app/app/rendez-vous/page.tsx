@@ -2,6 +2,8 @@
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { fenetreRendezVous, jourValide } from '@/lib/rendez-vous-fenetre';
 import { BottomNav } from '@/components/ui';
 import { Chargement, Erreur, SansFoyer, Vide } from '@/components/etats';
 import { Icone } from '@/components/icons';
@@ -69,12 +71,22 @@ function ContenuRendezVous() {
   const membres = ctx.etat === 'pret' ? ctx.contexte.membres : [];
   const enfants = ctx.etat === 'pret' ? ctx.contexte.enfants : [];
 
+  // Le planning ouvre cette page sur un jour (?jour=AAAA-MM-JJ), voire sur un
+  // rendez-vous (?rdv=…) : la période chargée va jusqu'à ce jour, même au-delà
+  // des 90 jours par défaut, sinon un rendez-vous lointain ne pouvait être ni
+  // modifié ni annulé (rendez-vous-fenetre.ts).
+  const parametres = useSearchParams();
+  const jourDemande = jourValide(parametres.get('jour'));
+  const rdvDemande = parametres.get('rdv');
+  const [extensions, setExtensions] = useState(0);
+  const [rdvOuvertDepuisLien, setRdvOuvertDepuisLien] = useState(false);
+  const aujourdhui = new Date().toISOString().slice(0, 10);
+  const periode = fenetreRendezVous(aujourdhui, jourDemande, extensions);
+
   const charger = useCallback(() => {
     if (ctx.etat !== 'pret') return;
     const hid = ctx.contexte.foyer.id;
-    const aujourdhui = new Date().toISOString().slice(0, 10);
-    const dans90 = new Date(Date.now() + 90 * 86400000).toISOString().slice(0, 10);
-    listerRendezVous(hid, aujourdhui, dans90).then((r) => {
+    listerRendezVous(hid, periode.du, periode.au).then((r) => {
       if (r.status === 'ok') { setListe(r.data); setErreur(null); }
       else if (r.status === 'error') {
         setListe([]);
@@ -82,8 +94,21 @@ function ContenuRendezVous() {
       }
     });
     listerCategoriesRdv().then((r) => { if (r.status === 'ok') setCategories(r.data); });
-  }, [ctx]);
+  }, [ctx, periode.du, periode.au]);
   useEffect(charger, [charger]);
+
+  // Arrivée depuis le planning sur un rendez-vous précis : il est déplié, avec
+  // ses boutons « Modifier » et « Annuler », et amené à l'écran. Une seule
+  // fois, pour ne pas le rouvrir après qu'on l'a replié.
+  useEffect(() => {
+    if (rdvOuvertDepuisLien || !rdvDemande || !liste) return;
+    if (liste.some((r) => r.id === rdvDemande)) {
+      setOuvert(rdvDemande);
+      requestAnimationFrame(() => document.getElementById(`rdv-${rdvDemande}`)
+        ?.scrollIntoView({ block: 'center' }));
+    }
+    setRdvOuvertDepuisLien(true);
+  }, [liste, rdvDemande, rdvOuvertDepuisLien]);
 
   const cat = categories.find((c) => c.code === categorie);
 
@@ -350,7 +375,7 @@ function ContenuRendezVous() {
                   </h2>
                   <ul className="mt-2 divide-y divide-line-soft">
                     {rdvs.map((r) => (
-                      <li key={r.id} className="py-3">
+                      <li key={r.id} id={`rdv-${r.id}`} className="scroll-mt-4 py-3">
                         <button type="button"
                           onClick={() => {
                             const ferme = ouvert === r.id;
@@ -502,6 +527,18 @@ function ContenuRendezVous() {
                 </section>
               ))
             )
+          )}
+
+          {liste !== null && (
+            <div className="space-y-2 text-center">
+              <p className="text-[12px] text-soft">
+                Rendez-vous affichés jusqu’au {jourFr(periode.au + 'T12:00:00')}.
+              </p>
+              <button type="button" className="btn btn-ghost w-full"
+                      onClick={() => setExtensions((n) => n + 1)}>
+                Voir plus loin
+              </button>
+            </div>
           )}
         </>
       )}
